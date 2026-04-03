@@ -21,7 +21,15 @@ elif raw_db_url.startswith("postgresql://"):
 else:
     DATABASE_URL = raw_db_url
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+# Fix: PgBouncer (Supabase Pooler) does not support prepared statements with asyncpg.
+# We must set statement_cache_size to 0.
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=False,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    connect_args={"statement_cache_size": 0}
+)
 
 async_session_factory = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
