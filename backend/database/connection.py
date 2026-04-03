@@ -10,7 +10,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./lacunex.db")
+# Get database URL from env, default to local SQLite
+raw_db_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./lacunex.db")
+
+# Render/Heroku often provide 'postgres://', which SQLAlchemy needs as 'postgresql+asyncpg://'
+if raw_db_url.startswith("postgres://"):
+    DATABASE_URL = raw_db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif raw_db_url.startswith("postgresql://"):
+    DATABASE_URL = raw_db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    DATABASE_URL = raw_db_url
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 

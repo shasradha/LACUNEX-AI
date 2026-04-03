@@ -23,6 +23,8 @@ def get_allowed_origins() -> list[str]:
 
     configured = os.getenv("CORS_ORIGINS") or os.getenv("FRONTEND_URL")
     if configured:
+        if configured == "*":
+            return ["*"]
         defaults.update(
             origin.strip()
             for origin in configured.split(",")
