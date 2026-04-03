@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+openai
+groq
+google-genai
+sqlalchemy
+aiosqlite
+python-jose[cryptography]
+python-multipart
+bcrypt
+httpx
+python-docx
+fpdf2
+openpyxl

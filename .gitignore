@@ -1,0 +1,31 @@
+# Environment & secrets
+.env
+*.env
+backend/.env
+frontend/.env.local
+MyAI.txt
+api.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+venv/
+*.db
+
+# Node
+node_modules/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
