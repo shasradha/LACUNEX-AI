@@ -16,7 +16,8 @@ def _uuid():
 
 
 def _now():
-    return datetime.now(timezone.utc)
+    # PostgreSQL's TIMESTAMP WITHOUT TIME ZONE needs a naive datetime.
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class User(Base):
