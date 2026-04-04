@@ -154,9 +154,11 @@ export default function ChatBox({
   useEffect(() => {
     async function fetchModels() {
       try {
-        const res = await fetch("http://localhost:8000/api/models");
-        if (res.ok) setModelCatalog(await res.json());
-      } catch (err) { console.error("Failed to fetch models:", err); }
+        const data = await getModels();
+        if (data) setModelCatalog(data);
+      } catch (err) {
+        console.error("Failed to fetch models:", err);
+      }
     }
     fetchModels();
   }, []);

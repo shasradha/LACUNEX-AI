@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { getModels } from "@/lib/api";
 
 export default function ModelSelector({ provider, model, onSelect, disabled }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -11,9 +12,8 @@ export default function ModelSelector({ provider, model, onSelect, disabled }) {
   useEffect(() => {
     async function fetchModels() {
       try {
-        const res = await fetch("http://localhost:8000/api/models");
-        if (res.ok) {
-          const data = await res.json();
+        const data = await getModels();
+        if (data) {
           setCatalog(data);
         }
       } catch (err) {
