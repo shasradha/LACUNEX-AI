@@ -394,6 +394,14 @@ export default function ChatBox({
         thinkMode ? "think" : "normal",
         history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
         {
+          onModeDetected: (modeData) => {
+            // Update bot message with auto-detected badges immediately
+            setMessages((prev) => updateMsg(prev, botId, {
+              web_search: modeData.web_search,
+              reasoning: modeData.reasoning,
+              mode: modeData.reasoning ? "think" : "normal",
+            }));
+          },
           onSearchStatus: (status) => {
             setSearchStatus(status);
           },
@@ -418,6 +426,9 @@ export default function ChatBox({
               gaps_found: data.gaps_found ?? [],
               thinking: streamedThinking || undefined,
               model_name: getModelDisplayName(provider, selectedModel),
+              web_search: data.web_search ?? false,
+              reasoning: data.reasoning ?? false,
+              image_results: data.image_results ?? [],
             };
             setMessages((prev) => updateMsg(prev, botId, finalMsg));
             await persistSafely(activeConvId, [userMsg, finalMsg], data);

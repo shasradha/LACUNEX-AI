@@ -233,6 +233,10 @@ export async function streamChat(
 
       const payload = JSON.parse(dataLine.slice(6));
 
+      if (payload.type === "mode_detected") {
+        callbacks.onModeDetected?.(payload);
+      }
+
       if (payload.type === "search_status") {
         callbacks.onSearchStatus?.(payload.content || "Searching...");
       }

@@ -1,9 +1,14 @@
 """
 LACUNEX AI — Chat Route
-POST /api/chat — Streaming chat with AI (SSE)
+POST /api/generate — Streaming chat with AI (SSE)
 
-The plaintext is processed in-memory ONLY for AI inference.
-The client is responsible for encrypting and saving to /api/history/message.
+Pipeline:
+  1. Detect intent (web search / reasoning) — instant, no API calls
+  2. If web search needed → fetch live results in parallel
+  3. Inject results into AI context
+  4. Stream AI response token-by-token
+  5. Run gap detection (thinking mode only)
+  6. Emit structured `done` event with full metadata
 """
 
 import json
@@ -15,7 +20,8 @@ from models.db_models import User
 from services.auth_service import get_current_user
 from services.ai_router import ai_router
 from services.gap_detector import gap_detector
-from services.search_service import search_all, format_search_context
+from services.search_service import search_all, format_text_context
+from services.intent_detector import detect_intent
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -27,44 +33,68 @@ async def chat(
 ):
     """
     Stream AI response via Server-Sent Events.
-    Events: search_status | thinking | token | done | error
+    Events: mode_detected | search_status | thinking | token | done | error
     """
 
-    # If web search is enabled, run it before streaming
-    search_context = ""
-    if request.web_search:
+    # ── Step 1: Run intent detection (instant, no API calls) ─────────────────
+    intent = detect_intent(request.message)
+
+    # Respect user's explicit choices, but fill in gaps with auto-detection
+    auto_web_search = request.web_search or intent["web_search"]
+    auto_reasoning = (request.mode == "think") or intent["reasoning"]
+    auto_image_search = intent["image_search"]
+
+    # Determine effective mode
+    effective_mode = "think" if auto_reasoning else "normal"
+
+    # ── Step 2: Fetch web results if needed ───────────────────────────────────
+    search_data = {"web_results": [], "image_results": []}
+    if auto_web_search:
         try:
             search_data = await asyncio.wait_for(
-                search_all(request.message),
-                timeout=6.0,
+                search_all(request.message, image_search=auto_image_search),
+                timeout=5.0,
             )
-            search_context = format_search_context(search_data)
         except (asyncio.TimeoutError, Exception) as e:
             print(f"[Chat] Search failed or timed out: {e}")
-            search_context = ""
 
+    web_results = search_data.get("web_results", [])
+    image_results = search_data.get("image_results", [])
+
+    # ── SSE Generator ─────────────────────────────────────────────────────────
     async def event_stream():
         full_response = ""
 
-        # Notify client that search is happening
-        if request.web_search:
+        # Notify client of auto-detected modes immediately
+        mode_event = {
+            "type": "mode_detected",
+            "web_search": auto_web_search,
+            "reasoning": auto_reasoning,
+            "image_search": auto_image_search,
+        }
+        yield f"data: {json.dumps(mode_event)}\n\n"
+
+        # Show searching status
+        if auto_web_search:
             yield f"data: {json.dumps({'type': 'search_status', 'content': 'Searching the web...'})}\n\n"
 
-        # Build a search-augmented message if we have results
+        # Build search-augmented message
         effective_message = request.message
-        if search_context:
+        if web_results:
+            text_context = format_text_context(web_results)
             effective_message = (
                 f"{request.message}\n\n"
                 f"---\n"
-                f"**LIVE WEB SEARCH RESULTS** (Use these to answer accurately. "
-                f"Cite sources with markdown links. If images were found, display them using markdown image syntax `![title](url)`):\n\n"
-                f"{search_context}"
+                f"**LIVE WEB SEARCH RESULTS** (Answer accurately using these. "
+                f"Cite sources with markdown links. Do NOT display image URLs in your text — "
+                f"images will be shown separately in the UI.):\n\n"
+                f"{text_context}"
             )
 
         async for chunk in ai_router.stream_chat(
             message=effective_message,
             history=request.history,
-            mode=request.mode,
+            mode=effective_mode,
             provider=request.provider,
             model=request.model,
         ):
@@ -76,9 +106,9 @@ async def chat(
                 yield f"data: {json.dumps(chunk)}\n\n"
 
             elif chunk["type"] == "done":
-                # Run gap detection async with timeout — don't block response
+                # Gap detection (thinking mode only, with tight timeout)
                 gap_result = {"gaps_found": [], "confidence": 80}
-                if full_response and request.mode == "think":
+                if full_response and effective_mode == "think":
                     try:
                         gap_result = await asyncio.wait_for(
                             gap_detector.detect_gaps(request.message, full_response),
@@ -92,8 +122,10 @@ async def chat(
                     "answer": full_response,
                     "gaps_found": gap_result.get("gaps_found", []),
                     "confidence": gap_result.get("confidence", 80),
-                    "mode": request.mode,
-                    "web_search": request.web_search,
+                    "mode": effective_mode,
+                    "web_search": auto_web_search,
+                    "reasoning": auto_reasoning,
+                    "image_results": image_results,  # structured list for gallery
                 }
                 yield f"data: {json.dumps(done_event)}\n\n"
 

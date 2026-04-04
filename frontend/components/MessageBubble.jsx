@@ -5,6 +5,7 @@ import React, { memo, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getUser } from "@/lib/auth";
+import ImageGallery from "./ImageGallery";
 
 /* ── Inline icons ─────────────────────────────── */
 function IconBot() {
@@ -59,6 +60,25 @@ function IconGauge() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+    </svg>
+  );
+}
+
+function IconGlobe() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  );
+}
+
+function IconBrain() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.96-3.96 2.5 2.5 0 0 1-.96-3.58 2.5 2.5 0 0 1 .96-4.5A2.5 2.5 0 0 1 9.5 2"/>
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.96-3.96 2.5 2.5 0 0 0 .96-3.58 2.5 2.5 0 0 0-.96-4.5A2.5 2.5 0 0 0 14.5 2"/>
     </svg>
   );
 }
@@ -172,7 +192,21 @@ const MessageBubble = memo(({ message }) => {
             {isUser ? (
               <><IconUserRound /> {currentUser?.name || "You"}</>
             ) : (
-              <><IconBot /> LACUNEX AI {message.model_name && <span className="msg-model-name">({message.model_name})</span>}</>
+              <>
+                <IconBot />
+                LACUNEX AI
+                {message.model_name && <span className="msg-model-name">({message.model_name})</span>}
+                {message.web_search && (
+                  <span className="msg-mode-badge msg-mode-badge-search">
+                    <IconGlobe /> Web Search
+                  </span>
+                )}
+                {(message.mode === "think" || message.reasoning) && (
+                  <span className="msg-mode-badge msg-mode-badge-reason">
+                    <IconBrain /> Reasoning
+                  </span>
+                )}
+              </>
             )}
           </div>
 
@@ -187,7 +221,7 @@ const MessageBubble = memo(({ message }) => {
             </details>
           )}
 
-          {/* Image */}
+          {/* Generated image (single) */}
           {imageSource && (
             <div className="msg-image">
               <img src={imageSource} alt="Generated result" />
@@ -200,6 +234,11 @@ const MessageBubble = memo(({ message }) => {
               {message.content || ""}
             </ReactMarkdown>
           </div>
+
+          {/* Search Image Gallery */}
+          {message.image_results?.length > 0 && (
+            <ImageGallery images={message.image_results} />
+          )}
 
           {/* Confidence & Gaps */}
           {(message.confidence != null || message.gaps_found?.length > 0) && !isUser && (
