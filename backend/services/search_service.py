@@ -38,13 +38,28 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
     Search for images.
     Returns a list of {title, url, thumbnail, source} dicts.
     """
+    import re
+    # Clean conversational filler so DuckDuckGo actually finds images
+    clean_query = re.sub(
+        r"(?i)\b(show|find)(?:\s+me)?(?:\s+some)?\s+(?:cool\s+)?", "", query
+    )
+    # Strip "pictures of", "images of", "photos of" etc. 
+    # But do NOT strip "wallpapers" because the user usually wants that exact format.
+    clean_query = re.sub(
+        r"(?i)\b(?:pictures?|images?|photos?)\s+of\b", "", clean_query
+    ).strip()
+
+    # Fallback to the original query if cleaning stripped everything
+    if len(clean_query) < 2:
+        clean_query = query
+
     try:
         from duckduckgo_search import DDGS
 
         def _search():
             with DDGS() as ddgs:
                 results = []
-                for r in ddgs.images(query, max_results=max_results):
+                for r in ddgs.images(clean_query, max_results=max_results):
                     image_url = r.get("image", "")
                     # Skip broken/empty URLs
                     if not image_url or not image_url.startswith("http"):
@@ -62,6 +77,7 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
     except Exception as e:
         print(f"[SearchService] Image search failed: {e}")
         return []
+
 
 
 async def search_all(query: str, image_search: bool = False) -> dict:

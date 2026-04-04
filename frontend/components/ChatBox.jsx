@@ -328,18 +328,21 @@ export default function ChatBox({
       if (textareaRef.current) textareaRef.current.style.height = "40px";
     });
 
-    let activeConvId = conversationId;
+    let localConvId = conversationId;
+    let createConvPromise = null;
 
     try {
-      // Create conversation if needed
-      if (!activeConvId) {
-        const created = await createConversation(buildTitle(prompt, Boolean(imageFile)));
-        activeConvId = created.id;
-        skipReload.current = activeConvId;
-        setConversationId(activeConvId);
-        // Do NOT await this callback. Let the sidebar reload in the background
-        // so we can start generating AI tokens instantly!
-        onConversationCreated?.({ selectConversationId: activeConvId });
+      // Background conversation creation — DO NOT AWAIT, instantly proceed to stream!
+      if (!localConvId) {
+        createConvPromise = createConversation(buildTitle(prompt, Boolean(imageFile))).then(created => {
+          localConvId = created.id;
+          skipReload.current = created.id;
+          setConversationId(created.id);
+          onConversationCreated?.({ selectConversationId: created.id });
+          return created.id;
+        });
+      } else {
+        createConvPromise = Promise.resolve(localConvId);
       }
 
       // Image analysis
@@ -353,7 +356,8 @@ export default function ChatBox({
           model_name: "Visual Engine",
         };
         setMessages((prev) => [...prev, botMsg]);
-        await persistSafely(activeConvId, [userMsg, botMsg]);
+        const finalId = await createConvPromise;
+        await persistSafely(finalId, [userMsg, botMsg]);
         clearImage();
         return;
       }
@@ -371,9 +375,11 @@ export default function ChatBox({
           model_name: "Imagine v1",
         };
         setMessages((prev) => [...prev, botMsg]);
-        await persistSafely(activeConvId, [userMsg, botMsg]);
+        const finalId = await createConvPromise;
+        await persistSafely(finalId, [userMsg, botMsg]);
         return;
       }
+
 
       // Streaming chat
       const botId = createMessageId();
@@ -433,7 +439,8 @@ export default function ChatBox({
               image_results: data.image_results ?? [],
             };
             setMessages((prev) => updateMsg(prev, botId, finalMsg));
-            await persistSafely(activeConvId, [userMsg, finalMsg], data);
+            const finalId = await createConvPromise;
+            await persistSafely(finalId, [userMsg, finalMsg], data);
           },
           onError: (errMsg) => {
             setSearchStatus("");
