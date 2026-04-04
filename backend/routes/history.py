@@ -98,7 +98,8 @@ async def save_message(
             image_data=message.image_data,
         )
     )
-    conversation.updated_at = datetime.now(timezone.utc)
+    # PostgreSQL's TIMESTAMP WITHOUT TIME ZONE needs a naive datetime.
+    conversation.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     return {"status": "saved"}
 

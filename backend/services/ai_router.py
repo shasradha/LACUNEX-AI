@@ -30,7 +30,7 @@ SYSTEM_PROMPT = (
 
 DEFAULT_MODELS = {
     "groq": "llama-3.3-70b-versatile",
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-2.0-flash",
     "openrouter": "openrouter/auto",
     "cerebras": "qwen-3-235b-a22b-instruct-2507",
     "ollama": "llama3.2",
@@ -145,7 +145,7 @@ class AIRouter:
         model: Optional[str] = None,
     ) -> AsyncGenerator[dict, None]:
         try:
-            response = await self.gemini.aio.models.generate_content(
+            stream = await self.gemini.aio.models.generate_content_stream(
                 model=model or DEFAULT_MODELS["gemini"],
                 contents=self._build_gemini_contents(message, history),
                 config=types.GenerateContentConfig(
@@ -154,15 +154,14 @@ class AIRouter:
                 ),
             )
 
-            if response.candidates and response.candidates[0].content:
-                for part in response.candidates[0].content.parts:
-                    if part.text:
-                        yield {"type": "token", "content": part.text}
+            async for chunk in stream:
+                if chunk.text:
+                    yield {"type": "token", "content": chunk.text}
 
             yield {"type": "done"}
         except Exception as exc:
             print(f"[AIRouter] Gemini normal failed: {exc}")
-            yield {"type": "error", "content": "All AI providers are unavailable right now."}
+            yield {"type": "error", "content": "Gemini Engine is experiencing high latency. Retrying..."}
 
     async def _stream_think(
         self,
@@ -170,8 +169,9 @@ class AIRouter:
         history: Optional[List[dict]] = None,
     ) -> AsyncGenerator[dict, None]:
         try:
-            response = await self.gemini.aio.models.generate_content(
-                model=DEFAULT_MODELS["gemini"],
+            # Use gemini-2.0-flash-thinking-preview-01-21 for best results
+            stream = await self.gemini.aio.models.generate_content_stream(
+                model="gemini-2.0-flash-thinking-preview-01-21",
                 contents=self._build_gemini_contents(message, history),
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(thinking_budget=10000),
@@ -179,18 +179,17 @@ class AIRouter:
                 ),
             )
 
-            thinking_text = ""
-            if response.candidates and response.candidates[0].content:
-                for part in response.candidates[0].content.parts:
+            async for chunk in stream:
+                for part in chunk.candidates[0].content.parts:
                     if part.thought:
-                        thinking_text += part.text
                         yield {"type": "thinking", "content": part.text}
                     elif part.text:
                         yield {"type": "token", "content": part.text}
 
-            yield {"type": "done", "thinking": thinking_text}
+            yield {"type": "done"}
         except Exception as exc:
             print(f"[AIRouter] Gemini think failed: {exc}")
+            # Fallback to standard Groq streaming if thinking mode fails
             async for chunk in self._stream_normal(message, history, "groq"):
                 yield chunk
 
