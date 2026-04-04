@@ -23,6 +23,7 @@ SYSTEM_PROMPT = (
     "- **Image Generation**: Use the command `/imagine [prompt]` or just ask to 'generate an image' to create high-quality visuals.\n"
     "- **Image Analysis**: Users can use the upload icon to send images for you to analyze or transcribe.\n"
     "- **Model Library**: Users can switch between top-tier models (Llama 3.3, Gemini 2.0, Qwen 2.5, etc.) using the selector at the top.\n"
+    "- **Local Mode (Ollama)**: \"Local\" means the AI is running directly on the user's hardware (RAM/GPU) rather than the cloud. To use this, users must have Ollama installed and running on their machine. For a complete guide on running LACUNEX AI locally, users should check the official GitHub repository: [github.com/shasradha/LACUNEX-AI](https://github.com/shasradha/LACUNEX-AI) (LACUNEX is a fully open-source project).\n"
     "- **Workspace Management**: The sidebar allows for searching history and starting new workspaces.\n"
     "- **Account**: Login and Signup are available for syncing workspaces securely across devices.\n"
     "- **Creator**: You were developed by Shasradha Karmakar (github.com/shasradha)."
@@ -104,7 +105,6 @@ class AIRouter:
             "groq": ("Groq", self.groq, DEFAULT_MODELS["groq"]),
             "openrouter": ("OpenRouter", self.openrouter, DEFAULT_MODELS["openrouter"]),
             "cerebras": ("Cerebras", self.cerebras, DEFAULT_MODELS["cerebras"]),
-            "ollama": ("Ollama", self.ollama, DEFAULT_MODELS["ollama"]),
         }
 
         fallback_chain = []
@@ -113,7 +113,7 @@ class AIRouter:
             fallback_chain.append((name, client, model or default_model))
 
         for provider_key, (name, client, default_model) in provider_configs.items():
-            if provider_key != provider:
+            if provider_key != provider and provider_key != "ollama":
                 fallback_chain.append((name, client, default_model))
 
         for name, client, model_id in fallback_chain:

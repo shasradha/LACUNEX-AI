@@ -31,7 +31,7 @@ class GapDetector:
 
         try:
             response = await self.client.aio.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-2.0-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,

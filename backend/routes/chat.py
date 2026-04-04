@@ -53,7 +53,7 @@ async def chat(
                     try:
                         gap_result = await asyncio.wait_for(
                             gap_detector.detect_gaps(request.message, full_response),
-                            timeout=8.0,
+                            timeout=2.5,
                         )
                     except (asyncio.TimeoutError, Exception):
                         pass
