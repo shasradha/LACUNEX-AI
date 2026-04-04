@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ImageUpload from "./ImageUpload";
 import MessageBubble from "./MessageBubble";
 import ModelSelector from "./ModelSelector";
+import SearchToggle from "./SearchToggle";
 import ThinkToggle from "./ThinkToggle";
 import TypingIndicator from "./TypingIndicator";
 import {
@@ -14,6 +15,7 @@ import {
   exportConversation,
   generateImage,
   getConversation,
+  getModels,
   saveMessage,
   streamChat,
 } from "@/lib/api";
@@ -141,6 +143,8 @@ export default function ChatBox({
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchStatus, setSearchStatus] = useState("");
   const exportMenuRef = useRef(null);
 
   const textareaRef = useRef(null);
@@ -390,15 +394,21 @@ export default function ChatBox({
         thinkMode ? "think" : "normal",
         history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
         {
+          onSearchStatus: (status) => {
+            setSearchStatus(status);
+          },
           onToken: (token) => {
+            setSearchStatus("");
             streamed += token;
             setMessages((prev) => updateMsg(prev, botId, { content: streamed }));
           },
           onThinking: (chunk) => {
+            setSearchStatus("");
             streamedThinking += chunk;
             setMessages((prev) => updateMsg(prev, botId, { thinking: streamedThinking }));
           },
           onDone: async (data) => {
+            setSearchStatus("");
             const finalMsg = {
               id: botId,
               role: "assistant",
@@ -413,6 +423,7 @@ export default function ChatBox({
             await persistSafely(activeConvId, [userMsg, finalMsg], data);
           },
           onError: (errMsg) => {
+            setSearchStatus("");
             setMessages((prev) =>
               updateMsg(prev, botId, {
                 content: errMsg || "Something went wrong.",
@@ -422,7 +433,8 @@ export default function ChatBox({
           },
         },
         provider,
-        selectedModel
+        selectedModel,
+        searchMode
       );
     } catch (err) {
       if (err instanceof AuthError) { onRequireLogin?.(); return; }
@@ -580,7 +592,17 @@ export default function ChatBox({
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} />
               ))}
-              {isBusy && <TypingIndicator />}
+              {isBusy && searchStatus && (
+                <div className="search-status-indicator">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                    <path d="M2 12h20" />
+                  </svg>
+                  <span>{searchStatus}</span>
+                </div>
+              )}
+              {isBusy && !searchStatus && <TypingIndicator />}
               <div ref={bottomRef} className="chat-bottom-anchor" aria-hidden="true" />
             </div>
           )}
@@ -602,6 +624,7 @@ export default function ChatBox({
               disabled={isBusy}
             />
             <ThinkToggle enabled={thinkMode} onChange={setThinkMode} />
+            <SearchToggle enabled={searchMode} onChange={setSearchMode} />
             <span className="toolbar-hint">
               <IconSparkle />
               /imagine for image gen

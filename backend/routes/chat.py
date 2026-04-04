@@ -15,6 +15,7 @@ from models.db_models import User
 from services.auth_service import get_current_user
 from services.ai_router import ai_router
 from services.gap_detector import gap_detector
+from services.search_service import search_all, format_search_context
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -26,14 +27,42 @@ async def chat(
 ):
     """
     Stream AI response via Server-Sent Events.
-    Events: thinking | token | done | error
+    Events: search_status | thinking | token | done | error
     """
+
+    # If web search is enabled, run it before streaming
+    search_context = ""
+    if request.web_search:
+        try:
+            search_data = await asyncio.wait_for(
+                search_all(request.message),
+                timeout=6.0,
+            )
+            search_context = format_search_context(search_data)
+        except (asyncio.TimeoutError, Exception) as e:
+            print(f"[Chat] Search failed or timed out: {e}")
+            search_context = ""
 
     async def event_stream():
         full_response = ""
 
+        # Notify client that search is happening
+        if request.web_search:
+            yield f"data: {json.dumps({'type': 'search_status', 'content': 'Searching the web...'})}\n\n"
+
+        # Build a search-augmented message if we have results
+        effective_message = request.message
+        if search_context:
+            effective_message = (
+                f"{request.message}\n\n"
+                f"---\n"
+                f"**LIVE WEB SEARCH RESULTS** (Use these to answer accurately. "
+                f"Cite sources with markdown links. If images were found, display them using markdown image syntax `![title](url)`):\n\n"
+                f"{search_context}"
+            )
+
         async for chunk in ai_router.stream_chat(
-            message=request.message,
+            message=effective_message,
             history=request.history,
             mode=request.mode,
             provider=request.provider,
@@ -64,6 +93,7 @@ async def chat(
                     "gaps_found": gap_result.get("gaps_found", []),
                     "confidence": gap_result.get("confidence", 80),
                     "mode": request.mode,
+                    "web_search": request.web_search,
                 }
                 yield f"data: {json.dumps(done_event)}\n\n"
 

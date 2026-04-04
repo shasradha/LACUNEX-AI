@@ -41,6 +41,7 @@ class ChatRequest(BaseModel):
     history: Optional[List[dict]] = None
     provider: str = "groq"
     model: Optional[str] = None
+    web_search: bool = False
 
 
 class ChatResponse(BaseModel):

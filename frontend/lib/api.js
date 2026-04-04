@@ -184,7 +184,8 @@ export async function streamChat(
   history,
   callbacks,
   provider = "groq",
-  model = null
+  model = null,
+  webSearch = false
 ) {
   const response = await fetch(`${API_BASE_URL}/api/generate`, {
     method: "POST",
@@ -195,6 +196,7 @@ export async function streamChat(
       history,
       provider,
       model,
+      web_search: webSearch,
     }),
   });
 
@@ -230,6 +232,10 @@ export async function streamChat(
       }
 
       const payload = JSON.parse(dataLine.slice(6));
+
+      if (payload.type === "search_status") {
+        callbacks.onSearchStatus?.(payload.content || "Searching...");
+      }
 
       if (payload.type === "token") {
         callbacks.onToken?.(payload.content || "");

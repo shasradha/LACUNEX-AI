@@ -1827,6 +1827,63 @@ textarea { resize: none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   Search Toggle
+   ═══════════════════════════════════════════════════════════════════ */
+
+.search-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4375rem 0.625rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-tertiary);
+}
+
+.search-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.search-toggle-active {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.search-toggle-active:hover {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+}
+
+.search-toggle-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* ── Search Status Indicator ────────────────── */
+
+.search-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  color: #4ade80;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.search-status-indicator svg {
+  color: #4ade80;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    Image Upload
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -2956,7 +3013,7 @@ textarea { resize: none; }
 @media (hover: none) and (pointer: coarse) {
   .btn, .btn-icon, .btn-ghost, .btn-primary,
   .toggle-chip, .ws-item, .model-item,
-  .send-btn, .think-toggle, .img-upload-btn {
+  .send-btn, .think-toggle, .search-toggle, .img-upload-btn {
     min-height: 44px;
     min-width: 44px;
   }
