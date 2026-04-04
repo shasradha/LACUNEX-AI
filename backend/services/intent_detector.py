@@ -29,10 +29,8 @@ _WEB_SEARCH_KEYWORDS = frozenset([
 ])
 
 _IMAGE_REQUEST_PATTERNS = [
-    re.compile(r"\bshow\s+me\s+(?:some\s+)?(?:pictures?|images?|photos?)\s+of\b", re.I),
-    re.compile(r"\bfind\s+(?:me\s+)?(?:some\s+)?(?:pictures?|images?|photos?)\s+of\b", re.I),
-    re.compile(r"\b(?:pictures?|images?|photos?)\s+of\b", re.I),
-    re.compile(r"\bwallpaper(?:s)?\s+of\b", re.I),
+    re.compile(r"\b(?:show|find)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?)\b", re.I),
+    re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?)\s+of\b", re.I),
 ]
 
 _URL_PATTERN = re.compile(
@@ -42,21 +40,14 @@ _URL_PATTERN = re.compile(
 
 # ── Reasoning Trigger Patterns ────────────────────────────────────────────────
 
-_REASONING_KEYWORDS = frozenset([
-    # Math / logic
-    "solve", "calculate", "compute", "proof", "prove", "derive",
-    "integrate", "differentiate", "equation", "algorithm",
-    "theorem", "formula", "mathematically",
-    # Deep analysis
-    "explain in depth", "explain in detail", "break down",
-    "analyze", "analyse", "compare and contrast", "critique",
-    "why does", "how does", "what causes", "impact of",
-    "difference between", "pros and cons",
-    # Long-form
-    "write an essay", "write a report", "write a research",
-    "summarize", "summarise", "step by step", "step-by-step",
-    "in detail", "comprehensive",
-])
+_REASONING_PATTERNS = [
+    re.compile(r"\b(?:solve|calculate|compute|proof|prove|derive|integrate|differentiate)\b", re.I),
+    re.compile(r"\b(?:equation|algorithm|theorem|formula|mathematically)\b", re.I),
+    re.compile(r"\b(?:explain|analyze|analyse|critique)\s+.*(?:in depth|in detail|step by step|comprehensively)\b", re.I),
+    re.compile(r"\b(?:compare and contrast|difference between|pros and cons)\b", re.I),
+    re.compile(r"\bwrite\s+.*(?:essay|report|research|thesis|dissertation)\b", re.I),
+    re.compile(r"\b(?:why does|how does|what causes|impact of)\b", re.I),
+]
 
 _MATH_EXPRESSION = re.compile(
     r"[\d\+\-\*\/\^=<>≤≥∑∫√π]+\s*[\+\-\*\/\^=<>≤≥]+\s*[\d\+\-\*\/\^=<>≤≥∑∫√π]+",
@@ -107,10 +98,10 @@ def detect_intent(message: str) -> dict:
     if _MATH_EXPRESSION.search(message):
         reasoning = True
 
-    # 2. Keyword match
+    # 2. Pattern match
     if not reasoning:
-        for kw in _REASONING_KEYWORDS:
-            if kw in msg_lower:
+        for pat in _REASONING_PATTERNS:
+            if pat.search(message):
                 reasoning = True
                 break
 

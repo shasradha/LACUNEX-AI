@@ -337,7 +337,9 @@ export default function ChatBox({
         activeConvId = created.id;
         skipReload.current = activeConvId;
         setConversationId(activeConvId);
-        await onConversationCreated?.({ selectConversationId: activeConvId });
+        // Do NOT await this callback. Let the sidebar reload in the background
+        // so we can start generating AI tokens instantly!
+        onConversationCreated?.({ selectConversationId: activeConvId });
       }
 
       // Image analysis
