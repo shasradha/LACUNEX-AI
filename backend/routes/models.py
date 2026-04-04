@@ -161,11 +161,11 @@ MODEL_CATALOG = {
     "ollama": {
         "name": "Ollama",
         "icon": "OL",
-        "logo": "https://ollama.com/static/ollama-logo.png",
+        "logo": "https://raw.githubusercontent.com/ollama/ollama/main/docs/assets/ollama.png",
         "color": "#78716c",
         "description": "True local execution on your machine",
         "models": [
-            {"id": "llama3.2", "name": "Llama 3.2", "tags": ["local", "chat"], "logo": "https://ollama.com/static/ollama-logo.png"},
+            {"id": "llama3.2", "name": "Llama 3.2", "tags": ["local", "chat"], "logo": "https://raw.githubusercontent.com/ollama/ollama/main/docs/assets/ollama.png"},
         ],
     },
 }
