@@ -84,6 +84,9 @@ async def chat(
 
     web_results = search_data.get("web_results", [])
     image_results = search_data.get("image_results", [])
+    
+    # Diagnostic logging — trace image pipeline
+    print(f"[Chat] 📊 Pipeline results | web={len(web_results)} | images={len(image_results)} | image_search={auto_image_search}")
 
     # ── SSE Generator ─────────────────────────────────────────────────────────
     async def event_stream():

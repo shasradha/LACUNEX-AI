@@ -113,6 +113,7 @@ async function loadHistory(conversation) {
         mode: item.mode,
         confidence: item.confidence,
         gaps_found: item.gaps_found,
+        image_results: item.image_results || [],
         image,
         model_name: item.model_name,
       };
