@@ -63,6 +63,7 @@ async def sync_schema(conn):
         # note: PostgreSQL supports this well.
         print("[Database] Checking for schema updates...")
         await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_results JSON;"))
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS web_results JSON;"))
         print("[Database] Schema sync successful.")
     except Exception as e:
         # If SQLite (which doesn't support IF NOT EXISTS for ADD COLUMN), we try-catch

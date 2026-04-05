@@ -83,6 +83,51 @@ function IconBrain() {
   );
 }
 
+function IconSourceLink() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+function WebSources({ sources }) {
+  if (!sources || sources.length === 0) return null;
+  const [expanded, setExpanded] = useState(false);
+  
+  // Show 4 by default, expand to show all
+  const displaySources = expanded ? sources : sources.slice(0, 4);
+
+  return (
+    <div className="web-sources-wrap">
+      <div className="web-sources-header" onClick={() => setExpanded(!expanded)}>
+        <IconSourceLink />
+        <span>{sources.length} sources</span>
+        <div style={{ flex: 1 }} />
+        <IconChevronDown style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
+      </div>
+      <div className="web-sources-grid">
+        {displaySources.map((s, i) => {
+          // Get a clean domain name for display
+          let domain = "";
+          try { domain = new URL(s.url).hostname.replace("www.", ""); } catch {}
+          return (
+            <a key={i} href={s.url} target="_blank" rel="noreferrer" className="source-card">
+              <div className="source-card-top">
+                <img src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} alt="" className="source-favicon" onError={(e) => e.target.style.display="none"} />
+                <span className="source-domain">{domain || "Web"}</span>
+                <span className="source-index">{i + 1}</span>
+              </div>
+              <div className="source-title">{s.title}</div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function createImageSource(image) {
   if (!image) return null;
   if (image.url) return image.url;
@@ -145,6 +190,9 @@ const MessageBubble = memo(({ message }) => {
       );
     },
     a({ href, children }) {
+      if (href?.startsWith("#source-")) {
+        return <span className="citation-badge" title={`Source ${children}`}>{children}</span>;
+      }
       return (
         <a href={href} target="_blank" rel="noreferrer">{children}</a>
       );
@@ -231,13 +279,18 @@ const MessageBubble = memo(({ message }) => {
           {/* Content */}
           <div className="markdown-body">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {message.content || ""}
+              {(message.content || "").replace(/\[(\d+)\]/g, "[$1](#source-$1)")}
             </ReactMarkdown>
           </div>
 
           {/* Search Image Gallery */}
           {message.image_results?.length > 0 && (
             <ImageGallery images={message.image_results} />
+          )}
+
+          {/* Web Sources Citation Block */}
+          {message.web_results?.length > 0 && (
+            <WebSources sources={message.web_results} />
           )}
 
           {/* Confidence & Gaps */}

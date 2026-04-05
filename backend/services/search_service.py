@@ -11,7 +11,7 @@ import re
 from typing import List
 
 
-async def search_web(query: str, max_results: int = 5) -> List[dict]:
+async def search_web(query: str, max_results: int = 15) -> List[dict]:
     """
     Search the web for text results.
     Returns a list of {title, url, snippet} dicts.
@@ -108,7 +108,7 @@ async def search_all(query: str, image_search: bool = False) -> dict:
     """
     print(f"[SearchService] search_all called | image_search={image_search} | query='{query[:60]}'")
 
-    web_task = asyncio.create_task(search_web(query, max_results=5))
+    web_task = asyncio.create_task(search_web(query, max_results=15))
 
     if image_search:
         image_task = asyncio.create_task(search_images(query, max_results=8))
@@ -138,10 +138,10 @@ def format_text_context(web_results: list) -> str:
     if not web_results:
         return "No web results found."
 
-    lines = ["### 🌐 Live Web Results (use these to answer accurately, cite sources):"]
+    lines = ["### 🌐 Live Web Results (Use these to answer accurately, cite sources):"]
     for i, r in enumerate(web_results, 1):
-        lines.append(f"{i}. **{r['title']}**")
-        lines.append(f"   Source: [{r['url']}]({r['url']})")
-        lines.append(f"   > {r['snippet']}")
+        lines.append(f"[{i}] **{r['title']}**")
+        lines.append(f"    Source: {r['url']}")
+        lines.append(f"    Snippet: {r['snippet']}")
         lines.append("")
     return "\n".join(lines)

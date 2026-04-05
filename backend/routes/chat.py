@@ -130,8 +130,9 @@ async def chat(
             # Prepend search results if not already scraping, or append as complementary info
             search_block = (
                 f"\n--- [ADDITIONAL WEB RESEARCH] ---\n"
-                f"Use these results to supplement your answer and cite sources with markdown links. "
-                f"Do NOT display image URLs in your text:\n\n"
+                f"Use these results to comprehensively answer the user's query.\n"
+                f"**CRITICAL:** You MUST cite your sources inline using precise markdown bracket format like [1], [2], pointing to the matching source numbers provided below.\n"
+                f"Do NOT display raw image URLs or links. Always cite them like [1].\n\n"
                 f"{text_context}\n"
             )
             effective_message += search_block
@@ -171,6 +172,7 @@ async def chat(
                     "web_search": auto_web_search,
                     "reasoning": auto_reasoning,
                     "image_results": image_results,  # structured list for gallery
+                    "web_results": web_results,      # structured list for sources UI
                 }
                 yield f"data: {json.dumps(done_event)}\n\n"
 

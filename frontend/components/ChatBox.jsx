@@ -114,6 +114,7 @@ async function loadHistory(conversation) {
         confidence: item.confidence,
         gaps_found: item.gaps_found,
         image_results: item.image_results || [],
+        web_results: item.web_results || [],
         image,
         model_name: item.model_name,
       };
@@ -217,6 +218,7 @@ export default function ChatBox({
       confidence: doneData?.confidence ?? msg.confidence ?? null,
       gaps_found: doneData?.gaps_found ?? msg.gaps_found ?? null,
       image_results: doneData?.image_results ?? msg.image_results ?? null,
+      web_results: doneData?.web_results ?? msg.web_results ?? null,
       image_data: msg.image ? JSON.stringify(msg.image) : null,
       model_name: msg.model_name || null,
     });
@@ -470,6 +472,7 @@ export default function ChatBox({
               web_search: data.web_search ?? false,
               reasoning: data.reasoning ?? false,
               image_results: data.image_results ?? [],
+              web_results: data.web_results ?? [],
             };
             setMessages((prev) => updateMsg(prev, botId, finalMsg));
             
