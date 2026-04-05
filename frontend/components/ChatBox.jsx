@@ -635,15 +635,17 @@ export default function ChatBox({
 
         {/* Messages */}
         <div ref={scrollRef} className="chat-scroll">
-          {isLoading ? (
-            <div className="loading-center">
-              <IconSpinner />
-              <span>Loading workspace...</span>
-            </div>
-          ) : messages.length === 0 ? (
+          {messages.length === 0 && !isLoading ? (
             emptyState
           ) : (
-            <div className="message-list">
+            <div className={`message-list ${isLoading ? "op-50" : ""}`}>
+              {/* Optional: Small top-aligned spinner when switching workspaces */}
+              {isLoading && (
+                <div className="workspace-loader">
+                  <IconSpinner />
+                  <span>Syncing workspace...</span>
+                </div>
+              )}
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} />
               ))}

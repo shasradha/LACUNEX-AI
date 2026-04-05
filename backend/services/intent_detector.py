@@ -13,8 +13,8 @@ _WEB_SEARCH_KEYWORDS = frozenset([
     # Recency / live data
     "latest", "recent", "today", "right now", "currently", "live",
     "breaking", "news", "update", "2024", "2025", "2026",
-    # Discovery
-    "find me", "show me", "search for", "look up", "google",
+    # Discovery (with typo support)
+    "find me", "show me", "search for", "look up", "google", "fine me", "get me",
     "show pictures", "show images", "find images", "find pictures",
     "show me pictures of", "find me pictures of", "images of", "photos of",
     # Real-world data
@@ -29,8 +29,9 @@ _WEB_SEARCH_KEYWORDS = frozenset([
 ])
 
 _IMAGE_REQUEST_PATTERNS = [
-    re.compile(r"\b(?:show|find|search|get)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?)\b", re.I),
-    re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?)\s+of\b", re.I),
+    # Support for find/fine/search/get + wallpapers/wallapapers/wallpappers/pix/pics/images/phtotos
+    re.compile(r"\b(?:show|find|fine|search|get|see)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?|wallapapers?|wallpappers?|pix|pics)\b", re.I),
+    re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?|wallapapers?|pix|pics)\s+of\b", re.I),
 ]
 
 _URL_PATTERN = re.compile(

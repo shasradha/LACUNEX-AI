@@ -1689,6 +1689,29 @@ textarea { resize: none; }
   border-radius: 2px;
 }
 
+/* ── Workspace Loader ────────────────────────── */
+.workspace-loader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  margin: 1rem auto;
+  width: fit-content;
+  border-radius: var(--radius-full);
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: #67e8f9;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.op-50 {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
 /* ── Thinking Block ──────────────────────────── */
 .thinking-block {
   margin-bottom: 0.75rem;
