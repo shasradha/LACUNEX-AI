@@ -380,6 +380,7 @@ export default function ChatBox({
       role: "user",
       content: rawPrompt || (attachedFiles.length > 0 ? `Attached ${attachedFiles.length} file(s) for analysis.` : "Please analyze this image."),
       mode: thinkMode ? "think" : "normal",
+      attachments: attachedFiles.length > 0 ? attachedFiles.map(f => ({ name: f.name, type: "file" })) : undefined
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -628,13 +629,20 @@ export default function ChatBox({
     // Look at the latest assistant message to see if it poured out an artifact
     const latestBot = [...messages].reverse().find(m => m.role === "assistant");
     if (latestBot && latestBot.content) {
-      const match = latestBot.content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
-      if (match && match[1]) {
-        setActiveArtifact(match[1].trim());
-      } else if (!isBusy) {
-        // Only clear if we are totally done and no artifact is found
-        // setActiveArtifact(null); 
+      // 1. Try our strict tag format
+      const tagMatch = latestBot.content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
+      if (tagMatch && tagMatch[1]) {
+        setActiveArtifact(tagMatch[1].trim());
+        return;
       }
+      
+      // 2. Fallback: Many models ignore XML tags and just use markdown code blocks
+      const mdMatch = latestBot.content.match(/```(?:html|jsx|tsx|js)\s*([\s\S]*?)```/i);
+      if (mdMatch && mdMatch[1]) {
+        setActiveArtifact(mdMatch[1].trim());
+        return;
+      }
+      // If we are fully done and no artifact is found, we could clear it, but let's keep the split screen active if the user explicitly created one unless they close it.
     }
   }, [messages, isBusy]);
 

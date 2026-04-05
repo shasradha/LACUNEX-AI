@@ -58,8 +58,11 @@ async def extract_and_save_memory(user_id: str, message: str):
                     return
                     
                 # Update their memory
-                current_memory = user.memory_profile or {}
-                facts = current_memory.get("facts", [])
+                # Must create a deep-copy of the dict/list so SQLAlchemy detects the change
+                from sqlalchemy.orm.attributes import flag_modified
+                
+                current_memory = dict(user.memory_profile or {})
+                facts = list(current_memory.get("facts", []))
                 if new_fact not in facts:
                     facts.append(new_fact)
                     # Keep memory concise (last 10 facts) to avoid huge system prompts
@@ -67,6 +70,7 @@ async def extract_and_save_memory(user_id: str, message: str):
                         facts = facts[-10:]
                     current_memory["facts"] = facts
                     user.memory_profile = current_memory
+                    flag_modified(user, 'memory_profile')
                     
                     await db.commit()
                     print(f"[MemoryService] Successfully saved new user fact: {new_fact}")

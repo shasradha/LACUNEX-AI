@@ -56,6 +56,18 @@ function IconChevronDown() {
   );
 }
 
+function IconFileText() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" x2="8" y1="13" y2="13" />
+      <line x1="16" x2="8" y1="17" y2="17" />
+      <line x1="10" x2="8" y1="9" y2="9" />
+    </svg>
+  );
+}
+
 function IconGauge() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -273,6 +285,23 @@ const MessageBubble = memo(({ message }) => {
           {imageSource && (
             <div className="msg-image">
               <img src={imageSource} alt="Generated result" />
+            </div>
+          )}
+
+          {/* User Attachments (Red/Orange File Cards) */}
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="msg-attachments-container" style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "1rem" }}>
+              {message.attachments.map((file, i) => (
+                <div key={i} className="msg-attachment-card" style={{ display: "flex", alignItems: "center", gap: "12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "10px", padding: "10px 14px", color: "#f87171", cursor: "default" }}>
+                  <div style={{ background: "rgba(239,68,68,0.2)", padding: "10px", borderRadius: "8px", display: "flex" }}>
+                    <IconFileText />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontWeight: 600, fontSize: "0.85rem", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#fca5a5" }}>{file.name}</span>
+                    <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>Document</span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
