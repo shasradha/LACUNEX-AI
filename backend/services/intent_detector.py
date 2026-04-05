@@ -30,8 +30,8 @@ _WEB_SEARCH_KEYWORDS = frozenset([
 
 _IMAGE_REQUEST_PATTERNS = [
     # Support for find/fine/search/get + wallpapers/wallapapers/wallpappers/pix/pics/images/phtotos
-    re.compile(r"\b(?:show|find|fine|search|get|see)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?|wallapapers?|wallpappers?|pix|pics)\b", re.I),
-    re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?|wallapapers?|pix|pics)\s+of\b", re.I),
+    re.compile(r"\b(?:show|find|fine|search|get|see|fetch|display|look|look up)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?|wallapapers?|wallpappers?|wallppapers?|pix|pics|backgrounds?|wallp|walls?)\b", re.I),
+    re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?|wallapapers?|pix|pics|backgrounds?|wallp|walls?)\s+of\b", re.I),
 ]
 
 _URL_PATTERN = re.compile(
@@ -84,12 +84,19 @@ def detect_intent(message: str) -> dict:
                 web_search = True
                 break
 
-    # 3. Image request patterns
+    # 3. Image request patterns (Aggressive + Typo resistance)
     for pat in _IMAGE_REQUEST_PATTERNS:
         if pat.search(message):
             web_search = True
             image_search = True
             break
+            
+    # ── Elite URL Context Detection ───────────────────────────────────────
+    url_fetch = False
+    url_match = _URL_PATTERN.search(message)
+    if url_match:
+        url_fetch = True
+        web_search = True  # URLs always trigger web context
 
     # ── Reasoning Detection ───────────────────────────────────────────────────
     reasoning = False
@@ -115,4 +122,6 @@ def detect_intent(message: str) -> dict:
         "web_search": web_search,
         "reasoning": reasoning,
         "image_search": image_search,
+        "url_fetch": url_fetch,
+        "detected_url": url_match.group(0) if url_match else None,
     }

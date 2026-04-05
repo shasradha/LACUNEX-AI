@@ -47,17 +47,40 @@ async def chat(
     # Determine effective mode
     effective_mode = "think" if auto_reasoning else "normal"
 
-    # ── Step 2: Fetch web results if needed ───────────────────────────────────
+    # ── Step 2: Fetch Web Intelligence (Parallel Search + Scrape) ───────────
     search_data = {"web_results": [], "image_results": []}
+    scraped_content = None
+    
+    # Run tasks in parallel for zero-wait performance
+    tasks = []
+    
+    # Task A: Search (Web + Images)
     if auto_web_search:
-        try:
-            # Increased timeout to 15s to allow heavy image/web gathering to complete
-            search_data = await asyncio.wait_for(
-                search_all(request.message, image_search=auto_image_search),
-                timeout=15.0,
-            )
-        except (asyncio.TimeoutError, Exception) as e:
-            print(f"[Chat] Search failed or timed out: {e}")
+        tasks.append(asyncio.create_task(asyncio.wait_for(
+            search_all(request.message, image_search=auto_image_search),
+            timeout=15.0
+        )))
+    else:
+        tasks.append(asyncio.sleep(0)) # Noop placeholder
+
+    # Task B: Specific URL Scraper (Elite Intelligence)
+    if intent.get("url_fetch") and intent.get("detected_url"):
+        from services.scraper_service import fetch_url_content
+        tasks.append(asyncio.create_task(fetch_url_content(intent["detected_url"])))
+    else:
+        tasks.append(asyncio.sleep(0)) # Noop placeholder
+
+    try:
+        # Wait for both tasks (limited by the longest timeout, currently 15s)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        if isinstance(results[0], dict):
+            search_data = results[0]
+        
+        if len(results) > 1 and isinstance(results[1], str):
+            scraped_content = results[1]
+    except Exception as e:
+        print(f"[Chat] Elite intelligence gathering failed: {e}")
 
     web_results = search_data.get("web_results", [])
     image_results = search_data.get("image_results", [])
@@ -79,18 +102,36 @@ async def chat(
         if auto_web_search:
             yield f"data: {json.dumps({'type': 'search_status', 'content': 'Searching the web...'})}\n\n"
 
-        # Build search-augmented message
+        # ── Step 3: Build Elite Intelligence Message (Search + Scraped URL) ─
         effective_message = request.message
-        if web_results:
-            text_context = format_text_context(web_results)
+        
+        # Priority 1: Scraped content (Reading the actual site)
+        if scraped_content:
             effective_message = (
                 f"{request.message}\n\n"
-                f"---\n"
-                f"**LIVE WEB SEARCH RESULTS** (Answer accurately using these. "
-                f"Cite sources with markdown links. Do NOT display image URLs in your text — "
-                f"images will be shown separately in the UI.):\n\n"
-                f"{text_context}"
+                f"### [ELITE WEBSITE READER CONTENT]\n"
+                f"LACUNEX has fetched the following content directly from the URL you provided. "
+                f"Analyze this content to provide an accurate summary and answer questions. "
+                f"Treat this as real-world, high-priority context:\n\n"
+                f"{scraped_content}\n"
+                f"[/END SITE CONTENT]\n\n"
+                f"**INSTRUCTIONS**: Since a URL was provided, please start your response with a structured 'Website Summary':\n"
+                f"- **Summary**: 2-3 lines of high-level overview.\n"
+                f"- **Key Points**: 3-5 bullet points of main information.\n"
+                f"- **Detailed Insights**: Your full analysis as requested.\n"
             )
+
+        # Priority 2: Web Search Results (DuckDuckGo snippets)
+        if web_results:
+            text_context = format_text_context(web_results)
+            # Prepend search results if not already scraping, or append as complementary info
+            search_block = (
+                f"\n--- [ADDITIONAL WEB RESEARCH] ---\n"
+                f"Use these results to supplement your answer and cite sources with markdown links. "
+                f"Do NOT display image URLs in your text:\n\n"
+                f"{text_context}\n"
+            )
+            effective_message += search_block
 
         async for chunk in ai_router.stream_chat(
             message=effective_message,
