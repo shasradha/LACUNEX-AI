@@ -50,8 +50,34 @@ async def get_db():
             await session.close()
 
 
+async def sync_schema(conn):
+    """
+    Check for missing columns in existing tables and add them if needed.
+    This is essential for production environments like Render where create_all
+    does not automatically update existing schemas.
+    """
+    from sqlalchemy import text
+    try:
+        # Check if 'image_results' exists in 'messages' table
+        # We use a broad 'ALTER TABLE ... ADD COLUMN ... IF NOT EXISTS' style
+        # note: PostgreSQL supports this well.
+        print("[Database] Checking for schema updates...")
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_results JSON;"))
+        print("[Database] Schema sync successful.")
+    except Exception as e:
+        # If SQLite (which doesn't support IF NOT EXISTS for ADD COLUMN), we try-catch
+        error_str = str(e).lower()
+        if "duplicate column" in error_str or "already exists" in error_str:
+            pass # Column exists, all good!
+        else:
+            print(f"[Database] Schema sync warning: {e}")
+
+
 async def init_db():
-    """Create all tables on startup."""
+    """Create all tables and sync schema on startup."""
     from models.db_models import User, Conversation, Message  # noqa: F401
     async with engine.begin() as conn:
+        # 1. Create base tables
         await conn.run_sync(Base.metadata.create_all)
+        # 2. Run manual schema sync for new features
+        await sync_schema(conn)

@@ -48,9 +48,18 @@ async function parseFailure(response) {
     }
   }
 
+  // Handle common server-side errors (500, 502, etc.)
+  if (response.status >= 500) {
+    throw new ApiError(
+      "The server is currently syncing your workspace. Please wait 10 seconds and try again.",
+      response.status,
+      data
+    );
+  }
+
   const message =
     (typeof data === "object" && data?.detail) ||
-    (typeof data === "string" && data) ||
+    (typeof data === "string" && data.slice(0, 100)) ||
     `Request failed with status ${response.status}`;
 
   if (response.status === 401) {
