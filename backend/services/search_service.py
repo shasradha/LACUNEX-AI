@@ -17,7 +17,8 @@ async def search_web(query: str, max_results: int = 5) -> List[dict]:
         from duckduckgo_search import DDGS
 
         def _search():
-            with DDGS() as ddgs:
+            # DDGS initialization with a specific timeout to prevent hanging on Render
+            with DDGS(timeout=10) as ddgs:
                 results = []
                 for r in ddgs.text(query, max_results=max_results):
                     results.append({
@@ -27,7 +28,11 @@ async def search_web(query: str, max_results: int = 5) -> List[dict]:
                     })
                 return results
 
-        return await asyncio.to_thread(_search)
+        # Wait at most 12 seconds for the thread to complete (margin for setup)
+        return await asyncio.wait_for(asyncio.to_thread(_search), timeout=12.0)
+    except asyncio.TimeoutError:
+        print(f"[SearchService] Web search timed out for query: {query}")
+        return []
     except Exception as e:
         print(f"[SearchService] Web search failed: {e}")
         return []
@@ -41,7 +46,7 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
     import re
     # Clean conversational filler so DuckDuckGo actually finds images
     clean_query = re.sub(
-        r"(?i)\b(show|find)(?:\s+me)?(?:\s+some)?\s+(?:cool\s+)?", "", query
+        r"(?i)\b(show|find|search|get)(?:\s+me)?(?:\s+some)?\s+(?:cool\s+)?", "", query
     )
     # Strip "pictures of", "images of", "photos of" etc. 
     # But do NOT strip "wallpapers" because the user usually wants that exact format.
@@ -57,7 +62,7 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
         from duckduckgo_search import DDGS
 
         def _search():
-            with DDGS() as ddgs:
+            with DDGS(timeout=10) as ddgs:
                 results = []
                 for r in ddgs.images(clean_query, max_results=max_results):
                     image_url = r.get("image", "")
@@ -73,7 +78,10 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
                     })
                 return results[:max_results]
 
-        return await asyncio.to_thread(_search)
+        return await asyncio.wait_for(asyncio.to_thread(_search), timeout=12.0)
+    except asyncio.TimeoutError:
+        print(f"[SearchService] Image search timed out for query: {clean_query}")
+        return []
     except Exception as e:
         print(f"[SearchService] Image search failed: {e}")
         return []

@@ -151,6 +151,7 @@ export default function ChatBox({
   const scrollRef = useRef(null);
   const bottomRef = useRef(null);
   const skipReload = useRef(null);
+  const stopRef = useRef(null); // AbortController for terminating streams
 
   const currentTitle = conversation?.title || "New workspace";
 
@@ -307,6 +308,16 @@ export default function ChatBox({
     return () => { active = false; };
   }, [conversationId, onRequireLogin]);
 
+  /* ── Stop Handler ───────────────────────────── */
+  const handleStop = useCallback(() => {
+    if (stopRef.current) {
+      stopRef.current.abort();
+      stopRef.current = null;
+    }
+    setIsBusy(false);
+    setSearchStatus("");
+  }, []);
+
   /* ── Send Handler ───────────────────────────── */
   const handleSend = async () => {
     const prompt = draft.trim();
@@ -403,6 +414,10 @@ export default function ChatBox({
           model_name: getModelDisplayName(provider, selectedModel),
         },
       ]);
+      
+      // Initialize AbortController for this request
+      const controller = new AbortController();
+      stopRef.current = controller;
 
       await streamChat(
         prompt,
@@ -469,9 +484,14 @@ export default function ChatBox({
         },
         provider,
         selectedModel,
-        searchMode
+        searchMode,
+        controller.signal
       );
     } catch (err) {
+      if (err.name === "AbortError") {
+        console.log("Stream aborted by user.");
+        return;
+      }
       if (err instanceof AuthError) { onRequireLogin?.(); return; }
       setMessages((prev) => [
         ...prev,
@@ -679,15 +699,27 @@ export default function ChatBox({
               placeholder={imageFile ? "Add a prompt for this image..." : "Message LACUNEX AI..."}
               className="composer-textarea"
             />
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={(!draft.trim() && !imageFile) || isBusy}
-              className="send-btn"
-              aria-label="Send"
-            >
-              {isBusy ? <IconSpinner /> : <IconArrowUp />}
-            </button>
+            {isBusy ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="stop-btn animate-enter"
+                aria-label="Stop Response"
+                title="Stop Response"
+              >
+                <div className="stop-icon" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={(!draft.trim() && !imageFile)}
+                className="send-btn"
+                aria-label="Send"
+              >
+                <IconArrowUp />
+              </button>
+            )}
           </div>
 
           <div className="copyright-footer">

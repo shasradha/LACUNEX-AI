@@ -185,7 +185,8 @@ export async function streamChat(
   callbacks,
   provider = "groq",
   model = null,
-  webSearch = false
+  webSearch = false,
+  signal = null
 ) {
   const response = await fetch(`${API_BASE_URL}/api/generate`, {
     method: "POST",
@@ -198,6 +199,7 @@ export async function streamChat(
       model,
       web_search: webSearch,
     }),
+    signal,
   });
 
   if (!response.ok) {
