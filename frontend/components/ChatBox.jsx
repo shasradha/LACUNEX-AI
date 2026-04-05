@@ -483,6 +483,8 @@ export default function ChatBox({
           },
           onError: (errMsg) => {
             setSearchStatus("");
+            setIsBusy(false); // Force unlock UI
+            setStopSignal(null);
             setMessages((prev) =>
               updateMsg(prev, botId, {
                 content: errMsg || "Something went wrong.",

@@ -17,8 +17,8 @@ async def search_web(query: str, max_results: int = 5) -> List[dict]:
         from duckduckgo_search import DDGS
 
         def _search():
-            # DDGS initialization with a specific timeout to prevent hanging on Render
-            with DDGS(timeout=10) as ddgs:
+            # Modern DDGS usage to avoid 'Renamed' warnings
+            with DDGS(timeout=8) as ddgs:
                 results = []
                 for r in ddgs.text(query, max_results=max_results):
                     results.append({
@@ -28,8 +28,7 @@ async def search_web(query: str, max_results: int = 5) -> List[dict]:
                     })
                 return results
 
-        # Wait at most 12 seconds for the thread to complete (margin for setup)
-        return await asyncio.wait_for(asyncio.to_thread(_search), timeout=12.0)
+        return await asyncio.wait_for(asyncio.to_thread(_search), timeout=10.0)
     except asyncio.TimeoutError:
         print(f"[SearchService] Web search timed out for query: {query}")
         return []
@@ -62,11 +61,9 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
         from duckduckgo_search import DDGS
 
         def _search():
-            # Use the latest recommended initialization pattern
-            with DDGS(timeout=10) as ddgs:
+            # Modern DDGS usage to avoid 'Renamed' warnings
+            with DDGS(timeout=8) as ddgs:
                 results = []
-                # region='wt-wt' is worldwide. safesearch='off' to get better wallpapers
-                # but we'll stick to 'moderate' for default safety.
                 for r in ddgs.images(
                     clean_query, 
                     region="wt-wt", 
@@ -87,7 +84,7 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
                 return results
 
         print(f"[SearchService] Finding images for: {clean_query}")
-        return await asyncio.wait_for(asyncio.to_thread(_search), timeout=12.0)
+        return await asyncio.wait_for(asyncio.to_thread(_search), timeout=10.0)
     except asyncio.TimeoutError:
         print(f"[SearchService] Image search timed out for query: {clean_query}")
         return []

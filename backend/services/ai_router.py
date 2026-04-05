@@ -140,9 +140,19 @@ class AIRouter:
                 return
             except Exception as exc:
                 print(f"[AIRouter] {name} ({model_id}) failed: {exc}")
-
-        async for chunk in self._stream_gemini(message, history, DEFAULT_MODELS["gemini"]):
-            yield chunk
+                # If we're on the last part of fallback_chain, we'll hit Gemini below
+        
+        # ── Ultimate Dynamic Fallback ──────────────────────────────────────────
+        # If we reach here, OpenAI providers failed. Try Gemini 2.0 Flash (Very reliable)
+        try:
+            print(f"[AIRouter] Falling back to Gemini 2.0 Flash for reliability.")
+            async for chunk in self._stream_gemini(message, history, DEFAULT_MODELS["gemini"]):
+                yield chunk
+            return # _stream_gemini yields done
+        except Exception as e:
+            print(f"[AIRouter] Ultimate fallback failed: {e}")
+            yield {"type": "error", "content": "All AI providers are currently at capacity. Please try again in a few minutes."}
+            yield {"type": "done"} # 🔓 Force Unlock UI
 
     async def _stream_gemini(
         self,

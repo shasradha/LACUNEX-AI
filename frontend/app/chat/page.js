@@ -143,15 +143,16 @@ export default function ChatPage() {
     [activeId, handleAuthExpired, loadConversations]
   );
 
-  /* ── Boot screen ─────────────────────────────── */
+  /* ── Boot screen (Initial Load) ──────────────── */
   if (bootState === "booting") {
     return (
       <div className="boot-screen animate-enter">
         <div className="glass-panel boot-card">
           <div className="brand-badge brand-badge-sm animate-glow">L</div>
-          <div>
-            <p className="eyebrow">Loading</p>
-            <h1 className="heading-md">LACUNEX AI</h1>
+          <div style={{ flex: 1 }}>
+            <p className="eyebrow" style={{ margin: 0, opacity: 0.6 }}>Initializing</p>
+            <h1 className="heading-md" style={{ margin: "0 0 4px" }}>LACUNEX AI</h1>
+            <p className="text-xs" style={{ opacity: 0.4 }}>Connecting to secure neural network...</p>
           </div>
           <IconSpinner />
         </div>
