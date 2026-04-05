@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -130,28 +130,15 @@ export default function ArtifactViewer({ code, onClose }) {
   const [view, setView] = useState("preview"); // 'preview' | 'code'
   const [copied, setCopied] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-  const iframeRef = useRef(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const downloadMenuRef = useRef(null);
 
-  // Render iframe content
-  const renderPreview = useCallback(() => {
-    if (!iframeRef.current || view !== "preview") return;
-    const iframe = iframeRef.current;
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) return;
-
-    const htmlContent = isFullHtmlDocument(code) ? code : wrapSnippet(code);
-
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
-  }, [code, view]);
-
-  useEffect(() => {
-    // Small delay to ensure iframe is mounted
-    const timer = setTimeout(renderPreview, 50);
-    return () => clearTimeout(timer);
-  }, [renderPreview]);
+  // Build the srcdoc HTML string — this is the ONLY reliable way
+  // to render content in a sandboxed iframe (contentDocument.write fails
+  // when sandbox lacks allow-same-origin, which we omit for security)
+  const srcdocHtml = useMemo(() => {
+    return isFullHtmlDocument(code) ? code : wrapSnippet(code);
+  }, [code]);
 
   // Close download menu on outside click
   useEffect(() => {
@@ -250,7 +237,7 @@ export default function ArtifactViewer({ code, onClose }) {
         {view === "preview" && (
           <button
             className="artifact-action-btn"
-            onClick={renderPreview}
+            onClick={() => setRefreshKey(k => k + 1)}
             title="Re-run preview"
           >
             <IconRefresh />
@@ -271,8 +258,9 @@ export default function ArtifactViewer({ code, onClose }) {
       <div className="artifact-body">
         {view === "preview" ? (
           <iframe
-            ref={iframeRef}
+            key={refreshKey}
             title="Artifact Preview"
+            srcDoc={srcdocHtml}
             sandbox="allow-scripts allow-modals"
             className="artifact-iframe"
           />
