@@ -62,22 +62,31 @@ async def search_images(query: str, max_results: int = 6) -> List[dict]:
         from duckduckgo_search import DDGS
 
         def _search():
+            # Use the latest recommended initialization pattern
             with DDGS(timeout=10) as ddgs:
                 results = []
-                for r in ddgs.images(clean_query, max_results=max_results):
+                # region='wt-wt' is worldwide. safesearch='off' to get better wallpapers
+                # but we'll stick to 'moderate' for default safety.
+                for r in ddgs.images(
+                    clean_query, 
+                    region="wt-wt", 
+                    safesearch="moderate", 
+                    max_results=max_results
+                ):
                     image_url = r.get("image", "")
-                    # Skip broken/empty URLs
                     if not image_url or not image_url.startswith("http"):
                         continue
+                        
                     results.append({
                         "title": r.get("title", ""),
                         "url": image_url,
                         "thumbnail": r.get("thumbnail", image_url),
-                        "source": r.get("source", ""),
+                        "source": r.get("source", "Web"),
                         "source_url": r.get("url", ""),
                     })
-                return results[:max_results]
+                return results
 
+        print(f"[SearchService] Finding images for: {clean_query}")
         return await asyncio.wait_for(asyncio.to_thread(_search), timeout=12.0)
     except asyncio.TimeoutError:
         print(f"[SearchService] Image search timed out for query: {clean_query}")

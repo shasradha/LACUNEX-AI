@@ -73,6 +73,7 @@ class EncryptedMessageSave(BaseModel):
     mode: str = "normal"
     confidence: Optional[float] = None
     gaps_found: Optional[List[str]] = None
+    image_results: Optional[List[dict]] = None
     image_data: Optional[str] = None
 
 
@@ -84,6 +85,7 @@ class MessageHistoryItem(BaseModel):
     mode: str
     confidence: Optional[float]
     gaps_found: Optional[List[str]]
+    image_results: Optional[List[dict]]
     image_data: Optional[str]
     created_at: str
 

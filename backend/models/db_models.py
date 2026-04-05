@@ -63,6 +63,7 @@ class Message(Base):
     mode = Column(String, default="normal")            # "normal" | "think"
     confidence = Column(Float, nullable=True)
     gaps_found = Column(JSON, nullable=True)
+    image_results = Column(JSON, nullable=True)        # Persistent Image Gallery (Carousel)
     image_data = Column(Text, nullable=True)           # Encrypted base64 image data
     created_at = Column(DateTime, default=_now)
 

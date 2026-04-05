@@ -215,6 +215,7 @@ export default function ChatBox({
       mode: msg.mode || "normal",
       confidence: doneData?.confidence ?? msg.confidence ?? null,
       gaps_found: doneData?.gaps_found ?? msg.gaps_found ?? null,
+      image_results: doneData?.image_results ?? msg.image_results ?? null,
       image_data: msg.image ? JSON.stringify(msg.image) : null,
       model_name: msg.model_name || null,
     });
@@ -425,7 +426,15 @@ export default function ChatBox({
         history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
         {
           onModeDetected: (modeData) => {
-            // Update bot message with auto-detected badges immediately
+            setMsgIsWeb(modeData.web_search);
+            setMsgIsImage(modeData.image_search);
+            
+            // Set specific status message
+            const text = modeData.image_search 
+              ? "Finding high-quality images..." 
+              : "Searching the web...";
+            setSearchStatus(text);
+
             setMessages((prev) => updateMsg(prev, botId, {
               web_search: modeData.web_search,
               reasoning: modeData.reasoning,

@@ -95,6 +95,7 @@ async def save_message(
             mode=message.mode,
             confidence=message.confidence,
             gaps_found=message.gaps_found,
+            image_results=message.image_results,
             image_data=message.image_data,
         )
     )
@@ -131,6 +132,7 @@ async def get_conversation(
             mode=message.mode,
             confidence=message.confidence,
             gaps_found=message.gaps_found,
+            image_results=message.image_results,
             image_data=message.image_data,
             created_at=message.created_at.isoformat(),
         )
