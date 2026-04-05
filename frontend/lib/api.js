@@ -231,30 +231,35 @@ export async function streamChat(
         continue;
       }
 
-      const payload = JSON.parse(dataLine.slice(6));
+      try {
+        const payload = JSON.parse(dataLine.slice(6));
 
-      if (payload.type === "mode_detected") {
-        callbacks.onModeDetected?.(payload);
-      }
+        if (payload.type === "mode_detected") {
+          callbacks.onModeDetected?.(payload);
+        }
 
-      if (payload.type === "search_status") {
-        callbacks.onSearchStatus?.(payload.content || "Searching...");
-      }
+        if (payload.type === "search_status") {
+          callbacks.onSearchStatus?.(payload.content || "Searching...");
+        }
 
-      if (payload.type === "token") {
-        callbacks.onToken?.(payload.content || "");
-      }
+        if (payload.type === "token") {
+          callbacks.onToken?.(payload.content || "");
+        }
 
-      if (payload.type === "thinking") {
-        callbacks.onThinking?.(payload.content || "");
-      }
+        if (payload.type === "thinking") {
+          callbacks.onThinking?.(payload.content || "");
+        }
 
-      if (payload.type === "done") {
-        await callbacks.onDone?.(payload);
-      }
+        if (payload.type === "done") {
+          await callbacks.onDone?.(payload);
+        }
 
-      if (payload.type === "error") {
-        callbacks.onError?.(payload.content || "The model request failed.");
+        if (payload.type === "error") {
+          callbacks.onError?.(payload.content || "The model request failed.");
+        }
+      } catch (err) {
+        console.error("Malformed SSE chunk:", dataLine, err);
+        // Continue parsing next events
       }
     }
   }

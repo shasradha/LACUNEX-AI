@@ -29,7 +29,7 @@ _WEB_SEARCH_KEYWORDS = frozenset([
 ])
 
 _IMAGE_REQUEST_PATTERNS = [
-    re.compile(r"\b(?:show|find)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?)\b", re.I),
+    re.compile(r"\b(?:show|find|search|get)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?)\b", re.I),
     re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?)\s+of\b", re.I),
 ]
 
@@ -41,9 +41,8 @@ _URL_PATTERN = re.compile(
 # ── Reasoning Trigger Patterns ────────────────────────────────────────────────
 
 _REASONING_PATTERNS = [
-    re.compile(r"\b(?:solve|calculate|compute|proof|prove|derive|integrate|differentiate)\b", re.I),
-    re.compile(r"\b(?:equation|algorithm|theorem|formula|mathematically)\b", re.I),
-    re.compile(r"\b(?:explain|analyze|analyse|critique)\s+.*(?:in depth|in detail|step by step|comprehensively)\b", re.I),
+    re.compile(r"\b(?:solve|calculate|compute|prove|derive|integrate|differentiate|equation|algorithm|theorem|formula)\b", re.I),
+    re.compile(r"\b(?:explain|analyze|analyse|critique)\s+.*(?:depth|detail|step by step|comprehensively)\b", re.I),
     re.compile(r"\b(?:compare and contrast|difference between|pros and cons)\b", re.I),
     re.compile(r"\bwrite\s+.*(?:essay|report|research|thesis|dissertation)\b", re.I),
     re.compile(r"\b(?:why does|how does|what causes|impact of)\b", re.I),

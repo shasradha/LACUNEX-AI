@@ -278,6 +278,8 @@ export default function ChatBox({
 
       if (skipReload.current === conversationId) {
         skipReload.current = null;
+        // Optimization: If we just created this in-background, we already have the messages!
+        setIsLoading(false); 
         return;
       }
 
@@ -338,8 +340,13 @@ export default function ChatBox({
           localConvId = created.id;
           skipReload.current = created.id;
           setConversationId(created.id);
+          // Background sidebar update
           onConversationCreated?.({ selectConversationId: created.id });
           return created.id;
+        }).catch(err => {
+          console.error("BG Conv creation failed:", err);
+          setSaveNotice("History saving may be delayed.");
+          return null; 
         });
       } else {
         createConvPromise = Promise.resolve(localConvId);
@@ -439,8 +446,16 @@ export default function ChatBox({
               image_results: data.image_results ?? [],
             };
             setMessages((prev) => updateMsg(prev, botId, finalMsg));
-            const finalId = await createConvPromise;
-            await persistSafely(finalId, [userMsg, finalMsg], data);
+            
+            // Cleanly await the conversation ID if it was being created in background
+            try {
+              const finalId = await createConvPromise;
+              if (finalId) {
+                await persistSafely(finalId, [userMsg, finalMsg], data);
+              }
+            } catch (err) {
+              console.error("Final persistence failed:", err);
+            }
           },
           onError: (errMsg) => {
             setSearchStatus("");

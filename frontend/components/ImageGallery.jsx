@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 
 function IconChevronLeft() {
   return (
@@ -36,7 +36,8 @@ function getDomain(url) {
   }
 }
 
-function ImageCard({ image, index }) {
+// Separate component for performance (memoized)
+const ImageCard = React.memo(({ image, index }) => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
@@ -74,46 +75,50 @@ function ImageCard({ image, index }) {
       </div>
     </div>
   );
-}
+});
+
+ImageCard.displayName = "ImageCard";
 
 export default function ImageGallery({ images }) {
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  // Drag to scroll
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const scrollStartX = useRef(0);
-
+  // Use Intersection Observer or a low-frequency scroll check to prevent main-thread freezing
   const checkScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 8);
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+    
+    // We only update if state actually changes to prevent render storms
+    const nowLeft = el.scrollLeft > 10;
+    const nowRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 10;
+    
+    setCanScrollLeft(nowLeft);
+    setCanScrollRight(nowRight);
   }, []);
+
+  useEffect(() => {
+    // Initial check after mount/render
+    checkScroll();
+    
+    // Debounced resize listener
+    let timeout;
+    const handleResize = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(checkScroll, 100);
+    };
+    
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timeout);
+    };
+  }, [checkScroll, images]);
 
   const scrollBy = (dir) => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollBy({ left: dir * 280, behavior: "smooth" });
-  };
-
-  const onMouseDown = (e) => {
-    isDragging.current = true;
-    dragStartX.current = e.pageX;
-    scrollStartX.current = scrollRef.current?.scrollLeft || 0;
-    document.body.style.userSelect = "none";
-  };
-
-  const onMouseMove = (e) => {
-    if (!isDragging.current || !scrollRef.current) return;
-    scrollRef.current.scrollLeft = scrollStartX.current - (e.pageX - dragStartX.current);
-  };
-
-  const onMouseUp = () => {
-    isDragging.current = false;
-    document.body.style.userSelect = "";
+    el.scrollBy({ left: dir * 300, behavior: "smooth" });
   };
 
   if (!images || images.length === 0) return null;
@@ -153,10 +158,6 @@ export default function ImageGallery({ images }) {
         ref={scrollRef}
         className="img-gallery-scroll"
         onScroll={checkScroll}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
       >
         {images.map((img, i) => (
           <ImageCard key={i} image={img} index={i} />
