@@ -112,7 +112,19 @@ export default function ChatPage() {
       return;
     }
     const t = setTimeout(() => loadConversations(), 0);
-    return () => clearTimeout(t);
+    
+    // Safety: if boot takes more than 12s, force into ready state
+    const bootSafety = setTimeout(() => {
+      setBootState((prev) => {
+        if (prev === "booting") {
+          setError("Server is waking up — refresh to try again.");
+          return "ready";
+        }
+        return prev;
+      });
+    }, 12000);
+    
+    return () => { clearTimeout(t); clearTimeout(bootSafety); };
   }, [loadConversations, router]);
 
   const activeConversation = useMemo(

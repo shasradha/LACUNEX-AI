@@ -276,6 +276,7 @@ export default function ChatBox({
       if (!conversationId) {
         setMessages([]);
         setConvError("");
+        setIsLoading(false);
         return;
       }
 

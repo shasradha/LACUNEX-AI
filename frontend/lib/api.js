@@ -82,35 +82,54 @@ async function request(path, options = {}) {
 
   const isFormData = body instanceof FormData;
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers: buildHeaders({ auth, json: json && !isFormData, headers }),
-    body:
-      body == null
-        ? undefined
-        : isFormData
-          ? body
-          : json
-            ? JSON.stringify(body)
-            : body,
-    cache: "no-store",
-    ...rest,
-  });
+  // 15-second safety timeout — prevents UI freezing when Render restarts
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    await parseFailure(response);
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: buildHeaders({ auth, json: json && !isFormData, headers }),
+      body:
+        body == null
+          ? undefined
+          : isFormData
+            ? body
+            : json
+              ? JSON.stringify(body)
+              : body,
+      cache: "no-store",
+      signal: controller.signal,
+      ...rest,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      await parseFailure(response);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return response.json();
+    }
+
+    return response.text();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      throw new ApiError(
+        "Request timed out. The server may be restarting — please try again in a few seconds.",
+        408,
+        null
+      );
+    }
+    throw err;
   }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return response.json();
-  }
-
-  return response.text();
 }
 
 export async function signup(email, password, name) {
