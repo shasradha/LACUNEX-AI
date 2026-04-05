@@ -625,26 +625,28 @@ export default function ChatBox({
   };
 
   /* ── Artifact Extraction ───────────────────── */
+  const extractArtifactCode = useCallback((content) => {
+    if (!content) return null;
+    // 1. Try our strict <lacunex-artifact> tag format
+    const tagMatch = content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
+    if (tagMatch && tagMatch[1]) return tagMatch[1].trim();
+    // 2. Fallback: markdown code blocks (```html, ```jsx, etc.)
+    const mdMatch = content.match(/```(?:html|jsx|tsx|js)\s*\n([\s\S]*?)\n\s*```/i);
+    if (mdMatch && mdMatch[1] && mdMatch[1].trim().length > 80) return mdMatch[1].trim();
+    return null;
+  }, []);
+
   useEffect(() => {
-    // Look at the latest assistant message to see if it poured out an artifact
     const latestBot = [...messages].reverse().find(m => m.role === "assistant");
-    if (latestBot && latestBot.content) {
-      // 1. Try our strict tag format
-      const tagMatch = latestBot.content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
-      if (tagMatch && tagMatch[1]) {
-        setActiveArtifact(tagMatch[1].trim());
-        return;
-      }
-      
-      // 2. Fallback: Many models ignore XML tags and just use markdown code blocks
-      const mdMatch = latestBot.content.match(/```(?:html|jsx|tsx|js)\s*([\s\S]*?)```/i);
-      if (mdMatch && mdMatch[1]) {
-        setActiveArtifact(mdMatch[1].trim());
-        return;
-      }
-      // If we are fully done and no artifact is found, we could clear it, but let's keep the split screen active if the user explicitly created one unless they close it.
+    if (latestBot) {
+      const code = extractArtifactCode(latestBot.content);
+      if (code) setActiveArtifact(code);
     }
-  }, [messages, isBusy]);
+  }, [messages, isBusy, extractArtifactCode]);
+
+  const handleOpenArtifact = useCallback((code) => {
+    setActiveArtifact(code);
+  }, []);
 
   /* ── Render ─────────────────────────────────── */
   return (
@@ -733,7 +735,7 @@ export default function ChatBox({
                 </div>
               )}
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
+                <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} />
               ))}
               {isBusy && searchStatus && (
                 <div className="search-status-indicator">

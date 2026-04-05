@@ -147,10 +147,30 @@ function createImageSource(image) {
   return null;
 }
 
-const MessageBubble = memo(({ message }) => {
+const MessageBubble = memo(({ message, onOpenArtifact }) => {
   const currentUser = useMemo(() => getUser(), []);
   const isUser = message.role === "user";
   const imageSource = useMemo(() => createImageSource(message.image), [message.image]);
+
+  // Extract artifact code from this message for the "Launch Artifact" card
+  const artifactCode = useMemo(() => {
+    if (isUser || !message.content) return null;
+    const tagMatch = message.content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
+    if (tagMatch && tagMatch[1]) return tagMatch[1].trim();
+    const mdMatch = message.content.match(/```(?:html|jsx|tsx|js)\s*\n([\s\S]*?)\n\s*```/i);
+    if (mdMatch && mdMatch[1] && mdMatch[1].trim().length > 80) return mdMatch[1].trim();
+    return null;
+  }, [message.content, isUser]);
+
+  // Clean content: strip artifact blocks from the displayed markdown
+  const cleanContent = useMemo(() => {
+    let content = message.content || "";
+    // Strip <lacunex-artifact> tags
+    content = content.replace(/<lacunex-artifact[^>]*>[\s\S]*?<\/lacunex-artifact>/ig, "");
+    // Citation formatting
+    content = content.replace(/\[(\d+)\]/g, "[$1](#source-$1)");
+    return content.trim();
+  }, [message.content]);
 
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [copiedCodeBlock, setCopiedCodeBlock] = useState("");
@@ -305,12 +325,33 @@ const MessageBubble = memo(({ message }) => {
             </div>
           )}
 
+          {/* Launch Artifact Card */}
+          {artifactCode && onOpenArtifact && (
+            <button
+              type="button"
+              className="launch-artifact-card"
+              onClick={() => onOpenArtifact(artifactCode)}
+            >
+              <div className="launch-artifact-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+              </div>
+              <div className="launch-artifact-info">
+                <span className="launch-artifact-title">Interactive Artifact</span>
+                <span className="launch-artifact-sub">Click to open live preview</span>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto", opacity: 0.5 }}>
+                <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
           {/* Content */}
           <div className="markdown-body">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {(message.content || "")
-                .replace(/<lacunex-artifact[^>]*>[\s\S]*?<\/lacunex-artifact>/ig, "\n\n_Interactive artifact opened in the adjacent panel. (Click Code to view raw source)_\n\n")
-                .replace(/\[(\d+)\]/g, "[$1](#source-$1)")}
+              {cleanContent}
             </ReactMarkdown>
           </div>
 
