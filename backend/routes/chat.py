@@ -51,9 +51,10 @@ async def chat(
     search_data = {"web_results": [], "image_results": []}
     if auto_web_search:
         try:
+            # Increased timeout to 15s to allow heavy image/web gathering to complete
             search_data = await asyncio.wait_for(
                 search_all(request.message, image_search=auto_image_search),
-                timeout=5.0,
+                timeout=15.0,
             )
         except (asyncio.TimeoutError, Exception) as e:
             print(f"[Chat] Search failed or timed out: {e}")
