@@ -150,6 +150,10 @@ export async function getModels() {
   return request("/api/models", { auth: false });
 }
 
+export async function pingServer() {
+  return request("/", { auth: false });
+}
+
 export async function getConversations() {
   return request("/api/history/");
 }

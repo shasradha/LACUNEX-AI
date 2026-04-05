@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import ChatBox from "@/components/ChatBox";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
-import { AuthError, deleteConversation, getConversations } from "@/lib/api";
+import { AuthError, deleteConversation, getConversations, pingServer } from "@/lib/api";
 import { clearAuth, getToken } from "@/lib/auth";
 
 function IconSpinner() {
@@ -123,8 +123,17 @@ export default function ChatPage() {
         return prev;
       });
     }, 12000);
+
+    // Keep-alive: ping server every 4 minutes (Render sleep timeout is usually 5-15 mins)
+    const pingInterval = setInterval(() => {
+      pingServer().catch(() => {}); // Silent ignore
+    }, 4 * 60 * 1000);
     
-    return () => { clearTimeout(t); clearTimeout(bootSafety); };
+    return () => { 
+      clearTimeout(t); 
+      clearTimeout(bootSafety); 
+      clearInterval(pingInterval);
+    };
   }, [loadConversations, router]);
 
   const activeConversation = useMemo(
