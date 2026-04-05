@@ -13,7 +13,7 @@ Pipeline:
 
 import json
 import asyncio
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from models.schemas import ChatRequest
 from models.db_models import User
@@ -22,6 +22,7 @@ from services.ai_router import ai_router
 from services.gap_detector import gap_detector
 from services.search_service import search_all, format_text_context
 from services.intent_detector import detect_intent
+from services.memory_service import extract_and_save_memory
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/api", tags=["Chat"])
 @router.post("/generate")
 async def chat(
     request: ChatRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -38,6 +40,9 @@ async def chat(
 
     # ── Step 1: Run intent detection (instant, no API calls) ─────────────────
     intent = detect_intent(request.message)
+
+    # Trigger background personal memory extraction
+    background_tasks.add_task(extract_and_save_memory, current_user.id, request.message)
 
     # Respect user's explicit choices, but fill in gaps with auto-detection
     auto_web_search = request.web_search or intent["web_search"]
@@ -143,6 +148,7 @@ async def chat(
             mode=effective_mode,
             provider=request.provider,
             model=request.model,
+            memory_profile=current_user.memory_profile,
         ):
             if chunk["type"] == "thinking":
                 yield f"data: {json.dumps(chunk)}\n\n"

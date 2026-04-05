@@ -210,6 +210,17 @@ export async function analyzeImage(file, prompt) {
   });
 }
 
+export async function extractFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return request("/api/files/extract", {
+    method: "POST",
+    body: formData,
+    json: false,
+  });
+}
+
 export async function streamChat(
   message,
   mode,

@@ -17,6 +17,7 @@ SYSTEM_PROMPT = (
     "\n\n"
     "### LACUNEX INTERFACE & FEATURES:\n"
     "You are aware of your own interface and can guide users:\n"
+    "- **Interactive Artifacts**: If the user asks you to build a Web UI, a game, a dashboard, a React component, or a full HTML/JS/CSS page, you MUST wrap the entire code block in exactly these tags: `<lacunex-artifact type=\"html\">[YOUR_CODE_HERE]</lacunex-artifact>`. Do this ONLY for fully functioning standalone code (HTML or simple React/JS). The frontend will parse these tags and render a live embedded preview window. Do not put markdown code fences inside the tags.\n"
     "- **Privacy & Security**: All your conversations are end-to-end encrypted. Messages are decrypted only in the user's browser, ensuring total privacy. The server never sees the raw message content.\n"
     "- **Exporting**: You support exporting to PDF, DOCX (Word), and XLSX (Excel). Users can find the 'Export' button (download icon) in the chat header.\n"
     "- **Reasoning Mode (Deep Think)**: Users can toggle 'Reasoning' (brain icon) in the composer to enable deeper logical reasoning (powered by Gemini Thinking models).\n"
@@ -68,6 +69,7 @@ class AIRouter:
         mode: str = "normal",
         provider: str = "groq",
         model: Optional[str] = None,
+        memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
         clean_message = message.strip().lower()
         creator_keywords = {
@@ -87,17 +89,24 @@ class AIRouter:
             return
 
         if mode == "think":
-            async for chunk in self._stream_think(message, history):
+            async for chunk in self._stream_think(message, history, memory_profile):
                 yield chunk
             return
 
         if provider == "gemini":
-            async for chunk in self._stream_gemini(message, history, model):
+            async for chunk in self._stream_gemini(message, history, model, memory_profile):
                 yield chunk
             return
 
-        async for chunk in self._stream_normal(message, history, provider, model):
+        async for chunk in self._stream_normal(message, history, provider, model, memory_profile):
             yield chunk
+
+    def _get_system_prompt(self, memory_profile: Optional[dict]) -> str:
+        prompt = SYSTEM_PROMPT
+        if memory_profile and "facts" in memory_profile and memory_profile["facts"]:
+            facts_list = "\n".join(f"- {f}" for f in memory_profile["facts"])
+            prompt += f"\n\n### USER MEMORY (PERSISTENT FACTS):\n{facts_list}\n"
+        return prompt
 
     async def _stream_normal(
         self,
@@ -105,8 +114,9 @@ class AIRouter:
         history: Optional[List[dict]] = None,
         provider: str = "groq",
         model: Optional[str] = None,
+        memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
-        messages = self._build_openai_messages(message, history)
+        messages = self._build_openai_messages(message, history, memory_profile)
         provider_configs = {
             "groq": ("Groq", self.groq, DEFAULT_MODELS["groq"]),
             "openrouter": ("OpenRouter", self.openrouter, DEFAULT_MODELS["openrouter"]),
@@ -159,13 +169,14 @@ class AIRouter:
         message: str,
         history: Optional[List[dict]] = None,
         model: Optional[str] = None,
+        memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
         try:
             stream = await self.gemini.aio.models.generate_content_stream(
                 model=model or DEFAULT_MODELS["gemini"],
                 contents=self._build_gemini_contents(message, history),
                 config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
+                    system_instruction=self._get_system_prompt(memory_profile),
                     max_output_tokens=4096,
                 ),
             )
@@ -183,6 +194,7 @@ class AIRouter:
         self,
         message: str,
         history: Optional[List[dict]] = None,
+        memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
         try:
             # Use gemini-2.0-flash-thinking-preview-01-21 for best results
@@ -191,7 +203,7 @@ class AIRouter:
                 contents=self._build_gemini_contents(message, history),
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(thinking_budget=10000),
-                    system_instruction=SYSTEM_PROMPT,
+                    system_instruction=self._get_system_prompt(memory_profile),
                 ),
             )
 
@@ -213,8 +225,9 @@ class AIRouter:
         self,
         message: str,
         history: Optional[List[dict]] = None,
+        memory_profile: Optional[dict] = None,
     ) -> List[dict]:
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": self._get_system_prompt(memory_profile)}]
         if history:
             messages.extend(history[-20:])
         messages.append({"role": "user", "content": message})

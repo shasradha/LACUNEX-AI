@@ -27,6 +27,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
+    memory_profile = Column(JSON, nullable=True, default=dict) # E.g. {"name": "Shasradha", "preferences": ["likes python", "wants short answers"]}
     created_at = Column(DateTime, default=_now)
 
     conversations = relationship(

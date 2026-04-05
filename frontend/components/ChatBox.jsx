@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ImageUpload from "./ImageUpload";
 import MessageBubble from "./MessageBubble";
+import ArtifactViewer from "./ArtifactViewer";
 import ModelSelector from "./ModelSelector";
 import SearchToggle from "./SearchToggle";
 import ThinkToggle from "./ThinkToggle";
@@ -42,6 +43,14 @@ function IconSparkle() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+    </svg>
+  );
+}
+
+function IconPaperclip() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
     </svg>
   );
 }
@@ -142,11 +151,14 @@ export default function ChatBox({
   const [modelCatalog, setModelCatalog] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [attachedFiles, setAttachedFiles] = useState([]); // RAG extracted files
+  const [isExtracting, setIsExtracting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
   const [searchStatus, setSearchStatus] = useState("");
+  const [activeArtifact, setActiveArtifact] = useState(null);
   const exportMenuRef = useRef(null);
 
   const textareaRef = useRef(null);
@@ -206,6 +218,34 @@ export default function ChatBox({
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   }, [imagePreview]);
+
+  const handleFileAttach = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files || files.length === 0) return;
+    setIsExtracting(true);
+    try {
+      // We import it dynamically if not imported at top or assume api.js has extractFile
+      const { extractFile } = await import("@/lib/api");
+      const results = await Promise.all(
+        files.map(async (f) => {
+          try {
+            const res = await extractFile(f);
+            return { name: f.name, content: res.content };
+          } catch (err) {
+            console.error(`Failed to extract ${f.name}`, err);
+            return null;
+          }
+        })
+      );
+      setAttachedFiles((prev) => [...prev, ...results.filter(Boolean)]);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const removeAttachedFile = (idx) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const saveEncrypted = useCallback(async (convId, msg, doneData) => {
     const encrypted = await encryptMessage(msg.content || "");
@@ -325,19 +365,26 @@ export default function ChatBox({
 
   /* ── Send Handler ───────────────────────────── */
   const handleSend = async () => {
-    const prompt = draft.trim();
-    if ((!prompt && !imageFile) || isBusy) return;
+    const rawPrompt = draft.trim();
+    if ((!rawPrompt && !imageFile && attachedFiles.length === 0) || isBusy) return;
+
+    let fullPrompt = rawPrompt;
+    if (attachedFiles.length > 0) {
+      const fileContext = attachedFiles.map(f => `--- FILE: ${f.name} ---\n${f.content}\n--- END OF FILE ---`).join("\n\n");
+      fullPrompt = (rawPrompt ? `${rawPrompt}\n\n` : "") + `[ATTACHED DOCUMENTS CONTEXT]\n${fileContext}`;
+    }
 
     const history = [...messages];
     const userMsg = {
       id: createMessageId(),
       role: "user",
-      content: prompt || "Please analyze this image.",
+      content: rawPrompt || (attachedFiles.length > 0 ? `Attached ${attachedFiles.length} file(s) for analysis.` : "Please analyze this image."),
       mode: thinkMode ? "think" : "normal",
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setDraft("");
+    setAttachedFiles([]);
     setConvError("");
     setSaveNotice("");
     setIsBusy(true);
@@ -352,7 +399,7 @@ export default function ChatBox({
     try {
       // Background conversation creation — DO NOT AWAIT, instantly proceed to stream!
       if (!localConvId) {
-        createConvPromise = createConversation(buildTitle(prompt, Boolean(imageFile))).then(created => {
+        createConvPromise = createConversation(buildTitle(rawPrompt, Boolean(imageFile))).then(created => {
           localConvId = created.id;
           skipReload.current = created.id;
           setConversationId(created.id);
@@ -370,7 +417,7 @@ export default function ChatBox({
 
       // Image analysis
       if (imageFile) {
-        const result = await analyzeImage(imageFile, prompt || undefined);
+        const result = await analyzeImage(imageFile, rawPrompt || undefined);
         const botMsg = {
           id: createMessageId(),
           role: "assistant",
@@ -386,8 +433,8 @@ export default function ChatBox({
       }
 
       // Image generation
-      if (/^\/(imagine|generate)\s+/i.test(prompt)) {
-        const imagePrompt = prompt.replace(/^\/(imagine|generate)\s+/i, "");
+      if (/^\/(imagine|generate)\s+/i.test(rawPrompt)) {
+        const imagePrompt = rawPrompt.replace(/^\/(imagine|generate)\s+/i, "");
         const result = await generateImage(imagePrompt);
         const botMsg = {
           id: createMessageId(),
@@ -425,7 +472,7 @@ export default function ChatBox({
       stopRef.current = controller;
 
       await streamChat(
-        prompt,
+        fullPrompt,
         thinkMode ? "think" : "normal",
         history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
         {
@@ -576,9 +623,24 @@ export default function ChatBox({
     }
   };
 
+  /* ── Artifact Extraction ───────────────────── */
+  useEffect(() => {
+    // Look at the latest assistant message to see if it poured out an artifact
+    const latestBot = [...messages].reverse().find(m => m.role === "assistant");
+    if (latestBot && latestBot.content) {
+      const match = latestBot.content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
+      if (match && match[1]) {
+        setActiveArtifact(match[1].trim());
+      } else if (!isBusy) {
+        // Only clear if we are totally done and no artifact is found
+        // setActiveArtifact(null); 
+      }
+    }
+  }, [messages, isBusy]);
+
   /* ── Render ─────────────────────────────────── */
   return (
-    <div className="chat-container">
+    <div className={`chat-container ${activeArtifact ? "has-artifact" : ""}`}>
       <div className="chat-panel">
         {/* Header */}
         <div className="chat-header">
@@ -683,6 +745,16 @@ export default function ChatBox({
 
         {/* Composer */}
         <div className="composer-wrap">
+          {attachedFiles.length > 0 && (
+            <div className="attached-files-row" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", padding: "0.5rem 1rem 0" }}>
+              {attachedFiles.map((f, i) => (
+                <div key={i} className="file-pill" style={{ display: "flex", alignItems: "center", gap: "0.25rem", padding: "4px 8px", background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: "8px", fontSize: "0.75rem", color: "#e2e8f0" }}>
+                  <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                  <button type="button" onClick={() => removeAttachedFile(i)} style={{ background: "transparent", color: "#a855f7", cursor: "pointer", marginLeft: "4px" }}>&times;</button>
+                </div>
+              ))}
+            </div>
+          )}
           {imagePreview && (
             <div className="composer-preview">
               <ImageUpload preview={imagePreview} onClear={clearImage} onSelect={handleImageSelect} />
@@ -705,16 +777,29 @@ export default function ChatBox({
           </div>
 
           <div className="composer-box">
-            {!imagePreview && (
-              <ImageUpload onClear={clearImage} onSelect={handleImageSelect} />
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", paddingLeft: "10px" }}>
+              <label className="msg-action-btn" style={{ cursor: "pointer", padding: "8px", color: "var(--text-secondary)", position: "relative" }} title="Attach Files">
+                <IconPaperclip />
+                <input type="file" multiple style={{ display: "none" }} onChange={handleFileAttach} accept=".pdf,.docx,.xlsx,.txt,.md,.csv" disabled={isExtracting} />
+                {isExtracting && (
+                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-surface)", borderRadius: "8px" }}>
+                    <IconSpinner />
+                  </span>
+                )}
+              </label>
+              {!imagePreview && (
+                <div style={{ padding: "8px" }}>
+                  <ImageUpload onClear={clearImage} onSelect={handleImageSelect} />
+                </div>
+              )}
+            </div>
             <textarea
               ref={textareaRef}
               rows={1}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={imageFile ? "Add a prompt for this image..." : "Message LACUNEX AI..."}
+              placeholder={imageFile ? "Add a prompt for this image..." : (attachedFiles.length > 0 ? "Ask about these documents..." : "Message LACUNEX AI...")}
               className="composer-textarea"
             />
             {isBusy ? (
@@ -757,6 +842,11 @@ export default function ChatBox({
           </div>
         </div>
       </div>
+      
+      {/* Interactive Artifact Split Screen */}
+      {activeArtifact && (
+        <ArtifactViewer code={activeArtifact} onClose={() => setActiveArtifact(null)} />
+      )}
     </div>
   );
 }

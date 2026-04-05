@@ -16,3 +16,4 @@ openpyxl
 asyncpg
 psycopg2-binary
 ddgs
+PyPDF2

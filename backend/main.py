@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from database.connection import init_db
-from routes import auth, chat, export, history, image, models
+from routes import auth, chat, export, history, image, models, files
 
 
 def get_allowed_origins() -> list[str]:
@@ -68,6 +68,7 @@ app.include_router(export.router)
 app.include_router(image.router)
 app.include_router(history.router)
 app.include_router(models.router)
+app.include_router(files.router)
 
 
 @app.get("/")

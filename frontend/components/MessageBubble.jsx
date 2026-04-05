@@ -279,7 +279,9 @@ const MessageBubble = memo(({ message }) => {
           {/* Content */}
           <div className="markdown-body">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {(message.content || "").replace(/\[(\d+)\]/g, "[$1](#source-$1)")}
+              {(message.content || "")
+                .replace(/<lacunex-artifact[^>]*>[\s\S]*?<\/lacunex-artifact>/ig, "\n\n_Interactive artifact opened in the adjacent panel. (Click Code to view raw source)_\n\n")
+                .replace(/\[(\d+)\]/g, "[$1](#source-$1)")}
             </ReactMarkdown>
           </div>
 
