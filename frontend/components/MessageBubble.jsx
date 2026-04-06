@@ -203,10 +203,31 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
 
   const handleRunCode = async (code, lang) => {
     const key = code.slice(0, 100);
+    const lowLang = lang.toLowerCase();
     setRunningCode(key);
+    
     try {
-      const result = await executeCode(code, lang);
-      setCodeOutputs(prev => ({ ...prev, [key]: { output: result.output, success: result.success } }));
+      let result;
+      // 1. Try local execution for primary languages
+      if (lowLang === "python" || lowLang === "py" || lowLang === "python3") {
+        const { runPythonLocally } = await import("../lib/sandbox");
+        result = await runPythonLocally(code);
+      } else if (lowLang === "javascript" || lowLang === "js") {
+        const { runJSLocally } = await import("../lib/sandbox");
+        result = await runJSLocally(code);
+      } else {
+        // 2. Fallback to backend for everything else
+        result = await executeCode(code, lang);
+      }
+      
+      setCodeOutputs(prev => ({ 
+        ...prev, 
+        [key]: { 
+          output: result.output, 
+          success: result.success,
+          isLocal: result.isLocal 
+        } 
+      }));
     } catch (err) {
       setCodeOutputs(prev => ({ ...prev, [key]: { output: err.message || "Execution failed", success: false } }));
     } finally {
@@ -238,7 +259,7 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
                     {runningCode === codeKey ? (
                       <>⏳ Running...</>
                     ) : (
-                      <>▶ Run</>
+                      <>▶ Run {output?.isLocal && <span className="local-badge">⚡ Local</span>}</>
                     )}
                   </button>
                 )}

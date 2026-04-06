@@ -4305,3 +4305,15 @@ textarea { resize: none; }
 .code-output-error .code-output-body {
   color: #fca5a5;
 }
+
+.local-badge {
+  font-size: 0.65rem;
+  background: rgba(88,166,255,0.15);
+  color: #58a6ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}

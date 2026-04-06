@@ -17,7 +17,6 @@ router = APIRouter(prefix="/api/code", tags=["Code"])
 PISTON_MIRRORS = [
     "https://piston.sh/api/v2",
     "https://piston.rce.fi/api/v2",
-    "https://piston.e-z.host/api/v2",
 ]
 
 # Language → Piston runtime mapping (version * = latest available)
