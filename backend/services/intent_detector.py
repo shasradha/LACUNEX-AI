@@ -1,7 +1,14 @@
 """
-LACUNEX AI — Intent Detector
+LACUNEX AI — Intent Detector (v2 — Advanced)
 Instantly classifies user messages to auto-enable Web Search or Reasoning.
 Zero API calls. Pure Python. < 1ms latency.
+
+v2 upgrades:
+- Temporal awareness (tomorrow, yesterday, next week, tonight, etc.)
+- Sports/events intelligence (match, score, result, fixture, etc.)
+- Product/service queries (buy, order, price, specs, etc.)
+- People/place awareness (president of, capital of, etc.)
+- Question-word heuristics (who, what, when, where, which + real-world nouns)
 """
 
 import re
@@ -13,27 +20,75 @@ _WEB_SEARCH_KEYWORDS = frozenset([
     # Recency / live data
     "latest", "recent", "today", "right now", "currently", "live", "just happened",
     "breaking", "news", "update", "2024", "2025", "2026", "what's going on",
+    "this week", "this month", "this year", "ongoing", "happening now",
+    
+    # Temporal — CRITICAL for smart auto-search
+    "tomorrow", "yesterday", "tonight", "last night", "next week", "last week",
+    "next month", "last month", "upcoming", "schedule", "scheduled",
+    "next year", "last year", "next game", "last game",
+    
     # Discovery (with typo support)
     "find me", "show me", "search for", "look up", "google", "fine me", "get me",
     "show pictures", "show images", "find images", "find pictures",
     "show me pictures of", "find me pictures of", "images of", "photos of",
+    
     # Real-world data & queries
     "price of", "stock price", "weather", "forecast", "exchange rate",
     "how much is", "what is the price", "how much does", "cost of",
+    "salary of", "net worth", "market cap", "inflation",
+    
+    # Sports & Events — CRITICAL for auto-search
+    "match", "score", "result", "fixture", "standings", "ranking",
+    "ipl", "world cup", "premier league", "champions league", "la liga",
+    "nba", "nfl", "cricket", "football", "soccer", "tennis", "f1",
+    "olympics", "tournament", "playoff", "semi final", "final match",
+    "man of the match", "player of", "batting", "bowling", "goal",
+    "winner", "loser", "draw", "tied", "points table", "league table",
+    
     # Current events & knowledge
     "who won", "what happened", "what is happening", "who is", "what is",
-    "when did", "where is", "how to", "who wrote", "what was", "where can i", 
-    "is it open", "opening hours", "can you finding", "can you check", 
+    "when did", "where is", "how to", "who wrote", "what was", "where can i",
+    "is it open", "opening hours", "can you check",
+    "tell me about", "tell about", "info about", "information about",
+    "details about", "facts about", "know about",
+    
+    # People, places, organizations
+    "president of", "ceo of", "founder of", "capital of", "population of",
+    "located in", "headquartered", "who owns", "who founded", "who created",
+    "age of", "birthday of", "born in",
+    
+    # Products & services
+    "buy", "order", "purchase", "specs", "specifications", "release date",
+    "launch date", "availability", "where to buy", "discount", "deal",
+    "coupon", "offer", "sale",
+    
     # Comparisons & Facts
-    "best", "top 10", "most popular", "highest", "lowest", "vs", "versus",
-    "difference between", "compare", "review",
+    "best", "top 10", "top 5", "most popular", "highest", "lowest",
+    "vs", "versus", "difference between", "compare", "review", "rating",
+    "benchmark", "alternative to", "similar to",
+    
+    # Travel & Local
+    "flights", "hotels", "restaurants", "near me", "directions to",
+    "distance between", "time zone", "currency of",
+    
     # Site / url review
     "how is this website", "review this site", "check this site",
     "is this site safe", "is this website",
 ])
 
+# Question-word patterns that strongly suggest web search need
+_QUESTION_WEB_PATTERNS = [
+    # "Who is [person]", "What is [thing]", "Where is [place]"
+    re.compile(r"\b(?:who|what|where|when|which|whose)\s+(?:is|are|was|were|will|did|does|do|has|have|had)\s+(?:the\s+)?(?!your|my|this|that|the best way|the difference|a good|an? )", re.I),
+    # "How many", "How old", "How far", "How long does it take"  
+    re.compile(r"\bhow\s+(?:many|much|old|far|long|tall|big|fast|deep)\b", re.I),
+    # "Is [X] open/available/real/true/correct"
+    re.compile(r"\bis\s+(?:there|it|he|she|this)\s+(?:true|real|correct|still|open|available|alive|dead)\b", re.I),
+    # "Can I / Where can I / How can I [buy/get/find/visit]"
+    re.compile(r"\b(?:where|how)\s+can\s+i\s+(?:buy|get|find|visit|watch|stream|download|book|order)\b", re.I),
+]
+
 _IMAGE_REQUEST_PATTERNS = [
-    # Support for find/fine/search/get + wallpapers/wallapapers/wallpappers/pix/pics/images/phtotos
     re.compile(r"\b(?:show|find|fine|search|get|see|fetch|display|look|look up)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?|wallapapers?|wallpappers?|wallppapers?|pix|pics|backgrounds?|wallp|walls?)\b", re.I),
     re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?|wallapapers?|pix|pics|backgrounds?|wallp|walls?)\s+of\b", re.I),
 ]
@@ -88,14 +143,21 @@ def detect_intent(message: str) -> dict:
     if _URL_PATTERN.search(message):
         web_search = True
 
-    # 2. Keyword match
+    # 2. Keyword match (fast frozenset scan)
     if not web_search:
         for kw in _WEB_SEARCH_KEYWORDS:
             if kw in msg_lower:
                 web_search = True
                 break
 
-    # 3. Image request patterns (Aggressive + Typo resistance)
+    # 3. Question-word patterns (semantic heuristics)
+    if not web_search:
+        for pat in _QUESTION_WEB_PATTERNS:
+            if pat.search(message):
+                web_search = True
+                break
+
+    # 4. Image request patterns (Aggressive + Typo resistance)
     for pat in _IMAGE_REQUEST_PATTERNS:
         if pat.search(message):
             web_search = True

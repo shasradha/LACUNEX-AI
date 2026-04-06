@@ -82,9 +82,10 @@ async function request(path, options = {}) {
 
   const isFormData = body instanceof FormData;
 
-  // 15-second safety timeout — prevents UI freezing when Render restarts
+  // Longer timeout for file uploads & image analysis (mobile + cold starts)
+  const timeoutMs = isFormData ? 60000 : 30000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
