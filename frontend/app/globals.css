@@ -4317,3 +4317,26 @@ textarea { resize: none; }
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
+
+.local-env-tag {
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #3b82f6;
+  background: rgba(59,130,246,0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  border: 1px solid rgba(59,130,246,0.15);
+}
+
+.remote-env-tag {
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #a855f7;
+  background: rgba(168,85,247,0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  border: 1px solid rgba(168,85,247,0.15);
+}
+

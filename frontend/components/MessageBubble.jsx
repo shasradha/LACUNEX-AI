@@ -287,7 +287,19 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
             {output && (
               <div className={`code-output ${output.success ? "code-output-success" : "code-output-error"}`}>
                 <div className="code-output-header">
-                  <span>{output.success ? "✅ Output" : "❌ Error"}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
+                    {output.isLocal ? (
+                      <span className="local-env-tag" title="Executed in your browser via WebAssembly">⚡ Local Env</span>
+                    ) : (
+                      <span className="remote-env-tag" title="Executed on a secure remote server">🌐 Remote</span>
+                    )}
+                    <span style={{ fontSize: "0.6rem", opacity: 0.8 }}>{output.success ? "✅ Success" : "❌ Error"}</span>
+                  </div>
+                  {output.executionTime && (
+                    <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", opacity: 0.8 }}>
+                      ⏱ {output.executionTime}ms
+                    </span>
+                  )}
                 </div>
                 <pre className="code-output-body">{output.output}</pre>
               </div>

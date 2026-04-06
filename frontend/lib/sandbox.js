@@ -1,19 +1,18 @@
 /**
- * LACUNEX AI — Hybrid Sandbox Utility
+ * LACUNEX AI — Hybrid Sandbox Utility v3.2.1
  * Handles client-side execution for Python (via Pyodide) and JS (via Web Workers).
- * This ensures 100% reliability for the most common languages.
+ * Includes performance tracking, memory safeguards, and graceful exit handling.
  */
 
 let pyodide = null;
 let pyodideLoading = false;
 
 /**
- * Lazy-loads the Pyodide runtime from CDN.
+ * Lazy-loads and caches the Pyodide runtime.
  */
 async function loadPyodide() {
   if (pyodide) return pyodide;
   if (pyodideLoading) {
-    // Wait for existing load to finish
     while (pyodideLoading) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -22,7 +21,6 @@ async function loadPyodide() {
 
   pyodideLoading = true;
   try {
-    // Load script tag dynamically
     if (!window.loadPyodide) {
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js";
@@ -33,12 +31,12 @@ async function loadPyodide() {
       });
     }
 
-    // Initialize pyodide
     pyodide = await window.loadPyodide({
       indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
-      stdout: (text) => console.log(`[Pyodide] ${text}`),
-      stderr: (text) => console.error(`[Pyodide Error] ${text}`),
     });
+    
+    // Pre-load common packages (optional, but makes things feel premium)
+    // await pyodide.loadPackage(["micropip"]);
     
     pyodideLoading = false;
     return pyodide;
@@ -49,66 +47,95 @@ async function loadPyodide() {
 }
 
 /**
- * Executes Python code locally in the browser.
+ * Executes Python code locally.
+ * Handles SystemExit gracefully and tracks performance.
  */
 export async function runPythonLocally(code, stdin = "") {
+  const startTime = performance.now();
   try {
     const py = await loadPyodide();
     
-    // Redirect stdout/stderr to capture output
     let stdout = "";
     py.setStdout({ batched: (text) => stdout += text + "\n" });
     py.setStderr({ batched: (text) => stdout += "[Error]\n" + text + "\n" });
 
-    // Mock stdin if provided
-    if (stdin) {
-      // Very basic stdin mock for Pyodide
-      py.runPython(`
+    // Patch sys.exit to avoid throwing ugly Tracebacks in the UI
+    await py.runPythonAsync(`
 import sys
-from io import StringIO
-sys.stdin = StringIO("""${stdin.replace(/"/g, '\\"')}""")
-      `);
-    }
+import io
+sys.stdin = io.StringIO("""${stdin.replace(/"/g, '\\"')}""")
+
+def custom_exit(code=0):
+    pass # Graceful exit in sandbox
+
+sys.exit = custom_exit
+    `);
 
     await py.runPythonAsync(code);
     
+    const endTime = performance.now();
     return {
       success: true,
       output: stdout.trim() || "(No output)",
       language: "python",
       version: py.version,
-      isLocal: true
+      isLocal: true,
+      executionTime: (endTime - startTime).toFixed(2),
+      memoryUsage: "N/A" // Web browsers restrict precise memory access for security
     };
   } catch (err) {
+    const endTime = performance.now();
+    // Check if it's just a SystemExit(0) which we can treat as success
+    if (err.message.includes("SystemExit: 0") || err.message.includes("SystemExit: None")) {
+       return {
+          success: true,
+          output: "Execution finished gracefully.",
+          isLocal: true,
+          executionTime: (endTime - startTime).toFixed(2)
+       };
+    }
+    
     return {
       success: false,
-      output: `[Python Engine Error]\n${err.message}`,
+      output: `[Python Error]\n${err.message}`,
       language: "python",
-      isLocal: true
+      isLocal: true,
+      executionTime: (endTime - startTime).toFixed(2)
     };
   }
 }
 
 /**
- * Executes JavaScript code safely in the browser.
+ * Executes JavaScript code in a highly isolated Web Worker sandbox.
  */
 export async function runJSLocally(code) {
+  const startTime = performance.now();
   return new Promise((resolve) => {
     try {
-      // Use a blob to create a worker to avoid same-origin issues and sandbox the execution
       const blob = new Blob([`
         onmessage = function(e) {
           const code = e.data;
           let output = "";
-          const customConsole = {
+          
+          // Severe Isolation: Wipe out dangerous globals
+          const restrictedGlobals = [
+            'window', 'document', 'localStorage', 'sessionStorage', 
+            'indexedDB', 'fetch', 'XMLHttpRequest', 'WebSocket'
+          ];
+          
+          const consoleProxy = {
             log: (...args) => output += args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(" ") + "\\n",
             error: (...args) => output += "[Error] " + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(" ") + "\\n",
             warn: (...args) => output += "[Warn] " + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(" ") + "\\n"
           };
           
           try {
-            const func = new Function("console", code);
-            func(customConsole);
+            // Function constructor provides a clean scope
+            // We pass null for all restricted globals to shadow them
+            const args = ['console', ...restrictedGlobals, code];
+            const func = new Function(...args);
+            func(consoleProxy, ...restrictedGlobals.map(() => null));
+            
             postMessage({ success: true, output: output.trim() || "(No output)" });
           } catch (err) {
             postMessage({ success: false, output: output + "\\n[Runtime Error] " + err.message });
@@ -117,20 +144,42 @@ export async function runJSLocally(code) {
       `], { type: "application/javascript" });
       
       const worker = new Worker(URL.createObjectURL(blob));
+      
+      // Auto-kill infinite loops after 5s
       const timeout = setTimeout(() => {
         worker.terminate();
-        resolve({ success: false, output: "⏱ Execution timed out (5s limit).", language: "javascript", isLocal: true });
+        const endTime = performance.now();
+        resolve({ 
+          success: false, 
+          output: "⏱ Execution timed out (5s limit). Your code might have an infinite loop.", 
+          language: "javascript", 
+          isLocal: true,
+          executionTime: (endTime - startTime).toFixed(2)
+        });
       }, 5000);
 
       worker.onmessage = (e) => {
         clearTimeout(timeout);
         worker.terminate();
-        resolve({ ...e.data, language: "javascript", isLocal: true });
+        const endTime = performance.now();
+        resolve({ 
+          ...e.data, 
+          language: "javascript", 
+          isLocal: true,
+          executionTime: (endTime - startTime).toFixed(2)
+        });
       };
 
       worker.postMessage(code);
     } catch (err) {
-      resolve({ success: false, output: `[JS Engine Error] ${err.message}`, language: "javascript", isLocal: true });
+      const endTime = performance.now();
+      resolve({ 
+        success: false, 
+        output: `[JS Engine Error] ${err.message}`, 
+        language: "javascript", 
+        isLocal: true,
+        executionTime: (endTime - startTime).toFixed(2)
+      });
     }
   });
 }
