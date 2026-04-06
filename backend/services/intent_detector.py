@@ -98,6 +98,42 @@ _URL_PATTERN = re.compile(
 )
 
 
+# ── MAX OUTPUT Mode Trigger Patterns ──────────────────────────────────────────
+
+_MAX_OUTPUT_KEYWORDS = frozenset([
+    # Direct triggers
+    "make notes", "make note", "write notes", "write detailed",
+    "full explanation", "complete guide", "chapter-wise", "chapterwise",
+    "chapter wise", "big answer", "long answer", "detailed notes",
+    "explain everything", "in-depth", "in depth", "comprehensive",
+    "thoroughly", "elaborate on", "textbook", "study material",
+    "revision notes", "complete notes", "full notes", "detailed guide",
+    "deep dive", "write a book", "book on", "full report",
+    "detailed report", "research paper", "long form", "long-form",
+    "exhaustive", "cover everything", "cover all", "all topics",
+    "every topic", "complete explanation", "full coverage",
+    "detailed analysis", "thorough analysis", "write everything",
+    "explain in detail", "explain in depth", "complete overview",
+    # Academic / Study
+    "class notes", "exam notes", "study guide", "lecture notes",
+    "complete syllabus", "all chapters", "every chapter",
+    "practice questions", "question bank", "summary notes",
+])
+
+_MAX_OUTPUT_PATTERNS = [
+    # "make [detailed/complete/full] notes on X"
+    re.compile(r"\b(?:make|write|create|prepare|generate)\s+(?:me\s+)?(?:detailed|complete|full|comprehensive|thorough|in-depth|long|big)\s+(?:notes?|guide|report|explanation|document|material)\b", re.I),
+    # "explain X in detail / in depth / thoroughly / completely"
+    re.compile(r"\b(?:explain|describe|cover|teach|write about)\s+.{3,}\s+(?:in detail|in depth|thoroughly|completely|comprehensively|exhaustively|from scratch)\b", re.I),
+    # "give me a complete/full/detailed X"
+    re.compile(r"\b(?:give|provide|create|generate|write)\s+(?:me\s+)?(?:a\s+)?(?:complete|full|detailed|comprehensive|thorough|exhaustive)\s+(?:guide|explanation|overview|report|analysis|notes?|document|summary|breakdown)\b", re.I),
+    # "chapter by chapter / topic by topic"
+    re.compile(r"\b(?:chapter\s+by\s+chapter|topic\s+by\s+topic|section\s+by\s+section|point\s+by\s+point)\b", re.I),
+    # "X pages / pages of / multiple pages"
+    re.compile(r"\b(?:\d+\s+pages?|multi(?:ple)?\s+pages?|many\s+pages?|lots?\s+of\s+pages?)\b", re.I),
+]
+
+
 # ── Reasoning Trigger Patterns ────────────────────────────────────────────────
 
 _REASONING_PATTERNS = [
@@ -191,10 +227,31 @@ def detect_intent(message: str) -> dict:
         if word_count >= 18:
             reasoning = True
 
+    # ── MAX OUTPUT Mode Detection ─────────────────────────────────────────────
+    max_output = False
+
+    # 1. Keyword match
+    for kw in _MAX_OUTPUT_KEYWORDS:
+        if kw in msg_lower:
+            max_output = True
+            break
+
+    # 2. Pattern match
+    if not max_output:
+        for pat in _MAX_OUTPUT_PATTERNS:
+            if pat.search(message):
+                max_output = True
+                break
+
+    # MAX OUTPUT always implies reasoning mode for deeper analysis
+    if max_output:
+        reasoning = True
+
     return {
         "web_search": web_search,
         "reasoning": reasoning,
         "image_search": image_search,
+        "max_output": max_output,
         "url_fetch": url_fetch,
         "detected_url": url_match.group(0) if url_match else None,
     }

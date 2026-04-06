@@ -309,6 +309,18 @@ export async function streamChat(
           callbacks.onThinking?.(payload.content || "");
         }
 
+        if (payload.type === "max_output_activated") {
+          callbacks.onMaxOutputActivated?.(payload);
+        }
+
+        if (payload.type === "doc_progress") {
+          callbacks.onDocProgress?.(payload);
+        }
+
+        if (payload.type === "doc_toc") {
+          callbacks.onDocToc?.(payload);
+        }
+
         if (payload.type === "done") {
           await callbacks.onDone?.(payload);
         }
@@ -344,6 +356,70 @@ export async function exportConversation(title, messages, format = "pdf", modelN
   const disposition = response.headers.get("Content-Disposition") || "";
   const match = disposition.match(/filename="?([^"]+)"?/);
   const filename = match ? match[1] : `lacunex-export.${format}`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Document Intelligence Exports ─────────────────────────────────────────
+
+export async function exportDocument(docJson, theme = "professional", format = "pdf") {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/api/export/document`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ document_json: docJson, theme, format }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    await parseFailure(response);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match ? match[1] : `lacunex-document.${format}`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export async function exportDocumentAll(docJson, theme = "professional") {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/api/export/all`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ document_json: docJson, theme }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    await parseFailure(response);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match ? match[1] : "lacunex-document_all.zip";
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

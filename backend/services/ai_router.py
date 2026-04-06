@@ -3,6 +3,7 @@ LACUNEX AI intelligent router.
 """
 
 import os
+import json
 from typing import AsyncGenerator, List, Optional
 
 from google import genai
@@ -63,6 +64,50 @@ DEFAULT_MODELS = {
     "cerebras": "qwen-3-235b-a22b-instruct-2507",
     "ollama": "llama3.2",
 }
+
+MAX_OUTPUT_SYSTEM_PROMPT = (
+    "You are LACUNEX AI in MAX OUTPUT MODE — a world-class document generation engine.\n"
+    "Your task is to produce EXTREMELY detailed, comprehensive, production-quality content.\n\n"
+    "### MANDATORY RULES:\n"
+    "1. Generate DEEPLY DETAILED content — minimum 40+ pages equivalent when printed.\n"
+    "2. Cover EVERY subtopic thoroughly with examples, explanations, and analysis.\n"
+    "3. Use PROPER markdown structure:\n"
+    "   - # for main title\n"
+    "   - ## for chapter headings\n"
+    "   - ### for subtopics\n"
+    "   - #### for sub-subtopics\n"
+    "4. Include these elements in EVERY chapter:\n"
+    "   - Detailed explanation of concepts\n"
+    "   - Real-world examples and use cases\n"
+    "   - Tables for comparisons and structured data\n"
+    "   - Key points highlighted with **bold**\n"
+    "   - Summary at the end of each chapter\n"
+    "5. Use markdown tables with proper headers for ALL structured data.\n"
+    "6. Write in clear, academic yet accessible language.\n"
+    "7. NO filler content. NO repetition. Every sentence must add value.\n"
+    "8. NO placeholder text like 'content here' or 'to be added'.\n"
+    "9. Maintain CONSISTENT formatting throughout the entire document.\n\n"
+    "### QUALITY STANDARDS:\n"
+    "- Factual accuracy is CRITICAL\n"
+    "- Tables must have clean formatting with headers\n"
+    "- Code examples must be complete and correct\n"
+    "- Every section should flow naturally to the next\n"
+    "- Use bullet points and numbered lists for clarity\n\n"
+    "### OUTPUT FORMAT:\n"
+    "Write everything in clean, well-structured markdown.\n"
+    "Start with the title as # heading, then proceed section by section.\n"
+    "Do NOT wrap output in code fences or JSON — output pure markdown directly.\n"
+)
+
+MAX_OUTPUT_TOC_PROMPT = (
+    "Based on the user's request, generate a detailed Table of Contents as a JSON array.\n"
+    "Each entry should have: title (string), description (string, 1-2 sentences about what this section covers).\n"
+    "Generate 8-15 sections that would comprehensively cover the topic.\n"
+    "Include sections for: Introduction, core topics (multiple chapters), Examples, Summary, Revision Notes, Practice Questions.\n"
+    "Return ONLY the JSON array, no other text. Example:\n"
+    '[{\"title\": \"Introduction to Physics\", \"description\": \"Overview of fundamental physics concepts\"},'
+    ' {\"title\": \"Laws of Motion\", \"description\": \"Newton\'s three laws with derivations and examples\"}]\n'
+)
 
 
 class AIRouter:
@@ -252,6 +297,151 @@ class AIRouter:
             # Fallback to standard Groq streaming if thinking mode fails
             async for chunk in self._stream_normal(message, history, "groq"):
                 yield chunk
+
+    async def stream_max_output(
+        self,
+        message: str,
+        history: Optional[List[dict]] = None,
+        memory_profile: Optional[dict] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """
+        MAX OUTPUT MODE — Multi-pass document generation.
+        Pass 1: Generate Table of Contents as structured JSON
+        Pass 2+: Expand each section with full detail
+        Uses Gemini 2.5 Flash for maximum output capacity (64K tokens).
+        """
+        model = "gemini-2.5-flash"
+
+        # ── Pass 1: Generate Table of Contents ────────────────────────────
+        yield {"type": "max_output_activated", "content": "MAX OUTPUT MODE activated"}
+        yield {"type": "doc_progress", "content": "Planning document structure...", "phase": "toc", "current": 0, "total": 0}
+
+        toc_sections = []
+        try:
+            toc_response = await self.gemini.aio.models.generate_content(
+                model=model,
+                contents=[types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(
+                        text=f"{message}\n\nGenerate a comprehensive Table of Contents for this topic."
+                    )],
+                )],
+                config=types.GenerateContentConfig(
+                    system_instruction=MAX_OUTPUT_TOC_PROMPT,
+                    max_output_tokens=4096,
+                ),
+            )
+
+            toc_text = toc_response.text.strip()
+            # Clean potential markdown fences around JSON
+            if toc_text.startswith("```"):
+                toc_text = toc_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+            toc_sections = json.loads(toc_text)
+            if not isinstance(toc_sections, list) or len(toc_sections) < 3:
+                raise ValueError("TOC too short")
+
+        except Exception as e:
+            print(f"[AIRouter] TOC generation failed: {e}, using fallback structure")
+            toc_sections = [
+                {"title": "Introduction", "description": "Overview and fundamentals"},
+                {"title": "Core Concepts", "description": "Main topics in detail"},
+                {"title": "Advanced Topics", "description": "In-depth analysis"},
+                {"title": "Examples & Applications", "description": "Real-world examples"},
+                {"title": "Comparisons & Tables", "description": "Structured comparisons"},
+                {"title": "Summary & Key Points", "description": "Chapter summaries"},
+                {"title": "Revision Notes", "description": "Quick revision material"},
+                {"title": "Practice Questions", "description": "Questions for practice"},
+            ]
+
+        # Send TOC to frontend
+        yield {
+            "type": "doc_toc",
+            "content": json.dumps(toc_sections),
+            "total_sections": len(toc_sections),
+        }
+
+        total = len(toc_sections)
+        full_document = f"# {message.strip()[:100]}\n\n"
+        full_document += "## Table of Contents\n\n"
+        for idx, sec in enumerate(toc_sections):
+            full_document += f"{idx + 1}. **{sec['title']}** — {sec.get('description', '')}\n"
+        full_document += "\n---\n\n"
+
+        yield {"type": "token", "content": full_document}
+
+        # ── Pass 2+: Expand each section ──────────────────────────────────
+        previous_context = ""
+
+        for idx, section in enumerate(toc_sections):
+            section_num = idx + 1
+            section_title = section.get("title", f"Section {section_num}")
+            section_desc = section.get("description", "")
+
+            yield {
+                "type": "doc_progress",
+                "content": f"Generating: {section_title}",
+                "phase": "section",
+                "current": section_num,
+                "total": total,
+            }
+
+            # Build context-aware prompt for this section
+            section_prompt = (
+                f"You are writing section {section_num} of {total} for a comprehensive document about: {message}\n\n"
+                f"This section is: **{section_title}** — {section_desc}\n\n"
+                f"Previous sections covered: {previous_context or 'Nothing yet (this is the first section)'}\n\n"
+                f"INSTRUCTIONS:\n"
+                f"- Write ONLY this section, starting with ## {section_title}\n"
+                f"- Be EXTREMELY detailed — aim for 4-8 pages of content for this section alone\n"
+                f"- Include subsections (### headings), examples, tables where appropriate\n"
+                f"- End with a brief summary of key points from this section\n"
+                f"- Do NOT repeat content from previous sections\n"
+                f"- Do NOT include content meant for later sections\n"
+                f"- Output clean markdown only\n"
+            )
+
+            try:
+                stream = await self.gemini.aio.models.generate_content_stream(
+                    model=model,
+                    contents=[types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=section_prompt)],
+                    )],
+                    config=types.GenerateContentConfig(
+                        system_instruction=MAX_OUTPUT_SYSTEM_PROMPT,
+                        max_output_tokens=16384,
+                        thinking_config=types.ThinkingConfig(thinking_budget=4096),
+                    ),
+                )
+
+                section_content = ""
+                async for chunk in stream:
+                    for part in chunk.candidates[0].content.parts:
+                        if part.thought:
+                            yield {"type": "thinking", "content": part.text}
+                        elif part.text:
+                            section_content += part.text
+                            yield {"type": "token", "content": part.text}
+
+                full_document += section_content + "\n\n"
+                previous_context += f"{section_title}, "
+
+            except Exception as exc:
+                print(f"[AIRouter] Section {section_num} generation failed: {exc}")
+                error_msg = f"\n\n## {section_title}\n\n*Content generation for this section encountered an error. Please try regenerating.*\n\n"
+                full_document += error_msg
+                yield {"type": "token", "content": error_msg}
+
+        # ── Done ──────────────────────────────────────────────────────────
+        yield {
+            "type": "doc_progress",
+            "content": "Document generation complete!",
+            "phase": "complete",
+            "current": total,
+            "total": total,
+        }
+        yield {"type": "done", "answer": full_document, "mode": "max_output"}
 
     def _build_openai_messages(
         self,

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ImageUpload from "./ImageUpload";
 import MessageBubble from "./MessageBubble";
 import ArtifactViewer from "./ArtifactViewer";
+import DocumentPreview from "./DocumentPreview";
 import ModelSelector from "./ModelSelector";
 import SearchToggle from "./SearchToggle";
 import ThinkToggle from "./ThinkToggle";
@@ -163,6 +164,13 @@ export default function ChatBox({
   const [searchMode, setSearchMode] = useState(false);
   const [searchStatus, setSearchStatus] = useState("");
   const [activeArtifact, setActiveArtifact] = useState(null);
+  const [docPreviewOpen, setDocPreviewOpen] = useState(false);
+  const [docProgress, setDocProgress] = useState(null);
+  const [docToc, setDocToc] = useState(null);
+  const [docHtml, setDocHtml] = useState("");
+  const [docJson, setDocJson] = useState(null);
+  const [docTheme, setDocTheme] = useState("professional");
+  const [docGenerating, setDocGenerating] = useState(false);
   const exportMenuRef = useRef(null);
 
   const textareaRef = useRef(null);
@@ -490,28 +498,60 @@ export default function ChatBox({
         history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
         {
           onModeDetected: (modeData) => {
-            setMsgIsWeb(modeData.web_search);
-            setMsgIsImage(modeData.image_search);
-            
+            // MAX OUTPUT mode detected
+            if (modeData.max_output) {
+              setDocPreviewOpen(true);
+              setDocGenerating(true);
+              setDocHtml("");
+              setDocJson(null);
+              setDocToc(null);
+              setDocProgress({ content: "MAX OUTPUT MODE activated", current: 0, total: 0 });
+            }
+
             // Set specific status message
             const text = modeData.image_search 
               ? "Finding high-quality images..." 
-              : "Searching the web...";
+              : modeData.max_output
+                ? "Activating MAX OUTPUT MODE..."
+                : "Searching the web...";
             setSearchStatus(text);
 
             setMessages((prev) => updateMsg(prev, botId, {
               web_search: modeData.web_search,
               reasoning: modeData.reasoning,
-              mode: modeData.reasoning ? "think" : "normal",
+              mode: modeData.max_output ? "max_output" : (modeData.reasoning ? "think" : "normal"),
             }));
           },
           onSearchStatus: (status) => {
             setSearchStatus(status);
           },
+          onMaxOutputActivated: () => {
+            setDocPreviewOpen(true);
+            setDocGenerating(true);
+            setSearchStatus("MAX OUTPUT MODE — Generating document...");
+          },
+          onDocProgress: (progressData) => {
+            setDocProgress(progressData);
+            if (progressData.phase === "complete") {
+              setDocGenerating(false);
+            }
+          },
+          onDocToc: (tocData) => {
+            try {
+              const parsed = JSON.parse(tocData.content);
+              setDocToc(parsed);
+            } catch {
+              setDocToc(tocData.content);
+            }
+          },
           onToken: (token) => {
             setSearchStatus("");
             streamed += token;
             setMessages((prev) => updateMsg(prev, botId, { content: streamed }));
+            // If doc preview is open, update live HTML
+            if (docPreviewOpen || docGenerating) {
+              setDocHtml(prev => prev + token.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>'));
+            }
           },
           onThinking: (chunk) => {
             setSearchStatus("");
@@ -520,6 +560,44 @@ export default function ChatBox({
           },
           onDone: async (data) => {
             setSearchStatus("");
+
+            // Handle MAX OUTPUT document JSON
+            if (data.max_output && data.document_json) {
+              setDocJson(data.document_json);
+              setDocGenerating(false);
+              // Build proper preview HTML from document structure
+              try {
+                const sections = data.document_json.sections || [];
+                const title = data.document_json.title || "Document";
+                let html = `<div class="document-root"><div class="doc-title-page"><h1>${title}</h1></div>`;
+                for (const sec of sections) {
+                  const lvl = sec.level || 2;
+                  html += `<section class="doc-section"><h${lvl}>${sec.heading || ''}</h${lvl}>`;
+                  if (sec.content) {
+                    const paras = sec.content.split('\n').filter(l => l.trim());
+                    for (const p of paras) {
+                      html += `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`;
+                    }
+                  }
+                  for (const sub of (sec.subsections || [])) {
+                    const sl = sub.level || 3;
+                    html += `<h${sl}>${sub.heading || ''}</h${sl}>`;
+                    if (sub.content) {
+                      const paras = sub.content.split('\n').filter(l => l.trim());
+                      for (const p of paras) {
+                        html += `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`;
+                      }
+                    }
+                  }
+                  html += `</section>`;
+                }
+                html += `</div>`;
+                setDocHtml(html);
+              } catch (e) {
+                console.error("Document HTML build failed:", e);
+              }
+            }
+
             const finalMsg = {
               id: botId,
               role: "assistant",
@@ -536,7 +614,6 @@ export default function ChatBox({
             };
             setMessages((prev) => updateMsg(prev, botId, finalMsg));
             
-            // Cleanly await the conversation ID if it was being created in background
             try {
               const finalId = await createConvPromise;
               if (finalId) {
@@ -548,8 +625,8 @@ export default function ChatBox({
           },
           onError: (errMsg) => {
             setSearchStatus("");
-            setIsBusy(false); // Force unlock UI
-            setStopSignal(null);
+            setIsBusy(false);
+            setDocGenerating(false);
             setMessages((prev) =>
               updateMsg(prev, botId, {
                 content: errMsg || "Something went wrong.",
@@ -692,7 +769,7 @@ export default function ChatBox({
 
   /* ── Render ─────────────────────────────────── */
   return (
-    <div className={`chat-container ${activeArtifact ? "has-artifact" : ""}`}>
+    <div className={`chat-container ${activeArtifact ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}>
       <div className="chat-panel">
         {/* Header */}
         <div className="chat-header">
@@ -898,6 +975,23 @@ export default function ChatBox({
       {/* Interactive Artifact Split Screen */}
       {activeArtifact && (
         <ArtifactViewer code={activeArtifact} onClose={() => setActiveArtifact(null)} />
+      )}
+
+      {/* Document Preview Panel */}
+      {docPreviewOpen && (
+        <DocumentPreview
+          documentJson={docJson}
+          documentHtml={docHtml}
+          docProgress={docProgress}
+          docToc={docToc}
+          isGenerating={docGenerating}
+          currentTheme={docTheme}
+          onThemeChange={setDocTheme}
+          onClose={() => {
+            setDocPreviewOpen(false);
+            setDocGenerating(false);
+          }}
+        />
       )}
     </div>
   );

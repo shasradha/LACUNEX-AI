@@ -42,6 +42,7 @@ class ChatRequest(BaseModel):
     provider: str = "groq"
     model: Optional[str] = None
     web_search: bool = False
+    max_output: bool = False
 
 
 class ChatResponse(BaseModel):
