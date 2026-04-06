@@ -222,6 +222,19 @@ export async function extractFile(file) {
   });
 }
 
+export async function executeCode(code, language, stdin = "") {
+  return request("/api/code/execute", {
+    method: "POST",
+    body: { code, language, stdin },
+  });
+}
+
+export async function keepAlive() {
+  try {
+    await fetch(`${API_BASE_URL}/`, { method: "GET", cache: "no-store" });
+  } catch { /* silent */ }
+}
+
 export async function streamChat(
   message,
   mode,

@@ -4114,3 +4114,136 @@ textarea { resize: none; }
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Prompt Templates (Empty State)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.prompt-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  max-width: 560px;
+  margin: 1.5rem auto 0;
+}
+
+.prompt-template-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.prompt-template-card:hover {
+  background: rgba(168,85,247,0.08);
+  border-color: rgba(168,85,247,0.3);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.prompt-template-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.prompt-template-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .prompt-templates-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    max-width: 100%;
+  }
+  .prompt-template-card {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  .prompt-template-icon {
+    font-size: 1.1rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Code Execution (▶ Run Button + Terminal Output)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.code-run-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #34d399;
+  background: rgba(52,211,153,0.1);
+  border: 1px solid rgba(52,211,153,0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.code-run-btn:hover:not(:disabled) {
+  background: rgba(52,211,153,0.2);
+  border-color: rgba(52,211,153,0.5);
+}
+
+.code-run-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.code-output {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.3);
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+
+.code-output-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.code-output-success .code-output-header {
+  color: #34d399;
+}
+
+.code-output-error .code-output-header {
+  color: #f87171;
+}
+
+.code-output-body {
+  padding: 0.75rem;
+  margin: 0;
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #d1d5db;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.code-output-error .code-output-body {
+  color: #fca5a5;
+}

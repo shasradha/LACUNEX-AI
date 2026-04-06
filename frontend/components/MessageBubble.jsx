@@ -5,6 +5,7 @@ import React, { memo, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getUser } from "@/lib/auth";
+import { executeCode } from "@/lib/api";
 import ImageGallery from "./ImageGallery";
 
 /* ── Inline icons ─────────────────────────────── */
@@ -181,6 +182,8 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
 
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [copiedCodeBlock, setCopiedCodeBlock] = useState("");
+  const [runningCode, setRunningCode] = useState("");
+  const [codeOutputs, setCodeOutputs] = useState({}); // { [codeHash]: { output, success } }
 
   const copyText = async (value, callback) => {
     try {
@@ -191,35 +194,83 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
     }
   };
 
+  const RUNNABLE_LANGS = new Set([
+    "python", "py", "python3", "javascript", "js", "typescript", "ts",
+    "java", "c", "cpp", "c++", "csharp", "cs", "go", "golang",
+    "rust", "rs", "php", "ruby", "rb", "swift", "kotlin", "kt",
+    "bash", "sh", "perl", "lua", "dart", "scala", "r", "haskell", "elixir", "sql",
+  ]);
+
+  const handleRunCode = async (code, lang) => {
+    const key = code.slice(0, 100);
+    setRunningCode(key);
+    try {
+      const result = await executeCode(code, lang);
+      setCodeOutputs(prev => ({ ...prev, [key]: { output: result.output, success: result.success } }));
+    } catch (err) {
+      setCodeOutputs(prev => ({ ...prev, [key]: { output: err.message || "Execution failed", success: false } }));
+    } finally {
+      setRunningCode("");
+    }
+  };
+
   const markdownComponents = useMemo(() => ({
     code({ inline, className, children, ...props }) {
       const code = String(children).replace(/\n$/, "");
+      const lang = className?.replace("language-", "") || "code";
+      const isRunnable = RUNNABLE_LANGS.has(lang.toLowerCase());
+      const codeKey = code.slice(0, 100);
+      const output = codeOutputs[codeKey];
 
       if (!inline) {
         return (
           <div className="code-block">
             <div className="code-header">
-              <span>{className?.replace("language-", "") || "code"}</span>
-              <button
-                type="button"
-                onClick={() =>
-                  copyText(code, () => {
-                    setCopiedCodeBlock(code);
-                    setTimeout(() => setCopiedCodeBlock(""), 1800);
-                  })
-                }
-                className="code-copy-btn"
-              >
-                {copiedCodeBlock === code ? (
-                  <><IconCheck /> Copied</>
-                ) : (
-                  <><IconCopy /> Copy</>
+              <span>{lang}</span>
+              <div style={{ display: "flex", gap: "0.25rem" }}>
+                {isRunnable && (
+                  <button
+                    type="button"
+                    onClick={() => handleRunCode(code, lang)}
+                    className="code-run-btn"
+                    disabled={runningCode === codeKey}
+                  >
+                    {runningCode === codeKey ? (
+                      <>⏳ Running...</>
+                    ) : (
+                      <>▶ Run</>
+                    )}
+                  </button>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyText(code, () => {
+                      setCopiedCodeBlock(code);
+                      setTimeout(() => setCopiedCodeBlock(""), 1800);
+                    })
+                  }
+                  className="code-copy-btn"
+                >
+                  {copiedCodeBlock === code ? (
+                    <><IconCheck /> Copied</>
+                  ) : (
+                    <><IconCopy /> Copy</>
+                  )}
+                </button>
+              </div>
             </div>
             <pre className="code-content">
               <code className={className} {...props}>{children}</code>
             </pre>
+            {output && (
+              <div className={`code-output ${output.success ? "code-output-success" : "code-output-error"}`}>
+                <div className="code-output-header">
+                  <span>{output.success ? "✅ Output" : "❌ Error"}</span>
+                </div>
+                <pre className="code-output-body">{output.output}</pre>
+              </div>
+            )}
           </div>
         );
       }
@@ -239,7 +290,7 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
     p({ children }) {
       return <div className="md-para">{children}</div>;
     },
-  }), [copiedCodeBlock]);
+  }), [copiedCodeBlock, codeOutputs, runningCode]);
 
   const handleCopyMessage = () => {
     copyText(message.content || "", () => {

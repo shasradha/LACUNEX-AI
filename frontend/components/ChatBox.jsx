@@ -17,6 +17,7 @@ import {
   generateImage,
   getConversation,
   getModels,
+  keepAlive,
   saveMessage,
   streamChat,
 } from "@/lib/api";
@@ -73,10 +74,13 @@ function IconChevronDown() {
   );
 }
 
-const QUICK_PROMPTS = [
-  "Explain this project simply",
-  "Help me fix bugs fast",
-  "/imagine futuristic ai workspace",
+const PROMPT_TEMPLATES = [
+  { icon: "🎮", label: "Build a Game", prompt: "Build me an interactive browser game with HTML, CSS and JavaScript in a single file. Make it visually stunning with animations and smooth controls." },
+  { icon: "🔐", label: "Login Page", prompt: "Create a super cool, premium login page with HTML, CSS & JS in one file. Include form validation, password toggle, animated backgrounds, and glassmorphism design." },
+  { icon: "🐍", label: "Python Script", prompt: "Write a Python script that solves a real-world problem. Make it production-grade with error handling, clean structure, and clear comments." },
+  { icon: "📊", label: "Dashboard", prompt: "Build a modern analytics dashboard with charts, stats cards, and a clean dark theme using HTML, CSS & JS in a single file." },
+  { icon: "🐛", label: "Debug Code", prompt: "I have code with bugs. Help me find and fix them step by step. I'll paste the code in my next message." },
+  { icon: "🚀", label: "Landing Page", prompt: "Create a stunning startup landing page with hero section, features grid, testimonials, pricing cards, and a footer. Single HTML file with modern design." },
 ];
 
 function createMessageId() {
@@ -302,10 +306,18 @@ export default function ChatBox({
   }, [messages, isBusy]);
 
   useEffect(() => {
+    // CRITICAL: Abort any active stream when switching workspaces
+    if (stopRef.current) {
+      stopRef.current.abort();
+      stopRef.current = null;
+    }
+    setIsBusy(false);
     setMessages([]);
     setDraft("");
     setConvError("");
     setSaveNotice("");
+    setSearchStatus("");
+    setActiveArtifact(null);
     // Don't call clearImage here to avoid dependency cycle
     setImageFile(null);
     setImagePreview(null);
@@ -574,27 +586,36 @@ export default function ChatBox({
     }
   };
 
+
+  /* ── Keep-alive ping (prevent Render cold starts) ── */
+  useEffect(() => {
+    keepAlive(); // Initial ping
+    const interval = setInterval(keepAlive, 10 * 60 * 1000); // Every 10 min
+    return () => clearInterval(interval);
+  }, []);
+
   /* ── Empty State ────────────────────────────── */
   const emptyState = useMemo(() => (
     <div className="empty-state animate-enter">
       <div className="empty-hero">
         <div>
-          <p className="eyebrow">LACUNEX</p>
-          <h2 className="heading-lg">Fill the missing pieces</h2>
+          <p className="eyebrow">LACUNEX AI</p>
+          <h2 className="heading-lg">What would you like to build?</h2>
         </div>
       </div>
       <p className="empty-text">
-        Ask anything, analyze an image, or generate a concept with <code className="inline-code">/imagine</code>.
+        Ask anything, write code in 60+ languages, analyze images, or generate concepts with <code className="inline-code">/imagine</code>.
       </p>
-      <div className="quick-prompts">
-        {QUICK_PROMPTS.map((item) => (
+      <div className="prompt-templates-grid">
+        {PROMPT_TEMPLATES.map((t) => (
           <button
-            key={item}
+            key={t.label}
             type="button"
-            className="btn btn-ghost quick-prompt"
-            onClick={() => setDraft(item)}
+            className="prompt-template-card"
+            onClick={() => { setDraft(t.prompt); setTimeout(() => textareaRef.current?.focus(), 50); }}
           >
-            {item}
+            <span className="prompt-template-icon">{t.icon}</span>
+            <span className="prompt-template-label">{t.label}</span>
           </button>
         ))}
       </div>

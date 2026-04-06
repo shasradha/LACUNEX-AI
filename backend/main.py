@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from database.connection import init_db
-from routes import auth, chat, export, history, image, models, files
+from routes import auth, chat, code_runner, export, history, image, models, files
 
 
 def get_allowed_origins() -> list[str]:
@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="LACUNEX AI",
     description="Next-generation AI platform for secure chat and image workflows.",
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -69,6 +69,7 @@ app.include_router(image.router)
 app.include_router(history.router)
 app.include_router(models.router)
 app.include_router(files.router)
+app.include_router(code_runner.router)
 
 
 @app.get("/")
@@ -76,7 +77,7 @@ async def root():
     return {
         "name": "LACUNEX AI",
         "tagline": "Filling the gaps humans can't reach",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "status": "operational",
         "author": "Shasradha Karmakar",
         "allowed_origins": get_allowed_origins(),
