@@ -15,8 +15,9 @@ router = APIRouter(prefix="/api/code", tags=["Code"])
 
 # Multiple Piston API mirrors — try in order until one works
 PISTON_MIRRORS = [
+    "https://piston.sh/api/v2",
+    "https://piston.rce.fi/api/v2",
     "https://piston.e-z.host/api/v2",
-    "https://emkc.org/api/v2/piston",
 ]
 
 # Language → Piston runtime mapping (version * = latest available)

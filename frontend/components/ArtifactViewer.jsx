@@ -77,15 +77,17 @@ function IconRefresh() {
   );
 }
 
-/* ── Helpers ─────────────────────────────────────── */
-
-/** Detect if code is a full HTML document or just a snippet */
-function isFullHtmlDocument(code) {
-  const trimmed = code.trim().toLowerCase();
-  return trimmed.startsWith("<!doctype") || trimmed.startsWith("<html");
+function IconFile() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
 }
 
-/** Wrap a partial snippet in a full HTML boilerplate */
+/* ── Helpers ─────────────────────────────────────── */
+
 function wrapSnippet(code) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -103,16 +105,15 @@ ${code}
 </html>`;
 }
 
-/** Detect the language from code content for syntax highlighting */
-function detectLanguage(code) {
-  const trimmed = code.trim().toLowerCase();
-  if (trimmed.startsWith("<!doctype") || trimmed.startsWith("<html") || trimmed.startsWith("<div") || trimmed.startsWith("<head")) return "html";
-  if (trimmed.includes("function ") || trimmed.includes("const ") || trimmed.includes("import ")) return "javascript";
-  if (trimmed.includes("{") && trimmed.includes(":") && trimmed.includes(";")) return "css";
+function detectLanguage(filename) {
+  const ext = filename.split(".").pop().toLowerCase();
+  if (ext === "html") return "html";
+  if (ext === "css") return "css";
+  if (ext === "js" || ext === "javascript") return "javascript";
+  if (ext === "json") return "json";
   return "html";
 }
 
-/** Download a text blob as a file */
 function downloadFile(content, filename) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -128,17 +129,69 @@ function downloadFile(content, filename) {
 /* ── Component ───────────────────────────────────── */
 export default function ArtifactViewer({ code, onClose }) {
   const [view, setView] = useState("preview"); // 'preview' | 'code'
+  const [activeFile, setActiveFile] = useState("");
   const [copied, setCopied] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const downloadMenuRef = useRef(null);
 
-  // Build the srcdoc HTML string — this is the ONLY reliable way
-  // to render content in a sandboxed iframe (contentDocument.write fails
-  // when sandbox lacks allow-same-origin, which we omit for security)
-  const srcdocHtml = useMemo(() => {
-    return isFullHtmlDocument(code) ? code : wrapSnippet(code);
+  // Normalize code into a files object
+  const files = useMemo(() => {
+    if (typeof code === "object" && code.isMultiFile) {
+      return code.files;
+    }
+    // Single file logic
+    const content = typeof code === "object" ? "" : code;
+    return { "index.html": content };
   }, [code]);
+
+  // Set initial active file
+  useEffect(() => {
+    if (!activeFile || !files[activeFile]) {
+      const names = Object.keys(files);
+      if (names.includes("index.html")) setActiveFile("index.html");
+      else if (names.length > 0) setActiveFile(names[0]);
+    }
+  }, [files, activeFile]);
+
+  // Build the unified srcdoc for preview
+  const srcdocHtml = useMemo(() => {
+    const htmlFile = files["index.html"];
+    if (!htmlFile) return "<h3>Error: No index.html found.</h3>";
+
+    let bundled = htmlFile;
+
+    // Inject CSS
+    Object.keys(files).forEach(name => {
+      if (name.endsWith(".css")) {
+        const cssContent = `<style>\n/* Injected from ${name} */\n${files[name]}\n</style>`;
+        if (bundled.includes("</head>")) {
+          bundled = bundled.replace("</head>", `${cssContent}\n</head>`);
+        } else {
+          bundled = cssContent + bundled;
+        }
+      }
+    });
+
+    // Inject JS
+    Object.keys(files).forEach(name => {
+      if (name.endsWith(".js")) {
+        const jsContent = `<script>\n/* Injected from ${name} */\n${files[name]}\n</script>`;
+        if (bundled.includes("</body>")) {
+          bundled = bundled.replace("</body>", `${jsContent}\n</body>`);
+        } else {
+          bundled += `\n${jsContent}`;
+        }
+      }
+    });
+
+    // If it's just a snippet, wrap it
+    if (!bundled.trim().toLowerCase().startsWith("<!doctype") && !bundled.trim().toLowerCase().startsWith("<html")) {
+      bundled = wrapSnippet(bundled);
+    }
+
+    return bundled;
+  }, [files]);
 
   // Close download menu on outside click
   useEffect(() => {
@@ -152,25 +205,27 @@ export default function ArtifactViewer({ code, onClose }) {
   }, []);
 
   const handleCopy = async () => {
+    const content = files[activeFile] || "";
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* clipboard unavailable */ }
   };
 
-  const handleDownloadTxt = () => {
-    downloadFile(code, "artifact-code.txt");
+  const handleDownloadAll = () => {
+    // For now, download the current active file
+    downloadFile(files[activeFile], activeFile);
     setShowDownloadMenu(false);
   };
 
-  const handleDownloadHtml = () => {
-    const htmlContent = isFullHtmlDocument(code) ? code : wrapSnippet(code);
-    downloadFile(htmlContent, "artifact.html");
+  const handleDownloadBundled = () => {
+    downloadFile(srcdocHtml, "bundled-artifact.html");
     setShowDownloadMenu(false);
   };
 
-  const lang = detectLanguage(code);
+  const currentLang = detectLanguage(activeFile);
+  const fileNames = Object.keys(files);
 
   return (
     <div className="artifact-panel">
@@ -199,7 +254,7 @@ export default function ArtifactViewer({ code, onClose }) {
         <button
           className="artifact-action-btn"
           onClick={handleCopy}
-          title="Copy code"
+          title="Copy current file"
         >
           {copied ? <><IconCheck /> <span>Copied</span></> : <><IconCopy /> <span>Copy</span></>}
         </button>
@@ -215,17 +270,17 @@ export default function ArtifactViewer({ code, onClose }) {
           </button>
           {showDownloadMenu && (
             <div className="artifact-download-menu">
-              <button onClick={handleDownloadTxt} className="artifact-download-item">
-                <span className="artifact-dl-icon">.txt</span>
+              <button onClick={handleDownloadAll} className="artifact-download-item">
+                <span className="artifact-dl-icon">.{activeFile.split('.').pop()}</span>
                 <div>
-                  <div className="artifact-dl-title">Plain Text</div>
-                  <div className="artifact-dl-sub">Raw code as .txt</div>
+                  <div className="artifact-dl-title">Current File</div>
+                  <div className="artifact-dl-sub">Download {activeFile}</div>
                 </div>
               </button>
-              <button onClick={handleDownloadHtml} className="artifact-download-item">
+              <button onClick={handleDownloadBundled} className="artifact-download-item">
                 <span className="artifact-dl-icon" style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa" }}>.html</span>
                 <div>
-                  <div className="artifact-dl-title">HTML File</div>
+                  <div className="artifact-dl-title">Bundled HTML</div>
                   <div className="artifact-dl-sub">Ready to run in browser</div>
                 </div>
               </button>
@@ -254,6 +309,22 @@ export default function ArtifactViewer({ code, onClose }) {
         </button>
       </div>
 
+      {/* ── File Explorer (Only in Code view) ──── */}
+      {view === "code" && fileNames.length > 1 && (
+        <div className="artifact-file-explorer">
+          {fileNames.map(name => (
+            <button
+              key={name}
+              className={`artifact-file-tab ${activeFile === name ? "active" : ""}`}
+              onClick={() => setActiveFile(name)}
+            >
+              <IconFile />
+              <span>{name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Body ───────────────────────────────── */}
       <div className="artifact-body">
         {view === "preview" ? (
@@ -267,7 +338,7 @@ export default function ArtifactViewer({ code, onClose }) {
         ) : (
           <div className="artifact-code-view">
             <SyntaxHighlighter
-              language={lang}
+              language={currentLang}
               style={vscDarkPlus}
               showLineNumbers
               wrapLines
@@ -281,7 +352,7 @@ export default function ArtifactViewer({ code, onClose }) {
                 borderRadius: 0,
               }}
             >
-              {code}
+              {files[activeFile] || ""}
             </SyntaxHighlighter>
           </div>
         )}

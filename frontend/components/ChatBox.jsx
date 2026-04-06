@@ -648,15 +648,33 @@ export default function ChatBox({
   /* ── Artifact Extraction ───────────────────── */
   const extractArtifactCode = useCallback((content) => {
     if (!content) return null;
-    // 1. Try our strict <lacunex-artifact> tag format (properly closed)
-    const tagMatch = content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
-    if (tagMatch && tagMatch[1]) return tagMatch[1].trim();
-    // 2. Handle UNCLOSED artifact tags (AI response cut off)
-    const openTagMatch = content.match(/<lacunex-artifact[^>]*>([\s\S]+)/i);
-    if (openTagMatch && openTagMatch[1] && openTagMatch[1].trim().length > 80) return openTagMatch[1].trim();
-    // 3. Fallback: markdown code blocks (```html, ```jsx, etc.)
+    
+    // 1. Try our strict <lacunex-artifact> tag format
+    const tagMatch = content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i) || 
+                     content.match(/<lacunex-artifact[^>]*>([\s\S]+)/i); // Fallback to unclosed
+    
+    if (tagMatch && tagMatch[1]) {
+      const raw = tagMatch[1].trim();
+      
+      // Check if it's the NEW multi-file format: <file name="...">...</file>
+      if (raw.includes("<file name=")) {
+        const files = {};
+        const fileRegex = /<file name=["']([^"']+)["']>([\s\S]*?)<\/file>/gi;
+        let m;
+        while ((m = fileRegex.exec(raw)) !== null) {
+          files[m[1]] = m[2].trim();
+        }
+        if (Object.keys(files).length > 0) {
+          return { isMultiFile: true, files };
+        }
+      }
+      return raw; // Single file string
+    }
+    
+    // 2. Fallback: markdown code blocks (```html, ```jsx, etc.)
     const mdMatch = content.match(/```(?:html|jsx|tsx|js)\s*\n([\s\S]*?)\n\s*```/i);
     if (mdMatch && mdMatch[1] && mdMatch[1].trim().length > 80) return mdMatch[1].trim();
+    
     return null;
   }, []);
 
