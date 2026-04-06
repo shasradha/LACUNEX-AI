@@ -141,14 +141,25 @@ class AIRouter:
             "cerebras": ("Cerebras", self.cerebras, DEFAULT_MODELS["cerebras"]),
         }
 
+        # Explicit fallback priority: Cerebras (generous free) → Groq → OpenRouter (credits)
+        _FALLBACK_ORDER = ["cerebras", "groq", "openrouter"]
+
         fallback_chain = []
         if provider in provider_configs:
             name, client, default_model = provider_configs[provider]
             fallback_chain.append((name, client, model or default_model))
 
-        for provider_key, (name, client, default_model) in provider_configs.items():
-            if provider_key != provider and provider_key != "ollama":
+        for key in _FALLBACK_ORDER:
+            if key != provider and key in provider_configs:
+                name, client, default_model = provider_configs[key]
                 fallback_chain.append((name, client, default_model))
+
+        # Smart token limits per provider to avoid billing/quota errors
+        _MAX_TOKENS = {
+            "Cerebras": 16384,  # Very generous free tier
+            "Groq": 8192,      # 100K daily token limit, conserve
+            "OpenRouter": 4096, # Credit-based, keep low
+        }
 
         for name, client, model_id in fallback_chain:
             try:
@@ -156,7 +167,7 @@ class AIRouter:
                     model=model_id,
                     messages=messages,
                     stream=True,
-                    max_tokens=16384,
+                    max_tokens=_MAX_TOKENS.get(name, 8192),
                 )
 
                 async for chunk in stream:
@@ -195,7 +206,7 @@ class AIRouter:
                 contents=self._build_gemini_contents(message, history),
                 config=types.GenerateContentConfig(
                     system_instruction=self._get_system_prompt(memory_profile),
-                    max_output_tokens=4096,
+                    max_output_tokens=16384,
                 ),
             )
 
@@ -215,13 +226,14 @@ class AIRouter:
         memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
         try:
-            # Use gemini-2.0-flash-thinking-preview-01-21 for best results
+            # Use gemini-2.5-flash — supports native thinking + high output
             stream = await self.gemini.aio.models.generate_content_stream(
-                model="gemini-2.0-flash-thinking-preview-01-21",
+                model="gemini-2.5-flash",
                 contents=self._build_gemini_contents(message, history),
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(thinking_budget=10000),
                     system_instruction=self._get_system_prompt(memory_profile),
+                    max_output_tokens=16384,
                 ),
             )
 
