@@ -155,8 +155,13 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
   // Extract artifact code from this message for the "Launch Artifact" card
   const artifactCode = useMemo(() => {
     if (isUser || !message.content) return null;
+    // 1. Properly closed tags
     const tagMatch = message.content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
     if (tagMatch && tagMatch[1]) return tagMatch[1].trim();
+    // 2. Unclosed tags (AI cut off)
+    const openMatch = message.content.match(/<lacunex-artifact[^>]*>([\s\S]+)/i);
+    if (openMatch && openMatch[1] && openMatch[1].trim().length > 80) return openMatch[1].trim();
+    // 3. Markdown code blocks
     const mdMatch = message.content.match(/```(?:html|jsx|tsx|js)\s*\n([\s\S]*?)\n\s*```/i);
     if (mdMatch && mdMatch[1] && mdMatch[1].trim().length > 80) return mdMatch[1].trim();
     return null;
@@ -165,8 +170,10 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
   // Clean content: strip artifact blocks from the displayed markdown
   const cleanContent = useMemo(() => {
     let content = message.content || "";
-    // Strip <lacunex-artifact> tags
+    // 1. Strip properly closed <lacunex-artifact>...</lacunex-artifact> tags
     content = content.replace(/<lacunex-artifact[^>]*>[\s\S]*?<\/lacunex-artifact>/ig, "");
+    // 2. Strip UNCLOSED artifact tags (AI response cut off before closing tag)
+    content = content.replace(/<lacunex-artifact[^>]*>[\s\S]*/ig, "");
     // Citation formatting
     content = content.replace(/\[(\d+)\]/g, "[$1](#source-$1)");
     return content.trim();

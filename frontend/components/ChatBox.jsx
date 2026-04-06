@@ -627,10 +627,13 @@ export default function ChatBox({
   /* ── Artifact Extraction ───────────────────── */
   const extractArtifactCode = useCallback((content) => {
     if (!content) return null;
-    // 1. Try our strict <lacunex-artifact> tag format
+    // 1. Try our strict <lacunex-artifact> tag format (properly closed)
     const tagMatch = content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
     if (tagMatch && tagMatch[1]) return tagMatch[1].trim();
-    // 2. Fallback: markdown code blocks (```html, ```jsx, etc.)
+    // 2. Handle UNCLOSED artifact tags (AI response cut off)
+    const openTagMatch = content.match(/<lacunex-artifact[^>]*>([\s\S]+)/i);
+    if (openTagMatch && openTagMatch[1] && openTagMatch[1].trim().length > 80) return openTagMatch[1].trim();
+    // 3. Fallback: markdown code blocks (```html, ```jsx, etc.)
     const mdMatch = content.match(/```(?:html|jsx|tsx|js)\s*\n([\s\S]*?)\n\s*```/i);
     if (mdMatch && mdMatch[1] && mdMatch[1].trim().length > 80) return mdMatch[1].trim();
     return null;
