@@ -582,7 +582,8 @@ def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
                 blocks.append({"type": "bullet", "text": re.sub(r"^[-*+]\s+", "", stripped)})
             elif re.match(r"^\d+\.\s+", stripped):
                 m = re.match(r"^(\d+)\.\s+(.*)", stripped)
-                blocks.append({"type": "numbered", "number": int(m.group(1)), "text": m.group(2)})
+                if m:
+                    blocks.append({"type": "numbered", "number": int(m.group(1)), "text": m.group(2)})
             else:
                 blocks.append({"type": "text", "text": stripped})
 
@@ -593,7 +594,11 @@ def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
         blocks.append({"type": "code", "lines": code.get("code", "").split("\n"), "language": code.get("language", "")})
 
     for highlight in section.get("highlights", []):
-        blocks.append({"type": "callout", "text": highlight.get("text", "")})
+        h_type = highlight.get("type", "key_point")
+        blocks.append({"type": "callout", "callout_type": h_type, "text": highlight.get("text", "")})
+
+    for diagram in section.get("diagrams", []):
+        blocks.append({"type": "diagram", "title": diagram.get("title", "Diagram"), "code": diagram.get("code", "")})
 
     for sub in section.get("subsections", []):
         blocks.extend(_doc_flatten_content(sub, depth + 1))
@@ -601,191 +606,403 @@ def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
     return blocks
 
 
-def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
-    """Generate a themed PDF from structured document JSON."""
-    from fpdf import FPDF
-    from services.document_renderer import THEMES
+def _fetch_mermaid_png(mermaid_code: str) -> bytes | None:
+    """Fetch a Mermaid diagram as PNG from mermaid.ink API."""
+    import base64
+    import urllib.request
+    try:
+        encoded = base64.urlsafe_b64encode(mermaid_code.encode("utf-8")).decode("ascii")
+        url = f"https://mermaid.ink/img/{encoded}?type=png&bgColor=!white"
+        req = urllib.request.Request(url, headers={"User-Agent": "LacunexAI/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.read()
+    except Exception:
+        return None
 
-    t = THEMES.get(theme, THEMES["professional"])
+
+# Callout style configs for PDF
+_PDF_CALLOUT_STYLES = {
+    "key_point": {"icon": "[Key Point]", "bg": (239, 246, 255), "border": (59, 130, 246), "text": (30, 64, 175)},
+    "important": {"icon": "[Important]", "bg": (255, 251, 235), "border": (245, 158, 11), "text": (146, 64, 14)},
+    "warning":   {"icon": "[Warning]",   "bg": (254, 242, 242), "border": (239, 68, 68),  "text": (153, 27, 27)},
+    "summary":   {"icon": "[Summary]",   "bg": (240, 253, 244), "border": (16, 185, 129), "text": (6, 95, 70)},
+    "definition":{"icon": "[Definition]","bg": (245, 243, 255), "border": (139, 92, 246), "text": (91, 33, 182)},
+    "example":   {"icon": "[Example]",   "bg": (236, 254, 255), "border": (6, 182, 212),  "text": (21, 94, 117)},
+    "note":      {"icon": "[Note]",      "bg": (239, 246, 255), "border": (59, 130, 246), "text": (30, 64, 175)},
+}
+
+
+def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
+    """Generate a premium-quality themed PDF from structured document JSON."""
+    from fpdf import FPDF
+
     title = doc_json.get("title", "Untitled Document")
     sections = doc_json.get("sections", [])
     toc = doc_json.get("table_of_contents", [])
     metadata = doc_json.get("metadata", {})
 
+    # Theme accent colors
+    ACCENTS = {
+        "professional": (37, 99, 235),
+        "dark": (139, 92, 246),
+        "minimal": (75, 85, 99),
+    }
+    accent = ACCENTS.get(theme, ACCENTS["professional"])
+    current_section_name = ""
+
     class DocPDF(FPDF):
+        def header(self):
+            if self.page_no() <= 1:
+                return
+            # Running header: section name (left), page (right)
+            self.set_font("Helvetica", "I", 7)
+            self.set_text_color(140, 140, 160)
+            self.set_y(8)
+            name = current_section_name[:60]
+            self.cell(0, 4, _pdf_safe(name), align="L")
+            self.cell(0, 4, f"Page {self.page_no()}", align="R")
+            # Thin accent line under header
+            self.set_draw_color(*accent)
+            self.set_line_width(0.2)
+            self.line(22, 14, 188, 14)
+            self.set_y(18)
+
         def footer(self):
-            self.set_y(-15)
-            self.set_font("Helvetica", "I", 8)
-            self.set_text_color(120, 120, 130)
-            self.cell(0, 5, _pdf_safe(BRAND_FOOTER), align="C")
-            self.cell(0, 5, f"Page {self.page_no()}", align="R")
+            self.set_y(-14)
+            self.set_draw_color(200, 200, 215)
+            self.set_line_width(0.15)
+            self.line(22, self.get_y() - 2, 188, self.get_y() - 2)
+            self.set_font("Helvetica", "I", 7)
+            self.set_text_color(140, 140, 160)
+            self.cell(0, 4, _pdf_safe(BRAND_FOOTER), align="C")
 
     pdf = DocPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.set_auto_page_break(auto=True, margin=18)
 
-    L, R = 20, 20
-    PW = 210 - L - R
+    L, R = 22, 20
+    PW = 210 - L - R  # 168mm usable
 
     pdf.set_left_margin(L)
     pdf.set_right_margin(R)
-    pdf.set_top_margin(25)
+    pdf.set_top_margin(18)
 
-    # ── Title Page ────────────────────────────────────────────────────────
+    # ═══════════════════════════════════════════════════════════════════
+    #  COVER PAGE
+    # ═══════════════════════════════════════════════════════════════════
     pdf.add_page()
-    pdf.ln(50)
-    pdf.set_font("Helvetica", "B", 28)
+
+    # Top accent bar (gradient feel with rect)
+    pdf.set_fill_color(*accent)
+    pdf.rect(0, 0, 210, 5, "F")
+
+    # Side accent strip
+    pdf.set_fill_color(*accent)
+    pdf.rect(0, 0, 4, 297, "F")
+
+    # Title area
+    pdf.ln(60)
+    pdf.set_font("Helvetica", "B", 26)
     pdf.set_text_color(15, 23, 42)
-    pdf.multi_cell(PW, 12, _pdf_safe(_clean(title)), align="C")
+    safe_title = _pdf_safe(_clean(title))
+    # Adjust font for very long titles
+    if len(safe_title) > 60:
+        pdf.set_font("Helvetica", "B", 22)
+    pdf.multi_cell(PW, 11, safe_title, align="C")
+
+    # Decorative separator
+    pdf.ln(6)
+    y = pdf.get_y()
+    pdf.set_draw_color(*accent)
+    pdf.set_line_width(0.8)
+    mid = 105
+    pdf.line(mid - 25, y, mid + 25, y)
     pdf.ln(8)
 
+    # Subtitle
     pdf.set_font("Helvetica", "", 11)
     pdf.set_text_color(100, 116, 139)
-    subtitle = f"{metadata.get('total_sections', 0)} Sections | ~{metadata.get('total_pages_estimate', 1)} Pages"
+    sec_count = metadata.get('total_sections', 0)
+    page_est = metadata.get('total_pages_estimate', 1)
+    subtitle = f"{sec_count} Sections  |  ~{page_est} Pages  |  {metadata.get('total_tables', 0)} Tables"
     pdf.cell(PW, 6, _pdf_safe(subtitle), align="C", ln=True)
+
+    # Date
     pdf.ln(4)
     pdf.set_font("Helvetica", "I", 9)
+    pdf.set_text_color(148, 163, 184)
     pdf.cell(PW, 5, _pdf_safe(f"Generated on {_ts()}"), align="C", ln=True)
-    pdf.ln(8)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_text_color(37, 99, 235)
-    pdf.cell(PW, 5, "LACUNEX AI", align="C", ln=True)
-    pdf.set_text_color(15, 23, 42)
 
-    # ── Table of Contents ─────────────────────────────────────────────────
+    # Brand
+    pdf.ln(10)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*accent)
+    pdf.cell(PW, 6, "LACUNEX AI", align="C", ln=True)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(148, 163, 184)
+    pdf.cell(PW, 5, "Filling the gaps humans can't reach", align="C", ln=True)
+
+    # Bottom accent strip on cover
+    pdf.set_fill_color(*accent)
+    pdf.rect(0, 292, 210, 5, "F")
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  TABLE OF CONTENTS
+    # ═══════════════════════════════════════════════════════════════════
     if toc:
         pdf.add_page()
+        current_section_name = "Table of Contents"
+
         pdf.set_font("Helvetica", "B", 18)
+        pdf.set_text_color(15, 23, 42)
         pdf.cell(PW, 10, "Table of Contents", ln=True)
-        pdf.ln(4)
-        pdf.set_draw_color(200, 200, 220)
-        pdf.line(L, pdf.get_y(), 210 - R, pdf.get_y())
-        pdf.ln(6)
+
+        # Accent underline
+        pdf.set_draw_color(*accent)
+        pdf.set_line_width(0.6)
+        pdf.line(L, pdf.get_y() + 1, L + 50, pdf.get_y() + 1)
+        pdf.ln(8)
 
         for idx, entry in enumerate(toc):
+            # Main entry
             pdf.set_font("Helvetica", "B", 11)
-            pdf.set_text_color(37, 99, 235)
-            pdf.cell(8, 6, f"{idx + 1}.")
+            pdf.set_text_color(*accent)
+            pdf.cell(10, 7, f"{idx + 1}.")
             pdf.set_text_color(15, 23, 42)
-            pdf.cell(PW - 8, 6, _pdf_safe(entry.get("title", "")), ln=True)
+            pdf.cell(PW - 10, 7, _pdf_safe(entry.get("title", "")[:70]), ln=True)
 
+            # Sub-entries
             for child in entry.get("children", []):
                 pdf.set_font("Helvetica", "", 9)
                 pdf.set_text_color(100, 116, 139)
-                pdf.cell(16, 5, "")
-                pdf.cell(PW - 16, 5, _pdf_safe(child.get("title", "")), ln=True)
+                pdf.cell(18, 5, "")
+                pdf.cell(PW - 18, 5, _pdf_safe(child.get("title", "")[:65]), ln=True)
 
             pdf.ln(2)
 
         pdf.set_text_color(15, 23, 42)
 
-    # ── Content Sections ──────────────────────────────────────────────────
-    for section in sections:
+    # ═══════════════════════════════════════════════════════════════════
+    #  CONTENT SECTIONS
+    # ═══════════════════════════════════════════════════════════════════
+    for sec_idx, section in enumerate(sections):
         blocks = _doc_flatten_content(section)
+        heading_text = section.get("heading", "Section")
+
+        # Page break before each top-level section (except first)
+        if sec_idx > 0 and section.get("level", 2) <= 2:
+            pdf.add_page()
+
+        current_section_name = heading_text
 
         for block in blocks:
             btype = block.get("type")
 
+            # ── Blank line ────────────────────────────────────────────
             if btype == "blank":
                 pdf.ln(2)
 
+            # ── Heading ───────────────────────────────────────────────
             elif btype == "heading":
                 lvl = block.get("level", 2)
                 sizes = {1: 18, 2: 14, 3: 12, 4: 10}
-                pdf.ln(4)
+                pdf.ln(5)
+
+                if lvl <= 2:
+                    # Accent divider before major headings
+                    pdf.set_draw_color(*accent)
+                    pdf.set_line_width(0.5)
+                    pdf.line(L, pdf.get_y(), L + 40, pdf.get_y())
+                    pdf.ln(3)
+
                 pdf.set_font("Helvetica", "B", sizes.get(lvl, 10))
                 pdf.set_text_color(15, 23, 42)
-                pdf.multi_cell(PW, 7, _pdf_safe(block["text"]), align="L")
+                pdf.multi_cell(PW, 7, _pdf_safe(_strip_md(block["text"])), align="L")
+
                 if lvl <= 2:
-                    pdf.set_draw_color(200, 200, 220)
+                    pdf.set_draw_color(220, 220, 235)
+                    pdf.set_line_width(0.15)
                     pdf.line(L, pdf.get_y() + 1, 210 - R, pdf.get_y() + 1)
+
                 pdf.ln(3)
 
+            # ── Bullet ────────────────────────────────────────────────
             elif btype == "bullet":
                 pdf.set_font("Helvetica", "", 10)
                 pdf.set_text_color(40, 40, 60)
                 clean_text = _strip_md(block["text"])
-                pdf.set_left_margin(L + 6)
+                x_start = L + 6
                 pdf.set_x(L + 2)
+                pdf.set_text_color(*accent)
                 pdf.cell(4, 5.5, _pdf_safe("\u2022"))
-                pdf.set_x(L + 6)
+                pdf.set_text_color(40, 40, 60)
+                pdf.set_x(x_start)
+                old_lm = pdf.l_margin
+                pdf.set_left_margin(x_start)
                 pdf.multi_cell(PW - 6, 5.5, _pdf_safe(clean_text), align="L")
-                pdf.set_left_margin(L)
+                pdf.set_left_margin(old_lm)
 
+            # ── Numbered ──────────────────────────────────────────────
             elif btype == "numbered":
                 pdf.set_font("Helvetica", "", 10)
                 pdf.set_text_color(40, 40, 60)
                 clean_text = _strip_md(block["text"])
                 num_str = f"{block.get('number', '.')}."
-                pdf.set_left_margin(L + 8)
+                x_start = L + 8
                 pdf.set_x(L + 2)
+                pdf.set_text_color(*accent)
                 pdf.cell(6, 5.5, _pdf_safe(num_str))
-                pdf.set_x(L + 8)
+                pdf.set_text_color(40, 40, 60)
+                pdf.set_x(x_start)
+                old_lm = pdf.l_margin
+                pdf.set_left_margin(x_start)
                 pdf.multi_cell(PW - 8, 5.5, _pdf_safe(clean_text), align="L")
-                pdf.set_left_margin(L)
+                pdf.set_left_margin(old_lm)
 
+            # ── Text paragraph ────────────────────────────────────────
             elif btype == "text":
                 clean_text = _strip_md(block["text"])
+                if not clean_text.strip():
+                    continue
                 pdf.set_font("Helvetica", "", 10)
                 pdf.set_text_color(40, 40, 60)
-                pdf.multi_cell(PW, 5.5, _pdf_safe(clean_text), align="L")
-                pdf.ln(1)
+                pdf.multi_cell(PW, 5.8, _pdf_safe(clean_text), align="L")
+                pdf.ln(1.5)
 
+            # ── Code block ────────────────────────────────────────────
             elif btype == "code":
-                pdf.set_fill_color(241, 245, 249)
-                pdf.set_draw_color(200, 200, 220)
+                lang = block.get("language", "")
+                pdf.ln(3)
+                # Code header bar
+                pdf.set_fill_color(235, 238, 245)
+                pdf.set_draw_color(200, 205, 220)
+                y_top = pdf.get_y()
+                pdf.rect(L, y_top, PW, 5, "F")
+                if lang:
+                    pdf.set_font("Helvetica", "I", 7)
+                    pdf.set_text_color(120, 120, 150)
+                    pdf.set_xy(L + PW - 25, y_top + 0.5)
+                    pdf.cell(24, 4, _pdf_safe(lang.upper()), align="R")
+                pdf.set_y(y_top + 5)
+
+                # Code body
+                pdf.set_fill_color(246, 248, 252)
                 pdf.set_font("Courier", "", 8)
-                pdf.set_text_color(60, 50, 140)
-                pdf.ln(2)
+                pdf.set_text_color(55, 48, 120)
                 for code_line in block.get("lines", []):
                     safe = _pdf_safe(code_line if code_line else " ")
-                    pdf.set_x(L + 2)
-                    pdf.multi_cell(PW - 4, 4.5, " " + safe, fill=True, border=0, align="L")
+                    pdf.set_x(L)
+                    pdf.multi_cell(PW, 4.5, "  " + safe, fill=True, border=0, align="L")
                 pdf.set_font("Helvetica", "", 10)
                 pdf.set_text_color(40, 40, 60)
                 pdf.ln(3)
 
+            # ── Callout / Highlight Box ───────────────────────────────
             elif btype == "callout":
-                pdf.set_fill_color(239, 246, 255)
-                pdf.set_draw_color(59, 130, 246)
-                pdf.set_font("Helvetica", "I", 9)
-                pdf.set_text_color(30, 64, 175)
-                pdf.ln(2)
-                pdf.set_x(L + 4)
-                pdf.multi_cell(PW - 8, 5, _pdf_safe(block.get("text", "")), fill=True, align="L")
-                pdf.set_text_color(40, 40, 60)
+                ct = block.get("callout_type", "key_point")
+                style = _PDF_CALLOUT_STYLES.get(ct, _PDF_CALLOUT_STYLES["key_point"])
                 pdf.ln(3)
 
+                y_start = pdf.get_y()
+                # Background fill
+                pdf.set_fill_color(*style["bg"])
+                # Left accent border (simulated with rect)
+                pdf.set_fill_color(*style["border"])
+                pdf.rect(L, y_start, 1.5, 14, "F")
+                pdf.set_fill_color(*style["bg"])
+                pdf.rect(L + 1.5, y_start, PW - 1.5, 14, "F")
+
+                # Icon/label
+                pdf.set_font("Helvetica", "B", 8)
+                pdf.set_text_color(*style["text"])
+                pdf.set_xy(L + 5, y_start + 1.5)
+                pdf.cell(30, 4, _pdf_safe(style["icon"]))
+
+                # Content
+                pdf.set_font("Helvetica", "", 9)
+                pdf.set_xy(L + 5, y_start + 6)
+                clean = _strip_md(block.get("text", ""))
+                pdf.multi_cell(PW - 10, 4.5, _pdf_safe(clean[:300]), align="L")
+
+                pdf.set_y(max(pdf.get_y(), y_start + 14) + 2)
+                pdf.set_text_color(40, 40, 60)
+
+            # ── Table ─────────────────────────────────────────────────
             elif btype == "table":
                 table = block.get("data", {})
                 headers = table.get("headers", [])
                 rows = table.get("rows", [])
-                if headers:
-                    col_count = len(headers)
-                    col_w = max(PW / col_count, 20)
-                    pdf.ln(3)
+                if not headers:
+                    continue
 
-                    # Header
-                    pdf.set_font("Helvetica", "B", 8)
-                    pdf.set_fill_color(30, 64, 175)
-                    pdf.set_text_color(255, 255, 255)
-                    for h in headers:
-                        pdf.cell(col_w, 6, _pdf_safe(h[:25]), border=1, fill=True, align="C")
+                col_count = len(headers)
+                col_w = min(max(PW / col_count, 20), 60)
+                total_w = col_w * col_count
+                x_offset = L + max(0, (PW - total_w) / 2)  # center table
+                pdf.ln(4)
+
+                # Header row
+                pdf.set_font("Helvetica", "B", 8)
+                pdf.set_fill_color(30, 58, 95)
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_x(x_offset)
+                for h in headers:
+                    pdf.cell(col_w, 7, _pdf_safe(h[:30]), border=0, fill=True, align="C")
+                pdf.ln()
+
+                # Data rows
+                pdf.set_font("Helvetica", "", 8)
+                for ri, row in enumerate(rows):
+                    if ri % 2 == 0:
+                        pdf.set_fill_color(248, 250, 252)
+                    else:
+                        pdf.set_fill_color(255, 255, 255)
+                    pdf.set_text_color(40, 40, 60)
+                    pdf.set_x(x_offset)
+                    for ci, cell in enumerate(row):
+                        pdf.cell(col_w, 6, _pdf_safe(str(cell)[:50]), border=0, fill=True, align="L")
                     pdf.ln()
 
-                    # Rows
-                    pdf.set_font("Helvetica", "", 8)
-                    pdf.set_text_color(40, 40, 60)
-                    for ri, row in enumerate(rows):
-                        if ri % 2 == 1:
-                            pdf.set_fill_color(241, 245, 249)
-                        else:
-                            pdf.set_fill_color(255, 255, 255)
-                        for ci, cell in enumerate(row):
-                            pdf.cell(col_w, 5.5, _pdf_safe(str(cell)[:30]), border=1, fill=True, align="L")
-                        pdf.ln()
-                    pdf.ln(3)
+                # Bottom line
+                pdf.set_draw_color(200, 205, 220)
+                pdf.set_line_width(0.15)
+                pdf.line(x_offset, pdf.get_y(), x_offset + total_w, pdf.get_y())
+                pdf.ln(4)
+
+            # ── Diagram ───────────────────────────────────────────────
+            elif btype == "diagram":
+                diagram_title = block.get("title", "Diagram")
+                diagram_code = block.get("code", "")
+                pdf.ln(4)
+
+                # Try to fetch rendered PNG
+                png_data = _fetch_mermaid_png(diagram_code) if diagram_code else None
+
+                if png_data and len(png_data) > 100:
+                    # Embed real diagram image
+                    pdf.set_font("Helvetica", "B", 9)
+                    pdf.set_text_color(*accent)
+                    pdf.cell(PW, 5, _pdf_safe(f"Diagram: {diagram_title}"), align="C", ln=True)
+                    pdf.ln(2)
+                    try:
+                        img_buf = io.BytesIO(png_data)
+                        pdf.image(img_buf, x=L + 10, w=PW - 20)
+                    except Exception:
+                        pass  # Fallback: just show the title
+                else:
+                    # Fallback: show as labeled code block
+                    pdf.set_font("Helvetica", "B", 9)
+                    pdf.set_text_color(*accent)
+                    pdf.cell(PW, 5, _pdf_safe(f"Diagram: {diagram_title}"), align="C", ln=True)
+                    pdf.set_font("Courier", "", 7)
+                    pdf.set_text_color(80, 80, 100)
+                    for dline in diagram_code.split("\n")[:20]:
+                        pdf.cell(PW, 3.5, _pdf_safe("  " + dline), ln=True)
+
+                pdf.set_text_color(40, 40, 60)
+                pdf.ln(4)
 
     return bytes(pdf.output())
+
 
 
 def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes:

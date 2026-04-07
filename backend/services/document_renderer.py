@@ -230,30 +230,66 @@ def _render_table(table: dict, theme: dict) -> str:
 
 
 def _render_code_block(code: dict, theme: dict) -> str:
-    """Render a code block with language label."""
+    """Render a code block with macOS-style header and language badge."""
     lang = code.get("language", "")
     code_text = _esc(code.get("code", ""))
-    lang_label = f'<span class="code-lang">{_esc(lang)}</span>' if lang else ""
+    lang_badge = f'<span class="code-lang-badge">{_esc(lang)}</span>' if lang else ""
     return f"""<div class="code-block">
-  {lang_label}
+  <div class="code-block-header">
+    <span class="code-block-dot" style="background:#ff5f57"></span>
+    <span class="code-block-dot" style="background:#febc2e"></span>
+    <span class="code-block-dot" style="background:#28c840"></span>
+    {lang_badge}
+  </div>
   <pre><code>{code_text}</code></pre>
 </div>"""
 
 
+# Callout type → icon mapping
+_CALLOUT_ICONS = {
+    "key_point": "\U0001f4a1",  # 💡
+    "important": "\u26a0\ufe0f",  # ⚠️
+    "warning": "\u26a0\ufe0f",    # ⚠️
+    "summary": "\U0001f4cc",     # 📌
+    "definition": "\U0001f4d6",  # 📖
+    "example": "\U0001f50d",     # 🔍
+    "note": "\U0001f4a1",        # 💡
+}
+
+
 def _render_callout(highlight: dict, theme: dict) -> str:
-    """Render a highlight/callout box."""
-    return f"""<div class="callout">
-  <div class="callout-content">{_render_inline(highlight.get('text', ''))}</div>
+    """Render a typed highlight/callout box with icon."""
+    callout_type = highlight.get("type", "key_point")
+    icon = _CALLOUT_ICONS.get(callout_type, "💡")
+    text = _render_inline(highlight.get('text', ''))
+    return f"""<div class="callout callout-{_esc(callout_type)}">
+  <span class="callout-icon">{icon}</span>
+  <div class="callout-content">{text}</div>
 </div>"""
 
 
-def _render_section(section: dict, theme: dict, depth: int = 0) -> str:
-    """Render a complete section with its subsections, tables, code blocks."""
+def _render_diagram(diagram: dict, theme: dict) -> str:
+    """Render a Mermaid diagram with wrapper."""
+    title = _esc(diagram.get("title", "Diagram"))
+    code = _esc(diagram.get("code", ""))
+    return f"""<div class="diagram-container">
+  <div class="diagram-title">{title}</div>
+  <div class="mermaid">{code}</div>
+</div>"""
+
+
+def _render_section(section: dict, theme: dict, depth: int = 0, is_first: bool = True) -> str:
+    """Render a complete section with subsections, tables, code blocks, diagrams."""
     level = min(section.get("level", 2), 4)
     heading = _esc(section.get("heading", ""))
     section_type = section.get("type", "content")
 
     html_parts = []
+
+    # Section gradient divider (between top-level sections, not the first)
+    if level <= 2 and not is_first:
+        html_parts.append('<div class="section-divider"></div>')
+
     html_parts.append(f'<section class="doc-section section-{section_type}" data-level="{level}">')
     html_parts.append(f'  <h{level} class="section-heading">{heading}</h{level}>')
 
@@ -263,7 +299,7 @@ def _render_section(section: dict, theme: dict, depth: int = 0) -> str:
         html_parts.append(f"    {_render_content_block(section['content'], theme)}")
         html_parts.append(f"  </div>")
 
-    # Highlights
+    # Highlights / Callouts
     for highlight in section.get("highlights", []):
         html_parts.append(_render_callout(highlight, theme))
 
@@ -274,6 +310,10 @@ def _render_section(section: dict, theme: dict, depth: int = 0) -> str:
     # Code blocks
     for code in section.get("code_blocks", []):
         html_parts.append(_render_code_block(code, theme))
+
+    # Diagrams
+    for diagram in section.get("diagrams", []):
+        html_parts.append(_render_diagram(diagram, theme))
 
     # Practice questions
     if section.get("practice_questions"):
@@ -286,8 +326,8 @@ def _render_section(section: dict, theme: dict, depth: int = 0) -> str:
         html_parts.append("</div>")
 
     # Subsections
-    for sub in section.get("subsections", []):
-        html_parts.append(_render_section(sub, theme, depth + 1))
+    for sub_idx, sub in enumerate(section.get("subsections", [])):
+        html_parts.append(_render_section(sub, theme, depth + 1, is_first=(sub_idx == 0)))
 
     # Summary
     if section.get("summary"):
@@ -683,7 +723,7 @@ def render_document_html(
     # ── Sections ──────────────────────────────────────────────────────────────
     for idx, section in enumerate(sections):
         html_parts.append(f'<div id="section-{idx}">')
-        html_parts.append(_render_section(section, t))
+        html_parts.append(_render_section(section, t, is_first=(idx == 0)))
         html_parts.append("</div>")
 
     # ── Footer ────────────────────────────────────────────────────────────────

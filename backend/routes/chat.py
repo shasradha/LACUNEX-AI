@@ -101,6 +101,19 @@ async def chat(
                             full_response,
                             title=request.message.strip()[:100],
                         )
+
+                        # Inject AI-generated diagrams into sections
+                        ai_diagrams = chunk.get("diagrams", [])
+                        if doc_json and ai_diagrams:
+                            doc_sections = doc_json.get("sections", [])
+                            for diag in ai_diagrams:
+                                si = diag.get("section_index", 0)
+                                if 0 <= si < len(doc_sections):
+                                    doc_sections[si].setdefault("diagrams", []).append({
+                                        "title": diag.get("title", "Diagram"),
+                                        "code": diag.get("code", ""),
+                                    })
+
                     except Exception as e:
                         print(f"[Chat] Document parsing failed: {e}")
 

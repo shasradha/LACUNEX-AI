@@ -4,9 +4,13 @@ Converts AI-generated markdown into structured JSON documents.
 
 Pipeline position: Layer 2 (AI Markdown → Structured JSON)
 Feeds into: document_renderer.py (Layer 3) and export_service.py (Layer 4)
+
+v2.0 — Added content sanitization, duplicate detection, 
+        structure validation, diagram field support
 """
 
 import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -21,14 +25,137 @@ _NUMBERED = re.compile(r"^(\s*)\d+\.\s+(.+)$")
 _CODE_FENCE = re.compile(r"^```(\w*)\s*$")
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 _HIGHLIGHT_BOX = re.compile(
-    r"^>\s*\*\*(?:Note|Tip|Important|Warning|Example|Key Point|Remember|Summary|Definition)[:\s]*\*\*\s*(.+)$",
+    r"^>\s*\*\*(?:Note|Tip|Important|Warning|Example|Key Point|Remember|Summary|Definition|Caution)[:\s]*\*\*\s*(.+)$",
     re.I | re.MULTILINE,
 )
+_HIGHLIGHT_TYPE = re.compile(
+    r"^>\s*\*\*(Note|Tip|Important|Warning|Example|Key Point|Remember|Summary|Definition|Caution)[:\s]*\*\*",
+    re.I,
+)
 _PRACTICE_Q = re.compile(
-    r"^(?:\d+[\.\)]\s*|[-*]\s+)?(?:Q[\.\):]?\s*|Question[\.\):]?\s*)(.+)$",
+    r"^(?:\d+[\.)\]]\s*|[-*]\s+)?(?:Q[\.)\:]?\s*|Question[\.)\:]?\s*)(.+)$",
     re.I,
 )
 
+# Diagram-worthy keywords
+_DIAGRAM_KEYWORDS = re.compile(
+    r"\b(process|flow|architecture|relationship|hierarchy|lifecycle|stages|"
+    r"pipeline|workflow|sequence|steps|phases|layers|components|structure|"
+    r"diagram|chart|tree|graph|cycle|model)\b",
+    re.I,
+)
+
+
+# ── Content Sanitization ─────────────────────────────────────────────────────
+
+def _sanitize_text(text: str) -> str:
+    """
+    Deep-clean raw markdown text before parsing.
+    Removes invalid chars, fixes encoding, strips artifacts.
+    """
+    if not text:
+        return ""
+
+    # 1. Remove null bytes and control chars (keep newline, tab, carriage return)
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
+
+    # 2. Normalize Unicode (NFC — composed form)
+    text = unicodedata.normalize("NFC", text)
+
+    # 3. Replace broken Unicode surrogate pairs with ?
+    text = text.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+
+    # 4. Fix common encoding artifacts (mojibake from UTF-8 misread as Latin-1)
+    replacements = {
+        "\u200b": "",   # zero-width space
+        "\u200c": "",   # zero-width non-joiner
+        "\u200d": "",   # zero-width joiner
+        "\ufeff": "",   # BOM
+        "\u00a0": " ",  # non-breaking space
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    # 5. Normalize line endings
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # 6. Collapse excessive blank lines (max 2 consecutive)
+    text = re.sub(r"\n{4,}", "\n\n\n", text)
+
+    # 7. Strip trailing whitespace per line
+    text = "\n".join(line.rstrip() for line in text.split("\n"))
+
+    # 8. Fix stray/incomplete markdown fences
+    fence_count = text.count("```")
+    if fence_count % 2 != 0:
+        text += "\n```"
+
+    return text.strip()
+
+
+def _detect_duplicate_paragraphs(content: str) -> str:
+    """Remove duplicate paragraphs (exact or near-exact matches)."""
+    if not content:
+        return content
+
+    paragraphs = content.split("\n\n")
+    seen = set()
+    unique = []
+
+    for para in paragraphs:
+        # Normalize for comparison: lowercase, strip whitespace, collapse spaces
+        normalized = re.sub(r"\s+", " ", para.strip().lower())
+        if len(normalized) < 10:
+            unique.append(para)
+            continue
+        if normalized not in seen:
+            seen.add(normalized)
+            unique.append(para)
+
+    return "\n\n".join(unique)
+
+
+def _validate_sentence(text: str) -> bool:
+    """Check if text contains at least one valid sentence."""
+    if not text or not text.strip():
+        return False
+    stripped = text.strip()
+    # Must have at least 3 words
+    if len(stripped.split()) < 3:
+        return False
+    # Must not be just markdown symbols
+    clean = re.sub(r"[#*_\-|`>]", "", stripped)
+    return len(clean.strip()) > 5
+
+
+def _is_meaningful_section(section: dict) -> bool:
+    """Check if a section has meaningful content (not empty/broken)."""
+    heading = (section.get("heading") or "").strip()
+    content = (section.get("content") or "").strip()
+    subsections = section.get("subsections", [])
+    tables = section.get("tables", [])
+    code_blocks = section.get("code_blocks", [])
+    highlights = section.get("highlights", [])
+
+    # Must have a heading
+    if not heading:
+        return False
+
+    # Has content OR has sub-elements
+    has_content = bool(content) and _validate_sentence(content)
+    has_elements = bool(subsections) or bool(tables) or bool(code_blocks) or bool(highlights)
+
+    return has_content or has_elements
+
+
+def _detect_diagram_candidates(heading: str, content: str) -> bool:
+    """Detect if a section is a good candidate for a diagram."""
+    combined = f"{heading} {content}".lower()
+    matches = _DIAGRAM_KEYWORDS.findall(combined)
+    return len(matches) >= 2  # Need at least 2 keyword matches
+
+
+# ── Table / Code Extraction ───────────────────────────────────────────────────
 
 def _estimate_pages(text: str) -> int:
     """Estimate page count (approx 3000 chars/page for formatted content)."""
@@ -36,25 +163,19 @@ def _estimate_pages(text: str) -> int:
 
 
 def _extract_tables(lines: list[str], start_idx: int) -> tuple[dict, int]:
-    """
-    Extract a markdown table starting at `start_idx`.
-    Returns (table_dict, next_line_index).
-    """
+    """Extract a markdown table starting at `start_idx`."""
     headers = []
     rows = []
     i = start_idx
 
-    # Parse header row
     if i < len(lines) and _TABLE_ROW.match(lines[i].strip()):
         header_line = lines[i].strip()
         headers = [cell.strip() for cell in header_line.strip("|").split("|")]
         i += 1
 
-    # Skip separator row
     if i < len(lines) and _TABLE_SEP.match(lines[i].strip()):
         i += 1
 
-    # Parse data rows
     while i < len(lines) and _TABLE_ROW.match(lines[i].strip()):
         row_line = lines[i].strip()
         cells = [cell.strip() for cell in row_line.strip("|").split("|")]
@@ -70,10 +191,7 @@ def _extract_tables(lines: list[str], start_idx: int) -> tuple[dict, int]:
 
 
 def _extract_code_block(lines: list[str], start_idx: int) -> tuple[dict, int]:
-    """
-    Extract a fenced code block starting at `start_idx`.
-    Returns (code_dict, next_line_index).
-    """
+    """Extract a fenced code block starting at `start_idx`."""
     first_line = lines[start_idx].strip()
     lang_match = _CODE_FENCE.match(first_line)
     language = lang_match.group(1) if lang_match else ""
@@ -117,6 +235,23 @@ def _detect_section_type(heading: str) -> str:
     return "content"
 
 
+def _detect_callout_type(line: str) -> str:
+    """Detect the type of callout from a blockquote line."""
+    match = _HIGHLIGHT_TYPE.match(line.strip())
+    if match:
+        type_str = match.group(1).lower().replace(" ", "_")
+        type_map = {
+            "note": "key_point", "tip": "key_point", "key_point": "key_point",
+            "important": "important", "warning": "warning", "caution": "warning",
+            "example": "example", "remember": "important",
+            "summary": "summary", "definition": "definition",
+        }
+        return type_map.get(type_str, "key_point")
+    return "key_point"
+
+
+# ── Main Parser ───────────────────────────────────────────────────────────────
+
 def parse_markdown_to_document(
     markdown: str,
     title: Optional[str] = None,
@@ -124,17 +259,11 @@ def parse_markdown_to_document(
 ) -> dict:
     """
     Convert AI-generated markdown into a structured JSON document.
-    
-    Returns:
-        {
-            "type": "document",
-            "title": str,
-            "generated_at": str,
-            "sections": [...],
-            "table_of_contents": [...],
-            "metadata": {...}
-        }
+    Includes full sanitization, duplicate detection, and diagram candidates.
     """
+    # ── Sanitize input ────────────────────────────────────────────────────
+    markdown = _sanitize_text(markdown)
+
     lines = markdown.split("\n")
     sections = []
     current_section = None
@@ -151,6 +280,9 @@ def parse_markdown_to_document(
         if not text:
             content_buffer = []
             return
+
+        # Deduplicate paragraphs
+        text = _detect_duplicate_paragraphs(text)
 
         if current_subsection is not None:
             current_subsection["content"] += ("\n\n" + text if current_subsection["content"] else text)
@@ -172,8 +304,10 @@ def parse_markdown_to_document(
                 "tables": [],
                 "code_blocks": [],
                 "highlights": [],
+                "diagrams": [],
                 "summary": "",
                 "practice_questions": [],
+                "diagram_candidate": False,
             }
 
     # Auto-detect title from first H1
@@ -237,8 +371,10 @@ def parse_markdown_to_document(
                     "tables": [],
                     "code_blocks": [],
                     "highlights": [],
+                    "diagrams": [],
                     "summary": "",
                     "practice_questions": [],
+                    "diagram_candidate": False,
                 }
                 current_subsection = None
             else:
@@ -264,8 +400,9 @@ def parse_markdown_to_document(
         highlight_match = _HIGHLIGHT_BOX.match(stripped)
         if highlight_match:
             _ensure_section()
+            callout_type = _detect_callout_type(stripped)
             highlight = {
-                "type": "callout",
+                "type": callout_type,
                 "text": highlight_match.group(1).strip(),
             }
             highlights.append(highlight)
@@ -287,7 +424,37 @@ def parse_markdown_to_document(
     if current_section is not None:
         sections.append(current_section)
 
-    # ── Build Table of Contents ───────────────────────────────────────────────
+    # ── Validate sections — remove empty/broken ones ─────────────────────────
+    validated_sections = []
+    for section in sections:
+        if _is_meaningful_section(section):
+            # Also validate subsections
+            valid_subs = [s for s in section.get("subsections", [])
+                          if (s.get("heading") or "").strip()]
+            section["subsections"] = valid_subs
+            validated_sections.append(section)
+    sections = validated_sections
+
+    # ── Detect diagram candidates ────────────────────────────────────────────
+    for section in sections:
+        content_for_check = section.get("content", "")
+        for sub in section.get("subsections", []):
+            content_for_check += " " + sub.get("content", "")
+        section["diagram_candidate"] = _detect_diagram_candidates(
+            section.get("heading", ""), content_for_check
+        )
+
+    # ── Enforce structure ordering ───────────────────────────────────────────
+    # intro → content → example → practice → summary/conclusion
+    type_order = {
+        "introduction": 0, "toc": 0,
+        "content": 1, "example": 2,
+        "practice": 3, "revision": 3,
+        "summary": 4,
+    }
+    sections.sort(key=lambda s: type_order.get(s.get("type", "content"), 1))
+
+    # ── Build Table of Contents ──────────────────────────────────────────────
     toc = []
     for idx, section in enumerate(sections):
         toc_entry = {
@@ -306,18 +473,17 @@ def parse_markdown_to_document(
         toc_entry["children"] = sub_entries
         toc.append(toc_entry)
 
-    # ── Extract practice questions (global scan) ──────────────────────────────
+    # ── Extract practice questions (global scan) ─────────────────────────────
     all_practice = []
     for section in sections:
         if section["type"] == "practice":
-            # Parse questions from content
             for line in section["content"].split("\n"):
                 q_match = _PRACTICE_Q.match(line.strip())
                 if q_match:
                     all_practice.append(q_match.group(1).strip())
             section["practice_questions"] = all_practice[-len(all_practice):]
 
-    # ── Build final document ──────────────────────────────────────────────────
+    # ── Build final document ─────────────────────────────────────────────────
     final_title = detected_title or title or "Untitled Document"
 
     document = {
@@ -333,6 +499,7 @@ def parse_markdown_to_document(
             "total_code_blocks": len(code_blocks),
             "total_highlights": len(highlights),
             "total_pages_estimate": _estimate_pages(markdown),
+            "total_diagram_candidates": sum(1 for s in sections if s.get("diagram_candidate")),
             "theme": theme,
             "character_count": len(markdown),
             "word_count": len(markdown.split()),
@@ -343,10 +510,7 @@ def parse_markdown_to_document(
 
 
 def document_to_flat_markdown(doc: dict) -> str:
-    """
-    Convert a structured document JSON back to clean markdown.
-    Useful for export fallback.
-    """
+    """Convert a structured document JSON back to clean markdown."""
     parts = []
     parts.append(f"# {doc['title']}\n")
 

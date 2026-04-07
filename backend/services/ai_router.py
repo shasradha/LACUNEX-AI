@@ -433,6 +433,57 @@ class AIRouter:
                 full_document += error_msg
                 yield {"type": "token", "content": error_msg}
 
+        # ── Pass 3: Generate Diagrams (max 3-5, high-value only) ──────────
+        yield {
+            "type": "doc_progress",
+            "content": "Generating diagrams...",
+            "phase": "diagrams",
+            "current": total,
+            "total": total,
+        }
+
+        diagrams = []
+        try:
+            diagram_prompt = (
+                f"Based on this document about: {message}\n\n"
+                f"The document has these sections:\n"
+                + "\n".join(f"- {s.get('title', '')}: {s.get('description', '')}" for s in toc_sections)
+                + "\n\n"
+                "Generate exactly 3 to 5 Mermaid diagrams that would ADD HIGH VALUE to this document.\n"
+                "Each diagram should illustrate a key concept, process flow, hierarchy, or relationship.\n\n"
+                "RULES:\n"
+                "- Only create diagrams where they genuinely help understanding\n"
+                "- Use flowchart, sequence diagram, or mindmap syntax\n"
+                "- Keep diagrams clean and readable (max 15 nodes each)\n"
+                "- Each diagram must have a descriptive title\n\n"
+                "Return ONLY valid JSON array, no markdown fences:\n"
+                '[{"title": "...", "section_index": 0, "code": "graph TD\\n  A[Start] --> B[End]"}, ...]'
+            )
+
+            diagram_response = await self.gemini.aio.models.generate_content(
+                model=model,
+                contents=[types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=diagram_prompt)],
+                )],
+                config=types.GenerateContentConfig(
+                    system_instruction="You are a diagram generator. Return ONLY valid JSON. No markdown fences.",
+                    max_output_tokens=4096,
+                ),
+            )
+
+            diag_text = diagram_response.text.strip()
+            if diag_text.startswith("```"):
+                diag_text = diag_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+            parsed_diagrams = json.loads(diag_text)
+            if isinstance(parsed_diagrams, list):
+                diagrams = parsed_diagrams[:5]  # Cap at 5
+
+        except Exception as e:
+            print(f"[AIRouter] Diagram generation failed (non-critical): {e}")
+            diagrams = []
+
         # ── Done ──────────────────────────────────────────────────────────
         yield {
             "type": "doc_progress",
@@ -441,7 +492,7 @@ class AIRouter:
             "current": total,
             "total": total,
         }
-        yield {"type": "done", "answer": full_document, "mode": "max_output"}
+        yield {"type": "done", "answer": full_document, "mode": "max_output", "diagrams": diagrams}
 
     def _build_openai_messages(
         self,
