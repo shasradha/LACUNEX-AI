@@ -85,7 +85,44 @@ def _sanitize_text(text: str) -> str:
     # 7. Strip trailing whitespace per line
     text = "\n".join(line.rstrip() for line in text.split("\n"))
 
-    # 8. Fix stray/incomplete markdown fences
+    # 8. Strip LaTeX notation → plain text
+    # Display math: $$...$$ → content
+    text = re.sub(r'\$\$(.+?)\$\$', r'\1', text, flags=re.DOTALL)
+    # Fractions: \frac{a}{b} → a/b
+    text = re.sub(r'\\frac\{([^}]*)\}\{([^}]*)\}', r'\1/\2', text)
+    # Square roots: \sqrt{x} → sqrt(x)
+    text = re.sub(r'\\sqrt\{([^}]*)\}', r'sqrt(\1)', text)
+    # Ket/bra: |\psi\rangle → |psi>
+    text = re.sub(r'\|\\([a-zA-Z]+)\\rangle', r'|\1>', text)
+    text = re.sub(r'\\langle\\([a-zA-Z]+)\|', r'<\1|', text)
+    text = re.sub(r'\\rangle', '>', text)
+    text = re.sub(r'\\langle', '<', text)
+    # Common LaTeX commands → text
+    _latex_map = {
+        r'\\alpha': 'α', r'\\beta': 'β', r'\\gamma': 'γ',
+        r'\\delta': 'δ', r'\\epsilon': 'ε', r'\\theta': 'θ',
+        r'\\lambda': 'λ', r'\\mu': 'μ', r'\\pi': 'π',
+        r'\\sigma': 'σ', r'\\phi': 'φ', r'\\psi': 'ψ',
+        r'\\omega': 'ω', r'\\infty': '∞',
+        r'\\times': '×', r'\\cdot': '·',
+        r'\\rightarrow': '→', r'\\leftarrow': '←',
+        r'\\Rightarrow': '⇒', r'\\Leftarrow': '⇐',
+        r'\\leq': '≤', r'\\geq': '≥', r'\\neq': '≠',
+        r'\\approx': '≈', r'\\equiv': '≡',
+        r'\\quad': ' ', r'\\qquad': '  ',
+    }
+    for pattern, repl in _latex_map.items():
+        text = re.sub(pattern, repl, text)
+    # Remaining \command{arg} → arg
+    text = re.sub(r'\\[a-zA-Z]+\{([^}]*)\}', r'\1', text)
+    # Remaining \command → ""
+    text = re.sub(r'\\[a-zA-Z]+', '', text)
+    # Inline math: $...$ → content
+    text = re.sub(r'\$([^$]+)\$', r'\1', text)
+    # Clean leftover braces
+    text = text.replace('{', '').replace('}', '')
+
+    # 9. Fix stray/incomplete markdown fences
     fence_count = text.count("```")
     if fence_count % 2 != 0:
         text += "\n```"

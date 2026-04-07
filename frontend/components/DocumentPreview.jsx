@@ -49,6 +49,14 @@ function IconPackage() {
   );
 }
 
+function IconCheck() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+}
+
 const THEMES = [
   { id: "professional", name: "Professional", color: "#2563eb" },
   { id: "dark", name: "Dark", color: "#a78bfa" },
@@ -68,9 +76,11 @@ export default function DocumentPreview({
   const [theme, setTheme] = useState(currentTheme);
   const [isExporting, setIsExporting] = useState(false);
   const [exportingFormat, setExportingFormat] = useState(null);
+  const [exportSuccess, setExportSuccess] = useState(null);
   const [showToc, setShowToc] = useState(true);
   const previewRef = useRef(null);
   const contentRef = useRef(null);
+  const mermaidLoaded = useRef(false);
 
   // Sync theme with parent
   useEffect(() => {
@@ -89,12 +99,56 @@ export default function DocumentPreview({
     }
   }, [documentHtml, isGenerating]);
 
+  // Load Mermaid.js from CDN for diagram rendering
+  useEffect(() => {
+    if (mermaidLoaded.current) return;
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.mermaid) {
+        window.mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+        mermaidLoaded.current = true;
+      }
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  // Re-render Mermaid diagrams when HTML changes
+  useEffect(() => {
+    if (!documentHtml || !mermaidLoaded.current || !window.mermaid) return;
+    const timer = setTimeout(() => {
+      try {
+        const container = contentRef.current;
+        if (container) {
+          const mermaidDivs = container.querySelectorAll(".mermaid:not([data-processed])");
+          mermaidDivs.forEach(async (div) => {
+            try {
+              const id = `mermaid-${Math.random().toString(36).slice(2, 8)}`;
+              const { svg } = await window.mermaid.render(id, div.textContent);
+              div.innerHTML = svg;
+              div.setAttribute("data-processed", "true");
+            } catch {
+              // Diagram syntax error — leave as text
+            }
+          });
+        }
+      } catch {
+        // mermaid not ready
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [documentHtml, isGenerating]);
+
   const handleExport = useCallback(async (format) => {
     if (!documentJson || isExporting) return;
     setIsExporting(true);
     setExportingFormat(format);
+    setExportSuccess(null);
     try {
       await exportDocument(documentJson, theme, format);
+      setExportSuccess(format);
+      setTimeout(() => setExportSuccess(null), 2500);
     } catch (err) {
       console.error("Export failed:", err);
     } finally {
@@ -107,8 +161,11 @@ export default function DocumentPreview({
     if (!documentJson || isExporting) return;
     setIsExporting(true);
     setExportingFormat("all");
+    setExportSuccess(null);
     try {
       await exportDocumentAll(documentJson, theme);
+      setExportSuccess("all");
+      setTimeout(() => setExportSuccess(null), 2500);
     } catch (err) {
       console.error("Export all failed:", err);
     } finally {
@@ -152,6 +209,12 @@ export default function DocumentPreview({
           )}
         </div>
         <div className="doc-preview-header-right">
+          {/* Export success indicator */}
+          {exportSuccess && (
+            <span className="doc-export-success">
+              <IconCheck /> {exportSuccess.toUpperCase()} saved
+            </span>
+          )}
           <button className="doc-preview-close" onClick={onClose} title="Close preview">
             <IconX />
           </button>
@@ -177,40 +240,40 @@ export default function DocumentPreview({
         {/* Export Actions */}
         <div className="doc-export-actions">
           <button
-            className="doc-export-btn doc-export-btn-pdf"
+            className={`doc-export-btn doc-export-btn-pdf ${exportingFormat === "pdf" ? "exporting" : ""}`}
             onClick={() => handleExport("pdf")}
-            disabled={!documentJson || isExporting}
-            title="Export as PDF"
+            disabled={!documentJson || isExporting || isGenerating}
+            title={isGenerating ? "Wait for generation to finish" : "Export as PDF"}
           >
             {exportingFormat === "pdf" ? <IconSpinner /> : <IconDownload />}
-            PDF
+            {exportingFormat === "pdf" ? "Preparing..." : "PDF"}
           </button>
           <button
-            className="doc-export-btn doc-export-btn-docx"
+            className={`doc-export-btn doc-export-btn-docx ${exportingFormat === "docx" ? "exporting" : ""}`}
             onClick={() => handleExport("docx")}
-            disabled={!documentJson || isExporting}
-            title="Export as DOCX"
+            disabled={!documentJson || isExporting || isGenerating}
+            title={isGenerating ? "Wait for generation to finish" : "Export as DOCX"}
           >
             {exportingFormat === "docx" ? <IconSpinner /> : <IconDownload />}
-            DOCX
+            {exportingFormat === "docx" ? "Preparing..." : "DOCX"}
           </button>
           <button
-            className="doc-export-btn doc-export-btn-xlsx"
+            className={`doc-export-btn doc-export-btn-xlsx ${exportingFormat === "xlsx" ? "exporting" : ""}`}
             onClick={() => handleExport("xlsx")}
-            disabled={!documentJson || isExporting}
-            title="Export as XLSX"
+            disabled={!documentJson || isExporting || isGenerating}
+            title={isGenerating ? "Wait for generation to finish" : "Export as XLSX"}
           >
             {exportingFormat === "xlsx" ? <IconSpinner /> : <IconDownload />}
-            XLSX
+            {exportingFormat === "xlsx" ? "Preparing..." : "XLSX"}
           </button>
           <button
-            className="doc-export-all-btn"
+            className={`doc-export-all-btn ${exportingFormat === "all" ? "exporting" : ""}`}
             onClick={handleExportAll}
-            disabled={!documentJson || isExporting}
-            title="Export all formats (ZIP)"
+            disabled={!documentJson || isExporting || isGenerating}
+            title={isGenerating ? "Wait for generation to finish" : "Export all formats (ZIP)"}
           >
             {exportingFormat === "all" ? <IconSpinner /> : <IconPackage />}
-            Export All
+            {exportingFormat === "all" ? "Preparing..." : "Export All"}
           </button>
         </div>
       </div>
@@ -252,7 +315,7 @@ export default function DocumentPreview({
                       <IconSpinner />
                     </span>
                   )}
-                  {!isGenerating || progress.current > idx + 1 ? (
+                  {(!isGenerating || progress.current > idx + 1) ? (
                     <span className="doc-toc-sidebar-check">✓</span>
                   ) : null}
                 </li>

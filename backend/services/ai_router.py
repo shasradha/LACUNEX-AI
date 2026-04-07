@@ -4,6 +4,7 @@ LACUNEX AI intelligent router.
 
 import os
 import json
+import asyncio
 from typing import AsyncGenerator, List, Optional
 
 from google import genai
@@ -69,7 +70,7 @@ MAX_OUTPUT_SYSTEM_PROMPT = (
     "You are LACUNEX AI in MAX OUTPUT MODE — a world-class document generation engine.\n"
     "Your task is to produce EXTREMELY detailed, comprehensive, production-quality content.\n\n"
     "### MANDATORY RULES:\n"
-    "1. Generate DEEPLY DETAILED content — minimum 40+ pages equivalent when printed.\n"
+    "1. Generate DEEPLY DETAILED content — minimum 5-8 pages per section.\n"
     "2. Cover EVERY subtopic thoroughly with examples, explanations, and analysis.\n"
     "3. Use PROPER markdown structure:\n"
     "   - # for main title\n"
@@ -81,12 +82,23 @@ MAX_OUTPUT_SYSTEM_PROMPT = (
     "   - Real-world examples and use cases\n"
     "   - Tables for comparisons and structured data\n"
     "   - Key points highlighted with **bold**\n"
+    "   - Callout boxes using > **Key Point:** or > **Important:** syntax\n"
     "   - Summary at the end of each chapter\n"
     "5. Use markdown tables with proper headers for ALL structured data.\n"
     "6. Write in clear, academic yet accessible language.\n"
     "7. NO filler content. NO repetition. Every sentence must add value.\n"
     "8. NO placeholder text like 'content here' or 'to be added'.\n"
     "9. Maintain CONSISTENT formatting throughout the entire document.\n\n"
+    "### CRITICAL FORMATTING RULES:\n"
+    "- NEVER use LaTeX notation like $x$, \\alpha, \\frac{}, |\\psi\\rangle, etc.\n"
+    "- For mathematical expressions, write them in PLAIN TEXT:\n"
+    "  Instead of $E = mc^2$ write: E = mc^2\n"
+    "  Instead of $|\\psi\\rangle$ write: |psi>\n"
+    "  Instead of $\\alpha$ write: alpha\n"
+    "  Instead of $\\frac{1}{2}$ write: 1/2\n"
+    "  Instead of $2^N$ write: 2^N\n"
+    "- Use Unicode symbols when available: arrows (→, ←), operators (×, ÷, ≤, ≥, ≠)\n"
+    "- For equations, use a clean text format on its own line\n\n"
     "### QUALITY STANDARDS:\n"
     "- Factual accuracy is CRITICAL\n"
     "- Tables must have clean formatting with headers\n"
@@ -102,8 +114,9 @@ MAX_OUTPUT_SYSTEM_PROMPT = (
 MAX_OUTPUT_TOC_PROMPT = (
     "Based on the user's request, generate a detailed Table of Contents as a JSON array.\n"
     "Each entry should have: title (string), description (string, 1-2 sentences about what this section covers).\n"
-    "Generate 8-15 sections that would comprehensively cover the topic.\n"
-    "Include sections for: Introduction, core topics (multiple chapters), Examples, Summary, Revision Notes, Practice Questions.\n"
+    "Generate EXACTLY 6 to 8 sections that would comprehensively cover the topic.\n"
+    "IMPORTANT: Keep it to 6-8 sections MAXIMUM to ensure deep, quality content per section.\n"
+    "Include sections for: Introduction, 3-4 core topic chapters, Examples/Applications, Summary & Key Points, Practice Questions.\n"
     "Return ONLY the JSON array, no other text. Example:\n"
     '[{\"title\": \"Introduction to Physics\", \"description\": \"Overview of fundamental physics concepts\"},'
     ' {\"title\": \"Laws of Motion\", \"description\": \"Newton\'s three laws with derivations and examples\"}]\n'
@@ -340,6 +353,9 @@ class AIRouter:
             toc_sections = json.loads(toc_text)
             if not isinstance(toc_sections, list) or len(toc_sections) < 3:
                 raise ValueError("TOC too short")
+            # Cap at 8 sections to stay within rate limits
+            if len(toc_sections) > 8:
+                toc_sections = toc_sections[:8]
 
         except Exception as e:
             print(f"[AIRouter] TOC generation failed: {e}, using fallback structure")
@@ -348,9 +364,7 @@ class AIRouter:
                 {"title": "Core Concepts", "description": "Main topics in detail"},
                 {"title": "Advanced Topics", "description": "In-depth analysis"},
                 {"title": "Examples & Applications", "description": "Real-world examples"},
-                {"title": "Comparisons & Tables", "description": "Structured comparisons"},
                 {"title": "Summary & Key Points", "description": "Chapter summaries"},
-                {"title": "Revision Notes", "description": "Quick revision material"},
                 {"title": "Practice Questions", "description": "Questions for practice"},
             ]
 
@@ -393,45 +407,81 @@ class AIRouter:
                 f"Previous sections covered: {previous_context or 'Nothing yet (this is the first section)'}\n\n"
                 f"INSTRUCTIONS:\n"
                 f"- Write ONLY this section, starting with ## {section_title}\n"
-                f"- Be EXTREMELY detailed — aim for 4-8 pages of content for this section alone\n"
+                f"- Be EXTREMELY detailed — aim for 5-8 pages of content for this section alone\n"
                 f"- Include subsections (### headings), examples, tables where appropriate\n"
+                f"- Use > **Key Point:** and > **Important:** callout boxes\n"
                 f"- End with a brief summary of key points from this section\n"
                 f"- Do NOT repeat content from previous sections\n"
                 f"- Do NOT include content meant for later sections\n"
+                f"- NEVER use LaTeX ($...$) — write math in plain text (e.g. E = mc^2)\n"
                 f"- Output clean markdown only\n"
             )
 
-            try:
-                stream = await self.gemini.aio.models.generate_content_stream(
-                    model=model,
-                    contents=[types.Content(
-                        role="user",
-                        parts=[types.Part.from_text(text=section_prompt)],
-                    )],
-                    config=types.GenerateContentConfig(
-                        system_instruction=MAX_OUTPUT_SYSTEM_PROMPT,
-                        max_output_tokens=16384,
-                        thinking_config=types.ThinkingConfig(thinking_budget=4096),
-                    ),
-                )
+            # Retry logic for rate-limited API calls
+            max_retries = 3
+            section_content = ""
+            generation_success = False
 
-                section_content = ""
-                async for chunk in stream:
-                    for part in chunk.candidates[0].content.parts:
-                        if part.thought:
-                            yield {"type": "thinking", "content": part.text}
-                        elif part.text:
-                            section_content += part.text
-                            yield {"type": "token", "content": part.text}
+            for attempt in range(max_retries):
+                try:
+                    stream = await self.gemini.aio.models.generate_content_stream(
+                        model=model,
+                        contents=[types.Content(
+                            role="user",
+                            parts=[types.Part.from_text(text=section_prompt)],
+                        )],
+                        config=types.GenerateContentConfig(
+                            system_instruction=MAX_OUTPUT_SYSTEM_PROMPT,
+                            max_output_tokens=16384,
+                            thinking_config=types.ThinkingConfig(thinking_budget=4096),
+                        ),
+                    )
 
+                    section_content = ""
+                    async for chunk in stream:
+                        for part in chunk.candidates[0].content.parts:
+                            if part.thought:
+                                yield {"type": "thinking", "content": part.text}
+                            elif part.text:
+                                section_content += part.text
+                                yield {"type": "token", "content": part.text}
+
+                    generation_success = True
+                    break  # Success — exit retry loop
+
+                except Exception as retry_exc:
+                    error_str = str(retry_exc)
+                    is_rate_limit = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str
+
+                    if is_rate_limit and attempt < max_retries - 1:
+                        # Extract retry delay from error or use exponential backoff
+                        import re as _re
+                        delay_match = _re.search(r'retryDelay.*?(\d+)', error_str)
+                        wait_secs = int(delay_match.group(1)) + 2 if delay_match else (15 * (attempt + 1))
+                        print(f"[AIRouter] Section {section_num} rate-limited, retrying in {wait_secs}s (attempt {attempt + 1}/{max_retries})")
+                        yield {
+                            "type": "doc_progress",
+                            "content": f"Rate limited — waiting {wait_secs}s before retry...",
+                            "phase": "retry",
+                            "current": section_num,
+                            "total": total,
+                        }
+                        await asyncio.sleep(wait_secs)
+                    else:
+                        raise retry_exc  # Non-rate-limit error or last attempt
+
+            if generation_success:
                 full_document += section_content + "\n\n"
                 previous_context += f"{section_title}, "
-
-            except Exception as exc:
-                print(f"[AIRouter] Section {section_num} generation failed: {exc}")
-                error_msg = f"\n\n## {section_title}\n\n*Content generation for this section encountered an error. Please try regenerating.*\n\n"
+            else:
+                print(f"[AIRouter] Section {section_num} generation failed after all retries")
+                error_msg = f"\n\n## {section_title}\n\n*This section could not be generated due to API limits. Please try again later.*\n\n"
                 full_document += error_msg
                 yield {"type": "token", "content": error_msg}
+
+            # Pace requests: wait 3 seconds between sections to avoid rate limit burst
+            if idx < total - 1:
+                await asyncio.sleep(3)
 
         # ── Pass 3: Generate Diagrams (max 3-5, high-value only) ──────────
         yield {

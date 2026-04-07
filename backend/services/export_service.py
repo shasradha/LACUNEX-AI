@@ -8,6 +8,62 @@ import io
 import re
 from datetime import datetime
 
+# ── LaTeX stripping patterns ──────────────────────────────────────────────
+_LATEX_FRAC = re.compile(r'\\frac\{([^}]*)\}\{([^}]*)\}')
+_LATEX_SQRT = re.compile(r'\\sqrt\{([^}]*)\}')
+_LATEX_INLINE = re.compile(r'\$([^$]+)\$')
+_LATEX_DISPLAY = re.compile(r'\$\$(.+?)\$\$', re.DOTALL)
+_LATEX_COMMANDS = {
+    r'\\alpha': 'alpha', r'\\beta': 'beta', r'\\gamma': 'gamma',
+    r'\\delta': 'delta', r'\\epsilon': 'epsilon', r'\\theta': 'theta',
+    r'\\lambda': 'lambda', r'\\mu': 'mu', r'\\pi': 'pi',
+    r'\\sigma': 'sigma', r'\\phi': 'phi', r'\\psi': 'psi',
+    r'\\omega': 'omega', r'\\infty': 'infinity',
+    r'\\sum': 'SUM', r'\\prod': 'PRODUCT',
+    r'\\int': 'INTEGRAL', r'\\partial': 'd',
+    r'\\nabla': 'nabla', r'\\cdot': '*', r'\\times': 'x',
+    r'\\rightarrow': '->', r'\\leftarrow': '<-',
+    r'\\Rightarrow': '=>', r'\\Leftarrow': '<=',
+    r'\\leq': '<=', r'\\geq': '>=', r'\\neq': '!=',
+    r'\\approx': '~=', r'\\equiv': '===',
+    r'\\in': 'in', r'\\notin': 'not in',
+    r'\\subset': 'subset', r'\\cup': 'U', r'\\cap': 'n',
+    r'\\forall': 'for all', r'\\exists': 'exists',
+    r'\\quad': ' ', r'\\qquad': '  ',
+    r'\\text': '', r'\\mathrm': '', r'\\mathbf': '',
+}
+
+
+def _strip_latex(text: str) -> str:
+    """Strip LaTeX notation and convert to readable plain text."""
+    if not text or '$' not in text and '\\' not in text:
+        return text
+    # Display math first
+    text = _LATEX_DISPLAY.sub(r'\1', text)
+    # Fractions: \frac{a}{b} -> a/b
+    text = _LATEX_FRAC.sub(r'\1/\2', text)
+    # Square roots: \sqrt{x} -> sqrt(x)
+    text = _LATEX_SQRT.sub(r'sqrt(\1)', text)
+    # Ket/bra notation: |\psi\rangle -> |psi>
+    text = re.sub(r'\|\\([a-zA-Z]+)\\rangle', r'|\1>', text)
+    text = re.sub(r'\\langle\\([a-zA-Z]+)\|', r'<\1|', text)
+    text = re.sub(r'\\rangle', '>', text)
+    text = re.sub(r'\\langle', '<', text)
+    # Named commands
+    for pattern, replacement in _LATEX_COMMANDS.items():
+        text = re.sub(pattern, replacement, text)
+    # Remaining backslash commands: \command{arg} -> arg
+    text = re.sub(r'\\[a-zA-Z]+\{([^}]*)\}', r'\1', text)
+    # Remaining backslash commands without args: \command -> ""
+    text = re.sub(r'\\[a-zA-Z]+', '', text)
+    # Inline math: $...$ -> content
+    text = _LATEX_INLINE.sub(r'\1', text)
+    # Clean up braces left over
+    text = text.replace('{', '').replace('}', '')
+    # Clean up multiple spaces
+    text = re.sub(r'  +', ' ', text)
+    return text.strip()
+
 BRAND_FOOTER = "\u00a9 Generated from Lacunex AI by Shasradha Karmakar"
 
 
@@ -23,8 +79,10 @@ def _clean(text: str) -> str:
 def _pdf_safe(text: str) -> str:
     """
     Convert text to ASCII-safe string for FPDF Helvetica (Latin-1 font).
-    Maps common Unicode chars to ASCII equivalents, drops the rest.
+    Strips LaTeX first, then maps Unicode to ASCII equivalents.
     """
+    # Strip LaTeX before Unicode mapping
+    text = _strip_latex(text)
     replacements = {
         "\u2018": "'", "\u2019": "'",          # smart single quotes
         "\u201c": '"', "\u201d": '"',          # smart double quotes
@@ -38,9 +96,15 @@ def _pdf_safe(text: str) -> str:
         "\u2260": "!=", "\u2264": "<=",        # not-equal, leq
         "\u2265": ">=", "\u221e": "inf",       # geq, infinity
         "\u03b1": "alpha", "\u03b2": "beta",   # Greek letters
+        "\u03b3": "gamma", "\u03b4": "delta",
+        "\u03b5": "epsilon", "\u03b8": "theta",
         "\u03c0": "pi", "\u03bb": "lambda",
+        "\u03c3": "sigma", "\u03c6": "phi",
+        "\u03c8": "psi", "\u03c9": "omega",
         "\u2192": "->", "\u2190": "<-",        # arrows
+        "\u21d2": "=>", "\u21d0": "<=",        # double arrows
         "\u2713": "OK", "\u2717": "X",         # check, cross
+        "\u2248": "~=", "\u2261": "===",       # approx, equiv
     }
     out = []
     for ch in text:
@@ -65,9 +129,11 @@ _MD_HR = re.compile(r"^[-*_]{3,}$")
 
 def _strip_md(text: str) -> str:
     """
-    Fully strip markdown to produce clean plain text.
+    Fully strip markdown and LaTeX to produce clean plain text.
     Processes line-by-line for accuracy.
     """
+    # Strip LaTeX first
+    text = _strip_latex(text)
     lines = []
     for line in text.split("\n"):
         # Headings
