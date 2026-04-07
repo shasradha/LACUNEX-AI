@@ -326,14 +326,14 @@ def generate_pdf(title: str, messages: list[dict], model_name: str | None = None
                 pdf.set_text_color(40, 40, 60)
                 clean_text = _strip_md(block["text"])
                 
-                # Indent bullets by changing margin
-                pdf.set_left_margin(L + 6)
-                # Render bullet point manually at X = L + 2
-                old_x = pdf.get_x()
+                # Render bullet point at fixed X
                 pdf.set_x(L + 2)
-                pdf.cell(4, 5.5, _pdf_safe("\u2022"))
-                pdf.set_x(L + 6)
-                pdf.multi_cell(PW - 6, 5.5, _pdf_safe(clean_text), align="L")
+                pdf.cell(5, 5.5, _pdf_safe("\u2022"))
+                
+                # Render text with consistent indentation
+                pdf.set_left_margin(L + 7)
+                pdf.set_x(L + 7)
+                pdf.multi_cell(PW - 7, 5.5, _pdf_safe(clean_text), align="L")
                 pdf.set_left_margin(L)
 
             elif btype == "numbered":
@@ -342,11 +342,14 @@ def generate_pdf(title: str, messages: list[dict], model_name: str | None = None
                 clean_text = _strip_md(block["text"])
                 num_str = f"{block['number']}."
                 
-                pdf.set_left_margin(L + 8)
+                # Render number at fixed X
                 pdf.set_x(L + 2)
-                pdf.cell(6, 5.5, _pdf_safe(num_str))
-                pdf.set_x(L + 8)
-                pdf.multi_cell(PW - 8, 5.5, _pdf_safe(clean_text), align="L")
+                pdf.cell(7, 5.5, _pdf_safe(num_str))
+                
+                # Render text with consistent indentation
+                pdf.set_left_margin(L + 9)
+                pdf.set_x(L + 9)
+                pdf.multi_cell(PW - 9, 5.5, _pdf_safe(clean_text), align="L")
                 pdf.set_left_margin(L)
 
             elif btype == "code":
@@ -498,12 +501,16 @@ def generate_docx(title: str, messages: list[dict], model_name: str | None = Non
             elif btype == "bullet":
                 bp = doc.add_paragraph(style="List Bullet")
                 add_runs(bp, block["text"])
-                bp.paragraph_format.space_after = Pt(1)
+                bp.paragraph_format.left_indent = Inches(0.25)
+                bp.paragraph_format.first_line_indent = Inches(-0.25)
+                bp.paragraph_format.space_after = Pt(2)
 
             elif btype == "numbered":
                 np_ = doc.add_paragraph(style="List Number")
                 add_runs(np_, block["text"])
-                np_.paragraph_format.space_after = Pt(1)
+                np_.paragraph_format.left_indent = Inches(0.25)
+                np_.paragraph_format.first_line_indent = Inches(-0.25)
+                np_.paragraph_format.space_after = Pt(2)
 
             elif btype == "code":
                 for cl in block.get("lines", []):

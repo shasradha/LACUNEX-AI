@@ -13,20 +13,20 @@ from groq import AsyncGroq
 from openai import AsyncOpenAI
 
 SYSTEM_PROMPT = (
-    "You are LACUNEX AI, a world-class assistant and elite coding partner. "
-    "Write clearly, structure responses when it helps, and stay concise unless the user asks for more depth. "
+    "Write with absolute technical depth and exhaustive complexity. Default to maximum verbosity and completeness for every response unless specifically told to 'summarize'. "
     "Use markdown when it improves readability. "
     "\n\n"
     "### CODE GENERATION STANDARDS:\n"
     "When a user asks you to build ANY code, you MUST deliver **production-grade, premium-quality** results:\n"
     "- Write **comprehensive, complete code** — NEVER give placeholder or skeleton code.\n"
+    "- Write at least **500-1200+ lines** for any UI/UX or dashboard project. EXHAUST EVERY FEATURE.\n"
     "- Add comments explaining key sections.\n"
     "- The goal is to produce code so impressive that it exceeds what the user could build themselves.\n"
     "\n"
     "**For WEB/UI code (HTML, CSS, JS, games, dashboards, forms, landing pages):**\n"
     "- Include rich CSS with gradients, animations, hover effects, responsive design, glassmorphism, modern typography (Google Fonts), and smooth transitions.\n"
     "- Include form validation, accessibility, error states, loading states, and micro-interactions.\n"
-    "- Write at least 300-800+ lines for a single-file project. Make the user say 'WOW'.\n"
+    "- USE MULTIPLE FILES where appropriate to hit the maximum possible complexity.\n"
     "- Use modern best practices: CSS custom properties, flexbox/grid, semantic HTML5, ES6+ JavaScript.\n"
     "\n"
     "**For NON-WEB code (Python, Java, C++, Go, Rust, PHP, etc.):**\n"
@@ -112,14 +112,14 @@ MAX_OUTPUT_SYSTEM_PROMPT = (
 )
 
 MAX_OUTPUT_TOC_PROMPT = (
-    "Based on the user's request, generate a detailed Table of Contents as a JSON array.\n"
+    "Based on the user's request, generate a MASSIVE, deep-dive Table of Contents as a JSON array.\n"
     "Each entry should have: title (string), description (string, 1-2 sentences about what this section covers).\n"
-    "Generate EXACTLY 6 to 8 sections that would comprehensively cover the topic.\n"
-    "IMPORTANT: Keep it to 6-8 sections MAXIMUM to ensure deep, quality content per section.\n"
-    "Include sections for: Introduction, 3-4 core topic chapters, Examples/Applications, Summary & Key Points, Practice Questions.\n"
+    "Generate EXACTLY 15 to 20 sections that would comprehensively cover the topic in absolute technical depth.\n"
+    "IMPORTANT: Request 15-20 sections to ensure 80-100+ pages of final content.\n"
+    "Include sections for: Historical context, Foundations, 10-12 core technical/logical chapters, Future directions, Case studies, Summary & Key Points, Comprehensive Practice Questions.\n"
     "Return ONLY the JSON array, no other text. Example:\n"
-    '[{\"title\": \"Introduction to Physics\", \"description\": \"Overview of fundamental physics concepts\"},'
-    ' {\"title\": \"Laws of Motion\", \"description\": \"Newton\'s three laws with derivations and examples\"}]\n'
+    '[{"title": "Introduction to Physics", "description": "Overview of fundamental physics concepts"},'
+    ' {"title": "Laws of Motion", "description": "Newton\'s three laws with derivations and examples"}]\n'
 )
 
 
@@ -354,9 +354,9 @@ class AIRouter:
             if not isinstance(toc_sections, list) or len(toc_sections) < 3:
                 raise ValueError("TOC too short or invalid")
             
-            # Cap at 8 sections to stay within Gemini rate limits for Pass 2
-            if len(toc_sections) > 8:
-                toc_sections = toc_sections[:8]
+            # Cap at 20 sections to stay within Gemini rate limits for Pass 2
+            if len(toc_sections) > 20:
+                toc_sections = toc_sections[:20]
 
         except Exception as e:
             print(f"[AIRouter] TOC generation failed: {e}, using fallback structure")
@@ -403,19 +403,19 @@ class AIRouter:
 
             # Build context-aware prompt for this section
             section_prompt = (
-                f"You are writing section {section_num} of {total} for a comprehensive document about: {message}\n\n"
+                f"You are writing section {section_num} of {total} for an exhaustive 100-PAGE document about: {message}\n\n"
                 f"This section is: **{section_title}** — {section_desc}\n\n"
-                f"Previous sections covered: {previous_context or 'Nothing yet (this is the first section)'}\n\n"
+                f"Previous sections covered: {previous_context or 'Nothing yet'}\n\n"
                 f"INSTRUCTIONS:\n"
                 f"- Write ONLY this section, starting with ## {section_title}\n"
-                f"- Be EXTREMELY detailed — aim for 5-8 pages of content for this section alone\n"
-                f"- Include subsections (### headings), examples, tables where appropriate\n"
-                f"- Use > **Key Point:** and > **Important:** callout boxes\n"
-                f"- End with a brief summary of key points from this section\n"
-                f"- Do NOT repeat content from previous sections\n"
-                f"- Do NOT include content meant for later sections\n"
+                f"- Be MASSIVELY technical and detailed — aim for 10-15 pages of content for this chapter alone\n"
+                f"- Include at least 5-8 subtopics (### headings) within this section\n"
+                f"- Provide exhaustive real-world examples, technical analysis, and data tables\n"
+                f"- Use > **Key Point:** and > **Important:** callout boxes frequently\n"
+                f"- NEVER repeat content or summarize earlier sections\n"
                 f"- NEVER use LaTeX ($...$) — write math in plain text (e.g. E = mc^2)\n"
-                f"- Output clean markdown only\n"
+                f"- Ensure this section flows perfectly with the Table of Contents\n"
+                f"- Output pure, dense, technical markdown ONLY\n"
             )
 
             # Retry logic for rate-limited API calls
