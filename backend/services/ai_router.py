@@ -321,9 +321,10 @@ class AIRouter:
         MAX OUTPUT MODE — Multi-pass document generation.
         Pass 1: Generate Table of Contents as structured JSON
         Pass 2+: Expand each section with full detail
-        Uses Gemini 2.5 Flash for maximum output capacity (64K tokens).
+        Uses Gemini 2.0 Flash for maximum reliability and speed.
+        Falls back to Groq (Llama 3 70B) if Gemini rate limits are exceeded.
         """
-        model = "gemini-2.5-flash"
+        model = "gemini-2.0-flash"
 
         # ── Pass 1: Generate Table of Contents (using Groq to save Gemini quota) ──
         yield {"type": "max_output_activated", "content": "MAX OUTPUT MODE activated"}
@@ -453,20 +454,41 @@ class AIRouter:
                     error_str = str(retry_exc)
                     is_rate_limit = any(err in error_str for err in ["429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE"])
 
-                    if is_rate_limit and attempt < max_retries - 1:
-                        # Extract retry delay from error or use exponential backoff
-                        import re as _re
-                        delay_match = _re.search(r'retryDelay.*?(\d+)', error_str)
-                        wait_secs = int(delay_match.group(1)) + 2 if delay_match else (15 * (attempt + 1))
-                        print(f"[AIRouter] Section {section_num} rate-limited, retrying in {wait_secs}s (attempt {attempt + 1}/{max_retries})")
+                    # ── Fallback to Groq if Gemini is completely exhausted ──
+                    if is_rate_limit:
+                        print(f"[AIRouter] Gemini exhausted for section {section_num}, falling back to Groq...")
                         yield {
                             "type": "doc_progress",
-                            "content": f"Rate limited — waiting {wait_secs}s before retry...",
-                            "phase": "retry",
+                            "content": f"Gemini busy — switching to Groq for {section_title}...",
+                            "phase": "fallback",
                             "current": section_num,
                             "total": total,
                         }
-                        await asyncio.sleep(wait_secs)
+                        
+                        try:
+                            # Use Groq for the same section expansion
+                            groq_stream = await self.groq.chat.completions.create(
+                                model="llama-3.3-70b-versatile",
+                                messages=[
+                                    {"role": "system", "content": MAX_OUTPUT_SYSTEM_PROMPT},
+                                    {"role": "user", "content": section_prompt}
+                                ],
+                                stream=True,
+                                temperature=0.7,
+                            )
+                            
+                            section_content = ""
+                            async for chunk in groq_stream:
+                                content = chunk.choices[0].delta.content or ""
+                                if content:
+                                    section_content += content
+                                    yield {"type": "token", "content": content}
+                            
+                            generation_success = True
+                            break # Fallback success
+                        except Exception as groq_exc:
+                            print(f"[AIRouter] Groq fallback also failed: {groq_exc}")
+                            raise retry_exc # Re-raise original Gemini error if fallback fails
                     else:
                         raise retry_exc  # Non-rate-limit error or last attempt
 

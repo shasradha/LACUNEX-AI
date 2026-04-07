@@ -788,7 +788,30 @@ export default function ChatBox({
                 <span className="stat-pill-value">{thinkMode ? "Deep" : "Fast"}</span>
                 <span>mode</span>
               </span>
+              {docGenerating && (
+                <span className="stat-pill gen-pill pulsing">
+                  <span className="stat-pill-value">Generating</span>
+                  <span>Document...</span>
+                </span>
+              )}
             </div>
+
+            {/* Document Quick Open — only show when doc has data but is closed */}
+            {(docJson || docHtml || docToc) && !docPreviewOpen && (
+              <button
+                type="button"
+                className="header-doc-btn"
+                onClick={() => setDocPreviewOpen(true)}
+                title="View Document"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                  <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                </svg>
+                <span>View Doc</span>
+              </button>
+            )}
+
             {/* Export button — only show when there are messages */}
             {messages.length > 0 && (
               <div className="export-wrap" ref={exportMenuRef}>
@@ -988,26 +1011,8 @@ export default function ChatBox({
           onThemeChange={setDocTheme}
           onClose={() => {
             setDocPreviewOpen(false);
-            // Preserve docJson/docHtml/docToc — only hide the panel
           }}
         />
-      )}
-
-      {/* Floating Open Document FAB — Top level to avoid clipping */}
-      {(docJson || docHtml || docGenerating || docToc) && !docPreviewOpen && (
-        <button
-          type="button"
-          className="doc-reopen-btn animate-enter"
-          onClick={() => setDocPreviewOpen(true)}
-          title="Reopen Document Preview"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-            <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-            <path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
-          </svg>
-          <span>Open Document</span>
-        </button>
       )}
     </div>
   );
