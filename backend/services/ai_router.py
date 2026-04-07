@@ -325,35 +325,35 @@ class AIRouter:
         """
         model = "gemini-2.5-flash"
 
-        # ── Pass 1: Generate Table of Contents ────────────────────────────
+        # ── Pass 1: Generate Table of Contents (using Groq to save Gemini quota) ──
         yield {"type": "max_output_activated", "content": "MAX OUTPUT MODE activated"}
         yield {"type": "doc_progress", "content": "Planning document structure...", "phase": "toc", "current": 0, "total": 0}
 
         toc_sections = []
         try:
-            toc_response = await self.gemini.aio.models.generate_content(
-                model=model,
-                contents=[types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(
-                        text=f"{message}\n\nGenerate a comprehensive Table of Contents for this topic."
-                    )],
-                )],
-                config=types.GenerateContentConfig(
-                    system_instruction=MAX_OUTPUT_TOC_PROMPT,
-                    max_output_tokens=4096,
-                ),
+            toc_response = await self.groq.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": MAX_OUTPUT_TOC_PROMPT},
+                    {"role": "user", "content": f"Generate a Table of Contents for: {message}"}
+                ],
+                temperature=0.7,
+                response_format={"type": "json_object"},
             )
 
-            toc_text = toc_response.text.strip()
-            # Clean potential markdown fences around JSON
+            toc_text = toc_response.choices[0].message.content.strip()
+            # Clean potential markdown fences if Llama ignores response_format
             if toc_text.startswith("```"):
                 toc_text = toc_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
-            toc_sections = json.loads(toc_text)
+            toc_data = json.loads(toc_text)
+            # Support both direct array or wrapped object {"sections": [...]}
+            toc_sections = toc_data if isinstance(toc_data, list) else toc_data.get("sections", [])
+
             if not isinstance(toc_sections, list) or len(toc_sections) < 3:
-                raise ValueError("TOC too short")
-            # Cap at 8 sections to stay within rate limits
+                raise ValueError("TOC too short or invalid")
+            
+            # Cap at 8 sections to stay within Gemini rate limits for Pass 2
             if len(toc_sections) > 8:
                 toc_sections = toc_sections[:8]
 
@@ -483,7 +483,7 @@ class AIRouter:
             if idx < total - 1:
                 await asyncio.sleep(3)
 
-        # ── Pass 3: Generate Diagrams (max 3-5, high-value only) ──────────
+        # ── Pass 3: Generate Diagrams (using Groq) ────────────────────────
         yield {
             "type": "doc_progress",
             "content": "Generating diagrams...",
@@ -506,27 +506,27 @@ class AIRouter:
                 "- Use flowchart, sequence diagram, or mindmap syntax\n"
                 "- Keep diagrams clean and readable (max 15 nodes each)\n"
                 "- Each diagram must have a descriptive title\n\n"
-                "Return ONLY valid JSON array, no markdown fences:\n"
-                '[{"title": "...", "section_index": 0, "code": "graph TD\\n  A[Start] --> B[End]"}, ...]'
+                "Return ONLY valid JSON object with a 'diagrams' array:\n"
+                '{"diagrams": [{"title": "...", "section_index": 0, "code": "graph TD\\n  A[Start] --> B[End]"}, ...]}'
             )
 
-            diagram_response = await self.gemini.aio.models.generate_content(
-                model=model,
-                contents=[types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text=diagram_prompt)],
-                )],
-                config=types.GenerateContentConfig(
-                    system_instruction="You are a diagram generator. Return ONLY valid JSON. No markdown fences.",
-                    max_output_tokens=4096,
-                ),
+            diag_response = await self.groq.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "You are a diagram generator for Mermaid.js. Return ONLY valid JSON."},
+                    {"role": "user", "content": diagram_prompt}
+                ],
+                temperature=0.7,
+                response_format={"type": "json_object"},
             )
 
-            diag_text = diagram_response.text.strip()
+            diag_text = diag_response.choices[0].message.content.strip()
             if diag_text.startswith("```"):
                 diag_text = diag_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
-            parsed_diagrams = json.loads(diag_text)
+            parsed_data = json.loads(diag_text)
+            parsed_diagrams = parsed_data if isinstance(parsed_data, list) else parsed_data.get("diagrams", [])
+            
             if isinstance(parsed_diagrams, list):
                 diagrams = parsed_diagrams[:5]  # Cap at 5
 
