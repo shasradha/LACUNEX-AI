@@ -451,7 +451,7 @@ class AIRouter:
 
                 except Exception as retry_exc:
                     error_str = str(retry_exc)
-                    is_rate_limit = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str
+                    is_rate_limit = any(err in error_str for err in ["429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE"])
 
                     if is_rate_limit and attempt < max_retries - 1:
                         # Extract retry delay from error or use exponential backoff

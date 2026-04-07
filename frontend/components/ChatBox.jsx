@@ -955,7 +955,7 @@ export default function ChatBox({
           </div>
 
           {/* Floating Open Document Button */}
-          {docJson && !docPreviewOpen && !docGenerating && (
+          {(docJson || docHtml || docGenerating || docToc) && !docPreviewOpen && (
             <button
               type="button"
               className="doc-reopen-btn animate-enter"
