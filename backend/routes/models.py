@@ -7,6 +7,18 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/api", tags=["Models"])
 
 MODEL_CATALOG = {
+    "cerebras": {
+        "name": "Cerebras",
+        "icon": "C",
+        "logo": "https://github.com/cerebras.png",
+        "color": "#312e81",
+        "description": "Wafer-scale AI — fastest inference engine",
+        "models": [
+            {"id": "qwen-3-235b-a22b-instruct-2507", "name": "Qwen 3 (235B MoE)", "tags": ["ultra-fast", "coding", "default"], "logo": "https://github.com/QwenLM.png"},
+            {"id": "llama3.1-70b", "name": "Llama 3.1 70B", "tags": ["ultra-fast", "70b"], "logo": "https://github.com/meta-llama.png"},
+            {"id": "llama3.1-8b", "name": "Llama 3.1 8B", "tags": ["ultra-fast", "8b"], "logo": "https://github.com/meta-llama.png"},
+        ],
+    },
     "groq": {
         "name": "Groq",
         "icon": "G",
@@ -16,27 +28,6 @@ MODEL_CATALOG = {
         "models": [
             {"id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B", "tags": ["fast", "chat"], "logo": "https://github.com/meta-llama.png"},
             {"id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant", "tags": ["fast", "chat"], "logo": "https://github.com/meta-llama.png"},
-        ],
-    },
-    "cerebras": {
-        "name": "Cerebras",
-        "icon": "C",
-        "logo": "https://github.com/cerebras.png",
-        "color": "#312e81",
-        "description": "Wafer-scale AI inference speed",
-        "models": [
-            {"id": "llama3.1-70b", "name": "Llama 3.1 70B", "tags": ["ultra-fast", "70b"], "logo": "https://github.com/meta-llama.png"},
-            {"id": "llama3.1-8b", "name": "Llama 3.1 8B", "tags": ["ultra-fast", "8b"], "logo": "https://github.com/meta-llama.png"},
-        ],
-    },
-    "stepfun": {
-        "name": "StepFun",
-        "icon": "SF",
-        "logo": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://stepfun.com&size=128", 
-        "color": "#3b82f6",
-        "description": "High-context reasoning",
-        "models": [
-            {"id": "stepfun/step-3.5-flash:free", "name": "Step 3.5 Flash", "tags": ["free", "thinking", "256k"], "logo": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://stepfun.com&size=128"},
         ],
     },
     "qwen": {
@@ -62,6 +53,16 @@ MODEL_CATALOG = {
             {"id": "nvidia/nemotron-3-nano-30b-a3b:free", "name": "Nemotron 3 Nano", "tags": ["free", "fast"], "logo": "https://github.com/nvidia.png"},
             {"id": "nvidia/nemotron-nano-2-vl:free", "name": "Nemotron Nano 2 VL", "tags": ["free", "vision", "video"], "logo": "https://github.com/nvidia.png"},
             {"id": "nvidia/nvidia-nemotron-nano-9b-v2:free", "name": "Nemotron Nano 9B V2", "tags": ["free", "reasoning"], "logo": "https://github.com/nvidia.png"},
+        ],
+    },
+    "stepfun": {
+        "name": "StepFun",
+        "icon": "SF",
+        "logo": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://stepfun.com&size=128",
+        "color": "#3b82f6",
+        "description": "High-context reasoning",
+        "models": [
+            {"id": "stepfun/step-3.5-flash:free", "name": "Step 3.5 Flash", "tags": ["free", "thinking", "256k"], "logo": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://stepfun.com&size=128"},
         ],
     },
     "arcee-ai": {

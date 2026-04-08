@@ -1,9 +1,22 @@
 """
-LACUNEX AI intelligent router.
+LACUNEX AI intelligent router — Bulletproof Edition.
+
+Fallback Priority:
+  1. Cerebras   (fastest, most generous free tier)
+  2. Groq       (100K tokens/day free)
+  3. OpenRouter  (free-tier models: Qwen3 Coder, DeepSeek R1, Llama 3.3)
+  4. Gemini     (LAST RESORT — free tier may be exhausted)
+
+Features:
+  - Rate-limit aware provider selection (skips exhausted providers for 60s)
+  - Zero-crash streaming (never breaks SSE mid-response)
+  - Multi-model waterfall for MAX OUTPUT document generation
+  - Enhanced code generation prompts for production-ready output
 """
 
 import os
 import json
+import time
 import asyncio
 from typing import AsyncGenerator, List, Optional
 
@@ -12,28 +25,61 @@ from google.genai import types
 from groq import AsyncGroq
 from openai import AsyncOpenAI
 
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SYSTEM PROMPTS
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 SYSTEM_PROMPT = (
-    "Write with absolute technical depth and exhaustive complexity. Default to maximum verbosity and completeness for every response unless specifically told to 'summarize'. "
+    "You are LACUNEX AI — a world-class, ultra-intelligent coding and knowledge assistant. "
+    "Write with absolute technical depth and exhaustive complexity. Default to maximum verbosity and completeness for every response. OVER-EXPLAIN EVERYTHING. "
     "Use markdown when it improves readability. "
     "\n\n"
-    "### CODE GENERATION STANDARDS:\n"
-    "When a user asks you to build ANY code, you MUST deliver **production-grade, premium-quality** results:\n"
-    "- Write **comprehensive, complete code** — NEVER give placeholder or skeleton code.\n"
-    "- Write at least **500-1200+ lines** for any UI/UX or dashboard project. EXHAUST EVERY FEATURE.\n"
-    "- Add comments explaining key sections.\n"
-    "- The goal is to produce code so impressive that it exceeds what the user could build themselves.\n"
+    "### ULTRA-LONG CODE GENERATION STANDARDS:\n"
+    "When a user asks for code, you MUST deliver **exhaustive, professional, enterprise-grade** results:\n"
+    "- ALWAYS write **800 to 2000+ lines of code** for UI/UX, dashboards, games, or apps. NEVER abbreviate logic or styling.\n"
+    "- If limited by a single response, use the `<lacunex-artifact>` multi-file structure to reach total complexity.\n"
+    "- Include comprehensive CSS with advanced animations, glassmorphism, responsive math, and premium typography.\n"
+    "- Include deep JavaScript logic: full form validation, complex state management, error handling, and micro-interactions.\n"
+    "- Use comments to explain every single function and class.\n"
+    "- THE GOAL: The user should find it impossible to believe an AI wrote something this deep and complete.\n"
     "\n"
-    "**For WEB/UI code (HTML, CSS, JS, games, dashboards, forms, landing pages):**\n"
-    "- Include rich CSS with gradients, animations, hover effects, responsive design, glassmorphism, modern typography (Google Fonts), and smooth transitions.\n"
-    "- Include form validation, accessibility, error states, loading states, and micro-interactions.\n"
-    "- USE MULTIPLE FILES where appropriate to hit the maximum possible complexity.\n"
-    "- Use modern best practices: CSS custom properties, flexbox/grid, semantic HTML5, ES6+ JavaScript.\n"
+    "### PREMIUM CSS & DESIGN TECHNIQUES (MANDATORY FOR ALL UI CODE):\n"
+    "When generating any HTML/CSS/JS code, you MUST use these modern design techniques:\n"
+    "- **Glassmorphism**: `backdrop-filter: blur(20px); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);`\n"
+    "- **Smooth Gradients**: Use `linear-gradient()` and `radial-gradient()` with 3+ color stops for depth\n"
+    "- **CSS Custom Properties**: Define a complete `:root` design system with `--primary`, `--accent`, `--bg-*`, `--text-*`, `--radius-*`, `--shadow-*`\n"
+    "- **Micro-Animations**: Use `@keyframes` for entrance animations, pulse effects, floating elements, shimmer loaders\n"
+    "- **Hover Effects**: Scale transforms (`transform: scale(1.02)`), color transitions, box-shadow elevation changes\n"
+    "- **Typography**: Import and use Google Fonts (Inter, Outfit, Space Grotesk, JetBrains Mono for code)\n"
+    "- **Responsive Design**: Use CSS Grid + Flexbox + `clamp()` + `min()` for fluid layouts. Include `@media` for mobile/tablet/desktop\n"
+    "- **Dark Mode First**: Design with dark backgrounds (#0a0a0f, #111118, #1a1a2e) and vibrant accent colors\n"
+    "- **Box Shadows**: Use layered shadows for depth: `box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 10px 30px -5px rgba(0,0,0,0.2);`\n"
+    "- **Border Radius**: Use generous radius (12px-20px) for modern feel\n"
+    "- **Scrollbar Styling**: Custom `::-webkit-scrollbar` with matching theme colors\n"
+    "- **Focus States**: Visible, accessible `outline` or `box-shadow` on `:focus-visible`\n"
+    "- **SVG Icons**: Use inline SVGs or Unicode symbols instead of external icon libraries when possible\n"
+    "- **CSS Transitions**: `transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)` on interactive elements\n"
+    "- **Gradient Text**: `background: linear-gradient(...); -webkit-background-clip: text; -webkit-text-fill-color: transparent;`\n"
+    "\n"
+    "**For WEB/UI projects:**\n"
+    "- Include deep gradients, complex hover-effects, SVG filters, and smooth state transitions.\n"
+    "- ALWAYS use modern best practices: CSS custom properties, semantic HTML5, ES6+ module patterns.\n"
+    "- Provide full responsive layouts for Mobile, Tablet, and Desktop within the same CSS.\n"
+    "- Every page must look like a premium SaaS product, NOT a basic tutorial project.\n"
     "\n"
     "**For NON-WEB code (Python, Java, C++, Go, Rust, PHP, etc.):**\n"
     "- Write the code in a standard markdown code fence with the correct language tag, e.g. ```python ... ```\n"
     "- Do NOT wrap non-web code in `<lacunex-artifact>` tags.\n"
     "- Do NOT convert Python/Java/etc. requests into HTML pages. If the user says 'make a Python calculator', write actual Python code, NOT an HTML calculator.\n"
     "- LACUNEX has a built-in code execution sandbox — users can run Python, JavaScript, Java, C++, Go, Rust, PHP, Ruby, and 50+ languages directly in the chat.\n"
+    "- Write COMPLETE, PRODUCTION-READY code with:\n"
+    "  - Full error handling (try/except with specific exceptions)\n"
+    "  - Type hints (Python) or proper typing (TypeScript/Java)\n"
+    "  - Docstrings and inline comments explaining logic\n"
+    "  - Input validation and edge case handling\n"
+    "  - Clean architecture (classes, modules, separation of concerns)\n"
+    "  - At least 300-800 lines for any non-trivial request\n"
     "\n"
     "**For WEB/UI projects (complex apps, multi-file dashboards, interactive games):**\n"
     "1. You CAN (and should for complexity) provide multiple files within a single artifact using an XML-like structure:\n"
@@ -65,6 +111,25 @@ DEFAULT_MODELS = {
     "cerebras": "qwen-3-235b-a22b-instruct-2507",
     "ollama": "llama3.2",
 }
+
+# Free OpenRouter models ranked by quality for fallback
+OPENROUTER_FREE_MODELS = [
+    "qwen/qwen3-coder-480b-a35b-instruct:free",   # Best for code
+    "nvidia/nemotron-3-super-120b-a12b:free",       # Best for accuracy
+    "meta-llama/llama-3.3-70b-instruct:free",       # Best general purpose
+    "deepseek/deepseek-r1:free",                    # Best for reasoning
+    "qwen/qwen3-next-80b-a3b-instruct:free",       # Fast agentic
+    "openai/gpt-oss-120b:free",                     # OpenAI open-weight
+    "arcee-ai/trinity-large-preview:free",          # Creative
+]
+
+# Free OpenRouter models specifically optimized for coding tasks
+OPENROUTER_CODE_MODELS = [
+    "qwen/qwen3-coder-480b-a35b-instruct:free",
+    "openai/gpt-oss-120b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+]
 
 MAX_OUTPUT_SYSTEM_PROMPT = (
     "You are LACUNEX AI in MAX OUTPUT MODE — a world-class document generation engine.\n"
@@ -123,6 +188,45 @@ MAX_OUTPUT_TOC_PROMPT = (
 )
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# RATE LIMIT TRACKER
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class RateLimitTracker:
+    """Tracks which providers are rate-limited to avoid wasting time retrying."""
+
+    def __init__(self, cooldown_seconds: int = 60):
+        self._cooldowns: dict[str, float] = {}
+        self._cooldown_seconds = cooldown_seconds
+
+    def mark_limited(self, provider: str):
+        """Mark a provider as rate-limited right now."""
+        self._cooldowns[provider] = time.time()
+        print(f"[RateLimit] ⚠️ {provider} marked as rate-limited for {self._cooldown_seconds}s")
+
+    def is_available(self, provider: str) -> bool:
+        """Check if a provider is available (not in cooldown)."""
+        if provider not in self._cooldowns:
+            return True
+        elapsed = time.time() - self._cooldowns[provider]
+        if elapsed >= self._cooldown_seconds:
+            del self._cooldowns[provider]
+            return True
+        return False
+
+    def get_wait_time(self, provider: str) -> float:
+        """Get remaining cooldown time for a provider."""
+        if provider not in self._cooldowns:
+            return 0.0
+        elapsed = time.time() - self._cooldowns[provider]
+        remaining = self._cooldown_seconds - elapsed
+        return max(0.0, remaining)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# AI ROUTER
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 class AIRouter:
     def __init__(self):
         self.cerebras = AsyncOpenAI(
@@ -139,6 +243,20 @@ class AIRouter:
             api_key="ollama",
             base_url="http://localhost:11434/v1",
         )
+        self._rate_limiter = RateLimitTracker(cooldown_seconds=60)
+
+    # ── Helper: Check if an error is a rate limit ──────────────────────────
+    @staticmethod
+    def _is_rate_limit_error(error: Exception) -> bool:
+        error_str = str(error).lower()
+        return any(keyword in error_str for keyword in [
+            "429", "resource_exhausted", "rate_limit", "quota",
+            "too many requests", "capacity", "overloaded",
+        ])
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # MAIN ENTRY POINT
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def stream_chat(
         self,
@@ -151,14 +269,8 @@ class AIRouter:
     ) -> AsyncGenerator[dict, None]:
         clean_message = message.strip().lower()
         creator_keywords = {
-            "shasradha",
-            "karmakar",
-            "creator",
-            "who built",
-            "who made",
-            "who created",
-            "who is your dev",
-            "about shasradha",
+            "shasradha", "karmakar", "creator", "who built",
+            "who made", "who created", "who is your dev", "about shasradha",
         }
 
         if any(keyword in clean_message for keyword in creator_keywords) and len(clean_message) < 100:
@@ -179,12 +291,21 @@ class AIRouter:
         async for chunk in self._stream_normal(message, history, provider, model, memory_profile):
             yield chunk
 
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # SYSTEM PROMPT BUILDER
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     def _get_system_prompt(self, memory_profile: Optional[dict]) -> str:
         prompt = SYSTEM_PROMPT
         if memory_profile and "facts" in memory_profile and memory_profile["facts"]:
             facts_list = "\n".join(f"- {f}" for f in memory_profile["facts"])
             prompt += f"\n\n### USER MEMORY (PERSISTENT FACTS):\n{facts_list}\n"
         return prompt
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # NORMAL STREAMING (Bulletproof Fallback Chain)
+    # Priority: Cerebras → Groq → OpenRouter Free → Gemini (last resort)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def _stream_normal(
         self,
@@ -195,31 +316,38 @@ class AIRouter:
         memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
         messages = self._build_openai_messages(message, history, memory_profile)
+
         provider_configs = {
             "groq": ("Groq", self.groq, DEFAULT_MODELS["groq"]),
             "openrouter": ("OpenRouter", self.openrouter, DEFAULT_MODELS["openrouter"]),
             "cerebras": ("Cerebras", self.cerebras, DEFAULT_MODELS["cerebras"]),
         }
 
-        # Explicit fallback priority: Cerebras (generous free) → Groq → OpenRouter (credits)
+        # Fallback priority: Cerebras (generous free) → Groq → OpenRouter
         _FALLBACK_ORDER = ["cerebras", "groq", "openrouter"]
 
+        # Smart token limits per provider
+        _MAX_TOKENS = {
+            "Cerebras": 16384,
+            "Groq": 8192,
+            "OpenRouter": 8192,
+        }
+
+        # ── Phase 1: Try OpenAI-compatible providers ──────────────────────
         fallback_chain = []
+
+        # User's chosen provider first
         if provider in provider_configs:
             name, client, default_model = provider_configs[provider]
-            fallback_chain.append((name, client, model or default_model))
+            if self._rate_limiter.is_available(name):
+                fallback_chain.append((name, client, model or default_model))
 
+        # Then add remaining providers in fallback order
         for key in _FALLBACK_ORDER:
             if key != provider and key in provider_configs:
                 name, client, default_model = provider_configs[key]
-                fallback_chain.append((name, client, default_model))
-
-        # Smart token limits per provider to avoid billing/quota errors
-        _MAX_TOKENS = {
-            "Cerebras": 16384,  # Very generous free tier
-            "Groq": 8192,      # 100K daily token limit, conserve
-            "OpenRouter": 4096, # Credit-based, keep low
-        }
+                if self._rate_limiter.is_available(name):
+                    fallback_chain.append((name, client, default_model))
 
         for name, client, model_id in fallback_chain:
             try:
@@ -239,19 +367,53 @@ class AIRouter:
                 return
             except Exception as exc:
                 print(f"[AIRouter] {name} ({model_id}) failed: {exc}")
-                # If we're on the last part of fallback_chain, we'll hit Gemini below
-        
-        # ── Ultimate Dynamic Fallback ──────────────────────────────────────────
-        # If we reach here, OpenAI providers failed. Try Gemini 2.0 Flash (Very reliable)
-        try:
-            print(f"[AIRouter] Falling back to Gemini 2.0 Flash for reliability.")
-            async for chunk in self._stream_gemini(message, history, DEFAULT_MODELS["gemini"]):
-                yield chunk
-            return # _stream_gemini yields done
-        except Exception as e:
-            print(f"[AIRouter] Ultimate fallback failed: {e}")
-            yield {"type": "error", "content": "All AI providers are currently at capacity. Please try again in a few minutes."}
-            yield {"type": "done"} # 🔓 Force Unlock UI
+                if self._is_rate_limit_error(exc):
+                    self._rate_limiter.mark_limited(name)
+
+        # ── Phase 2: Try OpenRouter free models directly ──────────────────
+        print("[AIRouter] All primary providers failed. Trying OpenRouter free models...")
+        for free_model in OPENROUTER_FREE_MODELS[:3]:
+            if not self._rate_limiter.is_available(f"openrouter_{free_model}"):
+                continue
+            try:
+                stream = await self.openrouter.chat.completions.create(
+                    model=free_model,
+                    messages=messages,
+                    stream=True,
+                    max_tokens=8192,
+                )
+                async for chunk in stream:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        yield {"type": "token", "content": delta.content}
+                yield {"type": "done"}
+                return
+            except Exception as exc:
+                print(f"[AIRouter] OpenRouter free ({free_model}) failed: {exc}")
+                if self._is_rate_limit_error(exc):
+                    self._rate_limiter.mark_limited(f"openrouter_{free_model}")
+
+        # ── Phase 3: Gemini as LAST RESORT ────────────────────────────────
+        if self._rate_limiter.is_available("Gemini"):
+            try:
+                print("[AIRouter] Last resort: Trying Gemini...")
+                async for chunk in self._stream_gemini_raw(message, history, DEFAULT_MODELS["gemini"], memory_profile):
+                    yield chunk
+                return
+            except Exception as e:
+                print(f"[AIRouter] Gemini last-resort also failed: {e}")
+                self._rate_limiter.mark_limited("Gemini")
+
+        # ── Phase 4: Everything failed ────────────────────────────────────
+        yield {
+            "type": "error",
+            "content": "All AI providers are currently at capacity. Please try again in a minute."
+        }
+        yield {"type": "done"}
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # GEMINI STREAMING (with auto-fallback on failure)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def _stream_gemini(
         self,
@@ -260,24 +422,47 @@ class AIRouter:
         model: Optional[str] = None,
         memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
+        """Stream from Gemini. If it fails, auto-fallback to Cerebras → Groq → OpenRouter."""
         try:
-            stream = await self.gemini.aio.models.generate_content_stream(
-                model=model or DEFAULT_MODELS["gemini"],
-                contents=self._build_gemini_contents(message, history),
-                config=types.GenerateContentConfig(
-                    system_instruction=self._get_system_prompt(memory_profile),
-                    max_output_tokens=16384,
-                ),
-            )
-
-            async for chunk in stream:
-                if chunk.text:
-                    yield {"type": "token", "content": chunk.text}
-
-            yield {"type": "done"}
+            async for chunk in self._stream_gemini_raw(message, history, model, memory_profile):
+                yield chunk
+            return
         except Exception as exc:
-            print(f"[AIRouter] Gemini normal failed: {exc}")
-            yield {"type": "error", "content": "Gemini Engine is experiencing high latency. Retrying..."}
+            print(f"[AIRouter] Gemini failed: {exc}")
+            if self._is_rate_limit_error(exc):
+                self._rate_limiter.mark_limited("Gemini")
+
+            # Auto-fallback: try Cerebras → Groq → OpenRouter free
+            print("[AIRouter] Gemini failed, falling back to other providers...")
+            async for chunk in self._stream_normal(message, history, "cerebras", None, memory_profile):
+                yield chunk
+
+    async def _stream_gemini_raw(
+        self,
+        message: str,
+        history: Optional[List[dict]] = None,
+        model: Optional[str] = None,
+        memory_profile: Optional[dict] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Raw Gemini streaming — raises exceptions on failure (no internal fallback)."""
+        stream = await self.gemini.aio.models.generate_content_stream(
+            model=model or DEFAULT_MODELS["gemini"],
+            contents=self._build_gemini_contents(message, history),
+            config=types.GenerateContentConfig(
+                system_instruction=self._get_system_prompt(memory_profile),
+                max_output_tokens=16384,
+            ),
+        )
+
+        async for chunk in stream:
+            if chunk.text:
+                yield {"type": "token", "content": chunk.text}
+
+        yield {"type": "done"}
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # THINKING MODE (Gemini 2.5 Flash → Groq fallback)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def _stream_think(
         self,
@@ -285,31 +470,59 @@ class AIRouter:
         history: Optional[List[dict]] = None,
         memory_profile: Optional[dict] = None,
     ) -> AsyncGenerator[dict, None]:
+        # Try Gemini 2.5 Flash (native thinking support)
+        if self._rate_limiter.is_available("Gemini"):
+            try:
+                stream = await self.gemini.aio.models.generate_content_stream(
+                    model="gemini-2.5-flash",
+                    contents=self._build_gemini_contents(message, history),
+                    config=types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(thinking_budget=10000),
+                        system_instruction=self._get_system_prompt(memory_profile),
+                        max_output_tokens=16384,
+                    ),
+                )
+
+                async for chunk in stream:
+                    for part in chunk.candidates[0].content.parts:
+                        if part.thought:
+                            yield {"type": "thinking", "content": part.text}
+                        elif part.text:
+                            yield {"type": "token", "content": part.text}
+
+                yield {"type": "done"}
+                return
+            except Exception as exc:
+                print(f"[AIRouter] Gemini think failed: {exc}")
+                if self._is_rate_limit_error(exc):
+                    self._rate_limiter.mark_limited("Gemini")
+
+        # Fallback: Try DeepSeek R1 on OpenRouter (has thinking capability)
         try:
-            # Use gemini-2.5-flash — supports native thinking + high output
-            stream = await self.gemini.aio.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=self._build_gemini_contents(message, history),
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(thinking_budget=10000),
-                    system_instruction=self._get_system_prompt(memory_profile),
-                    max_output_tokens=16384,
-                ),
+            print("[AIRouter] Think fallback: Trying DeepSeek R1...")
+            messages = self._build_openai_messages(message, history, memory_profile)
+            stream = await self.openrouter.chat.completions.create(
+                model="deepseek/deepseek-r1:free",
+                messages=messages,
+                stream=True,
+                max_tokens=8192,
             )
-
             async for chunk in stream:
-                for part in chunk.candidates[0].content.parts:
-                    if part.thought:
-                        yield {"type": "thinking", "content": part.text}
-                    elif part.text:
-                        yield {"type": "token", "content": part.text}
-
+                delta = chunk.choices[0].delta
+                if delta and delta.content:
+                    yield {"type": "token", "content": delta.content}
             yield {"type": "done"}
+            return
         except Exception as exc:
-            print(f"[AIRouter] Gemini think failed: {exc}")
-            # Fallback to standard Groq streaming if thinking mode fails
-            async for chunk in self._stream_normal(message, history, "groq"):
-                yield chunk
+            print(f"[AIRouter] DeepSeek R1 think fallback failed: {exc}")
+
+        # Final fallback: standard Cerebras → Groq chain
+        async for chunk in self._stream_normal(message, history, "cerebras", None, memory_profile):
+            yield chunk
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # MAX OUTPUT MODE — Multi-pass document generation (CRASH-PROOF)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def stream_max_output(
         self,
@@ -319,47 +532,74 @@ class AIRouter:
     ) -> AsyncGenerator[dict, None]:
         """
         MAX OUTPUT MODE — Multi-pass document generation.
-        Pass 1: Generate Table of Contents as structured JSON
-        Pass 2+: Expand each section with full detail
-        Uses Gemini 2.0 Flash for maximum reliability and speed.
-        Falls back to Groq (Llama 3 70B) if Gemini rate limits are exceeded.
+        Pass 1: Generate TOC (Groq → Cerebras fallback)
+        Pass 2+: Expand each section (waterfall across all providers)
+        CRASH-PROOF: Never raises, always yields graceful errors.
         """
-        model = "gemini-2.0-flash"
 
-        # ── Pass 1: Generate Table of Contents (using Groq to save Gemini quota) ──
+        # ── Pass 1: Generate Table of Contents ────────────────────────────
         yield {"type": "max_output_activated", "content": "MAX OUTPUT MODE activated"}
-        yield {"type": "doc_progress", "content": "Planning document structure...", "phase": "toc", "current": 0, "total": 0}
+        yield {
+            "type": "doc_progress",
+            "content": "Planning document structure...",
+            "phase": "toc",
+            "current": 0,
+            "total": 0,
+        }
 
         toc_sections = []
-        try:
-            toc_response = await self.groq.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": MAX_OUTPUT_TOC_PROMPT},
-                    {"role": "user", "content": f"Generate a Table of Contents for: {message}"}
-                ],
-                temperature=0.7,
-                response_format={"type": "json_object"},
-            )
 
-            toc_text = toc_response.choices[0].message.content.strip()
-            # Clean potential markdown fences if Llama ignores response_format
-            if toc_text.startswith("```"):
-                toc_text = toc_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        # Try Groq first for TOC, then Cerebras
+        toc_providers = [
+            ("Groq", self.groq, "llama-3.3-70b-versatile", "groq"),
+            ("Cerebras", self.cerebras, "llama3.1-70b", "cerebras"),
+        ]
 
-            toc_data = json.loads(toc_text)
-            # Support both direct array or wrapped object {"sections": [...]}
-            toc_sections = toc_data if isinstance(toc_data, list) else toc_data.get("sections", [])
+        for toc_name, toc_client, toc_model, toc_type in toc_providers:
+            if not self._rate_limiter.is_available(toc_name):
+                continue
+            try:
+                if toc_type == "groq":
+                    toc_response = await self.groq.chat.completions.create(
+                        model=toc_model,
+                        messages=[
+                            {"role": "system", "content": MAX_OUTPUT_TOC_PROMPT},
+                            {"role": "user", "content": f"Generate a Table of Contents for: {message}"},
+                        ],
+                        temperature=0.7,
+                        response_format={"type": "json_object"},
+                    )
+                else:
+                    toc_response = await toc_client.chat.completions.create(
+                        model=toc_model,
+                        messages=[
+                            {"role": "system", "content": MAX_OUTPUT_TOC_PROMPT},
+                            {"role": "user", "content": f"Generate a Table of Contents for: {message}"},
+                        ],
+                        temperature=0.7,
+                    )
 
-            if not isinstance(toc_sections, list) or len(toc_sections) < 3:
-                raise ValueError("TOC too short or invalid")
-            
-            # Cap at 20 sections to stay within Gemini rate limits for Pass 2
-            if len(toc_sections) > 20:
-                toc_sections = toc_sections[:20]
+                toc_text = toc_response.choices[0].message.content.strip()
+                if toc_text.startswith("```"):
+                    toc_text = toc_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
-        except Exception as e:
-            print(f"[AIRouter] TOC generation failed: {e}, using fallback structure")
+                toc_data = json.loads(toc_text)
+                toc_sections = toc_data if isinstance(toc_data, list) else toc_data.get("sections", [])
+
+                if isinstance(toc_sections, list) and len(toc_sections) >= 3:
+                    if len(toc_sections) > 20:
+                        toc_sections = toc_sections[:20]
+                    break
+                else:
+                    toc_sections = []
+            except Exception as e:
+                print(f"[AIRouter] TOC via {toc_name} failed: {e}")
+                if self._is_rate_limit_error(e):
+                    self._rate_limiter.mark_limited(toc_name)
+
+        # Fallback TOC if all providers failed
+        if not toc_sections:
+            print("[AIRouter] TOC generation failed, using fallback structure")
             toc_sections = [
                 {"title": "Introduction", "description": "Overview and fundamentals"},
                 {"title": "Core Concepts", "description": "Main topics in detail"},
@@ -385,7 +625,7 @@ class AIRouter:
 
         yield {"type": "token", "content": full_document}
 
-        # ── Pass 2+: Expand each section ──────────────────────────────────
+        # ── Pass 2+: Expand each section (waterfall fallback) ─────────────
         previous_context = ""
 
         for idx, section in enumerate(toc_sections):
@@ -401,7 +641,6 @@ class AIRouter:
                 "total": total,
             }
 
-            # Build context-aware prompt for this section
             section_prompt = (
                 f"You are writing section {section_num} of {total} for an exhaustive 100-PAGE document about: {message}\n\n"
                 f"This section is: **{section_title}** — {section_desc}\n\n"
@@ -418,94 +657,135 @@ class AIRouter:
                 f"- Output pure, dense, technical markdown ONLY\n"
             )
 
-            # Retry logic for rate-limited API calls
-            max_retries = 3
-            section_content = ""
+            # ── Waterfall: Cerebras → Groq → OpenRouter free → Gemini ────
+            models_to_try = [
+                {"provider": "cerebras", "id": "llama3.1-70b", "name": "Cerebras"},
+                {"provider": "groq", "id": "llama-3.3-70b-versatile", "name": "Groq"},
+                {"provider": "groq", "id": "llama-3.1-8b-instant", "name": "Groq-8B"},
+                {"provider": "openrouter", "id": "meta-llama/llama-3.3-70b-instruct:free", "name": "OR-Llama"},
+                {"provider": "openrouter", "id": "qwen/qwen3-coder-480b-a35b-instruct:free", "name": "OR-Qwen"},
+                {"provider": "gemini", "id": "gemini-2.0-flash", "name": "Gemini"},
+            ]
+
             generation_success = False
+            section_content = ""
 
-            for attempt in range(max_retries):
+            for current_model in models_to_try:
+                prov = current_model["provider"]
+                model_id = current_model["id"]
+                model_name = current_model["name"]
+
+                # Skip rate-limited providers
+                if not self._rate_limiter.is_available(model_name):
+                    continue
+
                 try:
-                    stream = await self.gemini.aio.models.generate_content_stream(
-                        model=model,
-                        contents=[types.Content(
-                            role="user",
-                            parts=[types.Part.from_text(text=section_prompt)],
-                        )],
-                        config=types.GenerateContentConfig(
-                            system_instruction=MAX_OUTPUT_SYSTEM_PROMPT,
-                            max_output_tokens=16384,
-                            thinking_config=types.ThinkingConfig(thinking_budget=4096),
-                        ),
-                    )
+                    if prov == "gemini":
+                        stream = await self.gemini.aio.models.generate_content_stream(
+                            model=model_id,
+                            contents=[types.Content(role="user", parts=[types.Part.from_text(text=section_prompt)])],
+                            config=types.GenerateContentConfig(
+                                system_instruction=MAX_OUTPUT_SYSTEM_PROMPT,
+                                max_output_tokens=16384,
+                            ),
+                        )
+                        async for chunk in stream:
+                            if chunk.text:
+                                section_content += chunk.text
+                                yield {"type": "token", "content": chunk.text}
 
-                    section_content = ""
-                    async for chunk in stream:
-                        for part in chunk.candidates[0].content.parts:
-                            if part.thought:
-                                yield {"type": "thinking", "content": part.text}
-                            elif part.text:
-                                section_content += part.text
-                                yield {"type": "token", "content": part.text}
-
-                    generation_success = True
-                    break  # Success — exit retry loop
-
-                except Exception as retry_exc:
-                    error_str = str(retry_exc)
-                    is_rate_limit = any(err in error_str for err in ["429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE"])
-
-                    # ── Fallback to Groq if Gemini is completely exhausted ──
-                    if is_rate_limit:
-                        print(f"[AIRouter] Gemini exhausted for section {section_num}, falling back to Groq...")
+                    elif prov == "cerebras":
                         yield {
                             "type": "doc_progress",
-                            "content": f"Gemini busy — switching to Groq for {section_title}...",
+                            "content": f"Using {model_name} for {section_title}...",
+                            "phase": "generating",
+                            "current": section_num,
+                            "total": total,
+                        }
+                        cb_stream = await self.cerebras.chat.completions.create(
+                            model=model_id,
+                            messages=[
+                                {"role": "system", "content": MAX_OUTPUT_SYSTEM_PROMPT},
+                                {"role": "user", "content": section_prompt},
+                            ],
+                            stream=True,
+                            max_tokens=16384,
+                        )
+                        async for chunk in cb_stream:
+                            token = chunk.choices[0].delta.content or ""
+                            if token:
+                                section_content += token
+                                yield {"type": "token", "content": token}
+
+                    elif prov == "groq":
+                        yield {
+                            "type": "doc_progress",
+                            "content": f"Using {model_name} for {section_title}...",
                             "phase": "fallback",
                             "current": section_num,
                             "total": total,
                         }
-                        
-                        try:
-                            # Use Groq for the same section expansion
-                            groq_stream = await self.groq.chat.completions.create(
-                                model="llama-3.3-70b-versatile",
-                                messages=[
-                                    {"role": "system", "content": MAX_OUTPUT_SYSTEM_PROMPT},
-                                    {"role": "user", "content": section_prompt}
-                                ],
-                                stream=True,
-                                temperature=0.7,
-                            )
-                            
-                            section_content = ""
-                            async for chunk in groq_stream:
-                                content = chunk.choices[0].delta.content or ""
-                                if content:
-                                    section_content += content
-                                    yield {"type": "token", "content": content}
-                            
-                            generation_success = True
-                            break # Fallback success
-                        except Exception as groq_exc:
-                            print(f"[AIRouter] Groq fallback also failed: {groq_exc}")
-                            raise retry_exc # Re-raise original Gemini error if fallback fails
-                    else:
-                        raise retry_exc  # Non-rate-limit error or last attempt
+                        groq_stream = await self.groq.chat.completions.create(
+                            model=model_id,
+                            messages=[
+                                {"role": "system", "content": MAX_OUTPUT_SYSTEM_PROMPT},
+                                {"role": "user", "content": section_prompt},
+                            ],
+                            stream=True,
+                            temperature=0.7,
+                            max_tokens=8192,
+                        )
+                        async for chunk in groq_stream:
+                            token = chunk.choices[0].delta.content or ""
+                            if token:
+                                section_content += token
+                                yield {"type": "token", "content": token}
+
+                    elif prov == "openrouter":
+                        yield {
+                            "type": "doc_progress",
+                            "content": f"Using {model_name} for {section_title}...",
+                            "phase": "fallback",
+                            "current": section_num,
+                            "total": total,
+                        }
+                        or_stream = await self.openrouter.chat.completions.create(
+                            model=model_id,
+                            messages=[
+                                {"role": "system", "content": MAX_OUTPUT_SYSTEM_PROMPT},
+                                {"role": "user", "content": section_prompt},
+                            ],
+                            stream=True,
+                            max_tokens=8192,
+                        )
+                        async for chunk in or_stream:
+                            token = chunk.choices[0].delta.content or ""
+                            if token:
+                                section_content += token
+                                yield {"type": "token", "content": token}
+
+                    generation_success = True
+                    break  # Success — exit waterfall
+
+                except Exception as e:
+                    print(f"[AIRouter] MaxOutput section {section_num} via {model_name} ({model_id}) failed: {e}")
+                    if self._is_rate_limit_error(e):
+                        self._rate_limiter.mark_limited(model_name)
+                    # Continue to next model in waterfall (NEVER raise)
 
             if generation_success:
                 full_document += section_content + "\n\n"
                 previous_context += f"{section_title}, "
             else:
-                print(f"[AIRouter] Section {section_num} generation failed after all retries")
                 error_msg = f"\n\n## {section_title}\n\n*This section could not be generated due to API limits. Please try again later.*\n\n"
                 full_document += error_msg
                 yield {"type": "token", "content": error_msg}
 
-            # Pace requests: wait 3 seconds between sections to avoid rate limit burst
+            # Pace requests to avoid rate limit bursts
             if idx < total - 1:
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
-        # ── Pass 3: Generate Diagrams (using Groq) ────────────────────────
+        # ── Pass 3: Generate Diagrams (Groq → Cerebras fallback) ──────────
         yield {
             "type": "doc_progress",
             "content": "Generating diagrams...",
@@ -515,46 +795,55 @@ class AIRouter:
         }
 
         diagrams = []
-        try:
-            diagram_prompt = (
-                f"Based on this document about: {message}\n\n"
-                f"The document has these sections:\n"
-                + "\n".join(f"- {s.get('title', '')}: {s.get('description', '')}" for s in toc_sections)
-                + "\n\n"
-                "Generate exactly 3 to 5 Mermaid diagrams that would ADD HIGH VALUE to this document.\n"
-                "Each diagram should illustrate a key concept, process flow, hierarchy, or relationship.\n\n"
-                "RULES:\n"
-                "- Only create diagrams where they genuinely help understanding\n"
-                "- Use flowchart, sequence diagram, or mindmap syntax\n"
-                "- Keep diagrams clean and readable (max 15 nodes each)\n"
-                "- Each diagram must have a descriptive title\n\n"
-                "Return ONLY valid JSON object with a 'diagrams' array:\n"
-                '{"diagrams": [{"title": "...", "section_index": 0, "code": "graph TD\\n  A[Start] --> B[End]"}, ...]}'
-            )
+        diagram_prompt = (
+            f"Based on this document about: {message}\n\n"
+            f"The document has these sections:\n"
+            + "\n".join(f"- {s.get('title', '')}: {s.get('description', '')}" for s in toc_sections)
+            + "\n\n"
+            "Generate exactly 3 to 5 Mermaid diagrams that would ADD HIGH VALUE to this document.\n"
+            "Each diagram should illustrate a key concept, process flow, hierarchy, or relationship.\n\n"
+            "RULES:\n"
+            "- Only create diagrams where they genuinely help understanding\n"
+            "- Use flowchart, sequence diagram, or mindmap syntax\n"
+            "- Keep diagrams clean and readable (max 15 nodes each)\n"
+            "- Each diagram must have a descriptive title\n\n"
+            "Return ONLY valid JSON object with a 'diagrams' array:\n"
+            '{"diagrams": [{"title": "...", "section_index": 0, "code": "graph TD\\n  A[Start] --> B[End]"}, ...]}'
+        )
 
-            diag_response = await self.groq.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": "You are a diagram generator for Mermaid.js. Return ONLY valid JSON."},
-                    {"role": "user", "content": diagram_prompt}
-                ],
-                temperature=0.7,
-                response_format={"type": "json_object"},
-            )
+        # Try Groq, then Cerebras for diagrams
+        for diag_name, diag_client, diag_model in [
+            ("Groq", self.groq, "llama-3.3-70b-versatile"),
+            ("Cerebras", self.cerebras, "llama3.1-70b"),
+        ]:
+            if not self._rate_limiter.is_available(diag_name):
+                continue
+            try:
+                diag_kwargs = {
+                    "model": diag_model,
+                    "messages": [
+                        {"role": "system", "content": "You are a diagram generator for Mermaid.js. Return ONLY valid JSON."},
+                        {"role": "user", "content": diagram_prompt},
+                    ],
+                    "temperature": 0.7,
+                }
+                if diag_name == "Groq":
+                    diag_kwargs["response_format"] = {"type": "json_object"}
 
-            diag_text = diag_response.choices[0].message.content.strip()
-            if diag_text.startswith("```"):
-                diag_text = diag_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                diag_response = await diag_client.chat.completions.create(**diag_kwargs)
+                diag_text = diag_response.choices[0].message.content.strip()
+                if diag_text.startswith("```"):
+                    diag_text = diag_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
-            parsed_data = json.loads(diag_text)
-            parsed_diagrams = parsed_data if isinstance(parsed_data, list) else parsed_data.get("diagrams", [])
-            
-            if isinstance(parsed_diagrams, list):
-                diagrams = parsed_diagrams[:5]  # Cap at 5
-
-        except Exception as e:
-            print(f"[AIRouter] Diagram generation failed (non-critical): {e}")
-            diagrams = []
+                parsed_data = json.loads(diag_text)
+                parsed_diagrams = parsed_data if isinstance(parsed_data, list) else parsed_data.get("diagrams", [])
+                if isinstance(parsed_diagrams, list):
+                    diagrams = parsed_diagrams[:5]
+                break
+            except Exception as e:
+                print(f"[AIRouter] Diagram generation via {diag_name} failed (non-critical): {e}")
+                if self._is_rate_limit_error(e):
+                    self._rate_limiter.mark_limited(diag_name)
 
         # ── Done ──────────────────────────────────────────────────────────
         yield {
@@ -565,6 +854,10 @@ class AIRouter:
             "total": total,
         }
         yield {"type": "done", "answer": full_document, "mode": "max_output", "diagrams": diagrams}
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # MESSAGE BUILDERS
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def _build_openai_messages(
         self,
@@ -602,6 +895,10 @@ class AIRouter:
         )
         return contents
 
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # CREATOR INFO
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     async def _stream_about_creator(self) -> AsyncGenerator[dict, None]:
         about_text = """## 🛠️ Creator Profile: Shasradha Karmakar
 
@@ -610,7 +907,7 @@ class AIRouter:
 ### 🎓 About Me
 I am a passionate and multi-skilled tech enthusiast with deep interests across both hardware and software domains, including cybersecurity, robotics, web development, app development, game development, software engineering, electronics, electrical systems, photography, editing, content creation, and AI/ML engineering. I enjoy building, breaking, learning, and innovating—constantly pushing myself to explore new technologies and ideas.
 
-I am highly driven by curiosity and real-world problem solving. I don’t just learn—I build. My journey reflects hands-on experience, creativity, and a strong mindset of experimentation and growth.
+I am highly driven by curiosity and real-world problem solving. I don't just learn—I build. My journey reflects hands-on experience, creativity, and a strong mindset of experimentation and growth.
 
 ### 🚀 Technical Experience & Hardware Projects
 - **Hardware & Robotics**: Voice-controlled AI robots, RC systems, ESP32/ESP8266 projects (Deauther, Marauder), RC robots, and Raspberry Pi based tools like Rubber Ducky.
@@ -637,10 +934,8 @@ I am highly driven by curiosity and real-world problem solving. I don’t just l
 - **Instagram**: [shasradha_](https://www.instagram.com/shasradha_)
 - **Portfolio**: [shasradha.github.io](https://shasradha.github.io/)
 
-*"This isn’t just a setup… it’s an ecosystem I built. While others code, I deploy intelligence. One system. Infinite execution."*
+*"This isn't just a setup… it's an ecosystem I built. While others code, I deploy intelligence. One system. Infinite execution."*
 """
-
-        import asyncio
 
         for word in about_text.split(" "):
             yield {"type": "token", "content": word + " "}
