@@ -1393,3 +1393,15 @@ def generate_document_xlsx(doc_json: dict, theme: str = "professional") -> bytes
     wb.save(buf)
     return buf.getvalue()
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  v2 Premium Overrides — ReportLab PDF + Enhanced DOCX
+# ═══════════════════════════════════════════════════════════════════════════
+# These imports shadow the original functions above with the premium v2
+# implementations (cover pages, diagrams, callout boxes, styled tables).
+from services._export_v2 import (                   # noqa: E402
+    generate_document_pdf,                           # noqa: F811
+    generate_document_docx,                          # noqa: F811
+    _doc_flatten_content,                            # noqa: F811
+)
+

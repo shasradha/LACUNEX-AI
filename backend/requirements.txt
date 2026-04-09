@@ -12,6 +12,7 @@ bcrypt
 httpx
 python-docx
 fpdf2
+reportlab
 openpyxl
 asyncpg
 psycopg2-binary
