@@ -184,7 +184,11 @@ def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
 def _para_rich(text: str) -> str:
     """Convert markdown inline formatting → ReportLab Paragraph XML."""
     text = _pdf_safe(text)
+    # Temporarily hide <br> tags from HTML escaping execution
+    text = re.sub(r'(?i)<br\s*/?>', '{{BR_TAG_TEMP}}', text)
     text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Restore <br> tags as proper XML self-closing tags
+    text = text.replace('{{BR_TAG_TEMP}}', '<br/>')
     text = re.sub(r'\*\*\*(.+?)\*\*\*', r'<b><i>\1</i></b>', text)
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
@@ -730,10 +734,10 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
                 c_s = ParagraphStyle('tc', fontName='Helvetica',
                                      fontSize=8.5, textColor=C_BODY,
                                      leading=12)
-                data = [[Paragraph(_pdf_safe(str(h))[:30], h_s)
+                data = [[Paragraph(_para_rich(str(h)), h_s)
                          for h in hdrs]]
                 for row in rows:
-                    data.append([Paragraph(_pdf_safe(str(v))[:60], c_s)
+                    data.append([Paragraph(_para_rich(str(v)), c_s)
                                  for v in row])
                 tbl = Table(data, colWidths=[cw]*nc, repeatRows=1)
                 ts_list = [

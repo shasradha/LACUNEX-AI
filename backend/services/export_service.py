@@ -1315,6 +1315,20 @@ def generate_document_xlsx(doc_json: dict, theme: str = "professional") -> bytes
 
     table_count = 0
 
+    def _clean_xlsx_text(val):
+        if val is None:
+            return ""
+        s = str(val)
+        # Convert break tags to literal newlines, as wrap_text=True is enabled
+        s = re.sub(r'(?i)<br\s*/?>', '\n', s)
+        s = re.sub(r'(?i)<li>', '• ', s)
+        s = re.sub(r'(?i)</li>', '\n', s)
+        # Strip remaining HTML tags
+        s = re.sub(r'<[^>]+>', '', s)
+        # Remove control characters that crash openpyxl entirely
+        s = re.sub(r'[\000-\010]|[\013-\014]|[\016-\037]', '', s)
+        return s.strip()
+
     def process_section_tables(section, sheet_prefix=""):
         nonlocal table_count
         sec_name = section.get("heading", "Section")
@@ -1339,7 +1353,8 @@ def generate_document_xlsx(doc_json: dict, theme: str = "professional") -> bytes
 
             # Headers
             for ci, h in enumerate(headers, 1):
-                cell = ws.cell(row=3, column=ci, value=h)
+                clean_h = _clean_xlsx_text(h)
+                cell = ws.cell(row=3, column=ci, value=clean_h)
                 cell.font = Font(bold=True, color="FFFFFF", size=10)
                 cell.fill = header_fill
                 cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -1348,7 +1363,8 @@ def generate_document_xlsx(doc_json: dict, theme: str = "professional") -> bytes
             # Data rows
             for ri, row in enumerate(rows, 4):
                 for ci, val in enumerate(row, 1):
-                    cell = ws.cell(row=ri, column=ci, value=str(val))
+                    clean_val = _clean_xlsx_text(val)
+                    cell = ws.cell(row=ri, column=ci, value=clean_val)
                     cell.border = border
                     cell.alignment = Alignment(vertical="top", wrap_text=True)
                     cell.font = Font(size=10)
@@ -1357,7 +1373,9 @@ def generate_document_xlsx(doc_json: dict, theme: str = "professional") -> bytes
 
             # Auto-width
             for ci in range(1, len(headers) + 1):
-                max_len = max(len(str(headers[ci - 1])), *[len(str(r[ci - 1])) if ci - 1 < len(r) else 0 for r in rows]) if rows else len(str(headers[ci - 1]))
+                col_header = _clean_xlsx_text(headers[ci - 1])
+                col_vals = [_clean_xlsx_text(r[ci - 1]) if ci - 1 < len(r) else "" for r in rows]
+                max_len = max([len(col_header)] + [len(v) for v in col_vals])
                 ws.column_dimensions[ws.cell(row=3, column=ci).column_letter].width = min(max_len + 4, 50)
 
         # Recurse into subsections
