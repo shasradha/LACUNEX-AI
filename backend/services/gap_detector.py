@@ -1,7 +1,7 @@
 """
 LACUNEX AI — Gap Detection System
 Analyzes conversations to identify missing knowledge and ambiguity.
-Uses Groq (primary) with Gemini backup — no dependency on exhausted free tier.
+Uses Groq (primary) with Gemini backup — multi-key aware.
 """
 
 import json
@@ -11,10 +11,28 @@ from google import genai
 from google.genai import types
 
 
+def _get_first_key(multi_var: str, single_var: str = None) -> str | None:
+    """Grab the first available API key from multi-key or legacy env var."""
+    raw = os.getenv(multi_var, "")
+    keys = [k.strip() for k in raw.split(",") if k.strip()]
+    if keys:
+        return keys[0]
+    if single_var:
+        return os.getenv(single_var) or None
+    return None
+
+
 class GapDetector:
     def __init__(self):
-        self.groq = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
-        self.gemini = genai.Client(api_key=os.getenv("GOOGLE_AI_API_KEY"))
+        # Lazy — don't crash if keys are missing at import time
+        self._groq_key = _get_first_key("GROQ_API_KEYS", "GROQ_API_KEY")
+        self._gemini_key = _get_first_key("GEMINI_API_KEYS", "GOOGLE_AI_API_KEY")
+
+    def _make_groq(self) -> AsyncGroq | None:
+        return AsyncGroq(api_key=self._groq_key) if self._groq_key else None
+
+    def _make_gemini(self) -> genai.Client | None:
+        return genai.Client(api_key=self._gemini_key) if self._gemini_key else None
 
     async def detect_gaps(self, user_message: str, ai_response: str) -> dict:
         prompt = (
@@ -31,50 +49,54 @@ class GapDetector:
         )
 
         # Try Groq first (fast, free, no quota issues)
-        try:
-            response = await self.groq.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": "You are a gap detection engine. Return ONLY valid JSON."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.2,
-                max_tokens=512,
-                response_format={"type": "json_object"},
-            )
-            text = response.choices[0].message.content.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            result = json.loads(text)
-            return {
-                "gaps_found": result.get("gaps_found", []),
-                "improved_explanation": result.get("improved_explanation", ""),
-                "confidence": min(100, max(0, result.get("confidence", 80))),
-            }
-        except Exception as e:
-            print(f"[GapDetector] Groq failed: {e}")
+        groq = self._make_groq()
+        if groq:
+            try:
+                response = await groq.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": "You are a gap detection engine. Return ONLY valid JSON."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.2,
+                    max_tokens=512,
+                    response_format={"type": "json_object"},
+                )
+                text = response.choices[0].message.content.strip()
+                if text.startswith("```"):
+                    text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                result = json.loads(text)
+                return {
+                    "gaps_found": result.get("gaps_found", []),
+                    "improved_explanation": result.get("improved_explanation", ""),
+                    "confidence": min(100, max(0, result.get("confidence", 80))),
+                }
+            except Exception as e:
+                print(f"[GapDetector] Groq failed: {e}")
 
         # Fallback: Gemini (may be rate-limited but worth trying)
-        try:
-            response = await self.gemini.aio.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.2,
-                    max_output_tokens=512,
-                ),
-            )
-            text = response.text.strip()
-            if "```" in text:
-                text = text.replace("```json", "").replace("```", "").strip()
-            result = json.loads(text)
-            return {
-                "gaps_found": result.get("gaps_found", []),
-                "improved_explanation": result.get("improved_explanation", ""),
-                "confidence": min(100, max(0, result.get("confidence", 80))),
-            }
-        except Exception as e:
-            print(f"[GapDetector] Gemini fallback also failed: {e}")
+        gemini = self._make_gemini()
+        if gemini:
+            try:
+                response = await gemini.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.2,
+                        max_output_tokens=512,
+                    ),
+                )
+                text = response.text.strip()
+                if "```" in text:
+                    text = text.replace("```json", "").replace("```", "").strip()
+                result = json.loads(text)
+                return {
+                    "gaps_found": result.get("gaps_found", []),
+                    "improved_explanation": result.get("improved_explanation", ""),
+                    "confidence": min(100, max(0, result.get("confidence", 80))),
+                }
+            except Exception as e:
+                print(f"[GapDetector] Gemini fallback also failed: {e}")
 
         return {"gaps_found": [], "improved_explanation": "", "confidence": 75}
 

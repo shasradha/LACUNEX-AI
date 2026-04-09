@@ -36,7 +36,16 @@ async def extract_and_save_memory(user_id: str, message: str):
         if len(message.split()) < 4:
             return
 
-        client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+        groq_key = None
+        raw = os.getenv("GROQ_API_KEYS", "")
+        keys = [k.strip() for k in raw.split(",") if k.strip()]
+        groq_key = keys[0] if keys else os.getenv("GROQ_API_KEY")
+
+        if not groq_key:
+            print("[MemoryService] No Groq API key available, skipping extraction.")
+            return
+
+        client = AsyncGroq(api_key=groq_key)
 
         response = await client.chat.completions.create(
             model="llama-3.1-8b-instant",   # Fast 8B model — ideal for background tasks

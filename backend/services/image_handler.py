@@ -11,7 +11,10 @@ from google.genai import types
 
 class ImageHandler:
     def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("GOOGLE_AI_API_KEY"))
+        raw = os.getenv("GEMINI_API_KEYS", "")
+        keys = [k.strip() for k in raw.split(",") if k.strip()]
+        api_key = keys[0] if keys else os.getenv("GOOGLE_AI_API_KEY")
+        self.client = genai.Client(api_key=api_key) if api_key else None
 
     async def generate_image(self, prompt: str) -> dict:
         cleaned_prompt = (prompt or "").strip()
