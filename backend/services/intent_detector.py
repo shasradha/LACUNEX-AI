@@ -158,6 +158,40 @@ _MATH_EXPRESSION = re.compile(
 _REASONING_COMPLEX_THRESHOLD = 100  # characters
 
 
+CASUAL_PATTERNS = {
+    "hi", "hello", "hey", "hii", "helo", "sup", "yo", "wassup",
+    "good morning", "good night", "good evening", "bye", "goodbye",
+    "thanks", "thank you", "ok", "okay", "cool", "nice", "great",
+    "who are you", "what are you", "how are you", "what can you do"
+}
+
+def needs_web_search(message: str) -> bool:
+    clean = message.strip().lower()
+    
+    if clean in CASUAL_PATTERNS:
+        return False
+    if len(clean.split()) <= 3 and not any(kw in clean for kw in ["price", "news", "latest", "today", "weather", "score"]):
+        return False
+
+    realtime_keywords = [
+        "latest", "news", "today", "current", "right now", "live",
+        "price", "score", "weather", "trending", "just happened",
+        "recently", "this week", "2025", "2026", "update", "release"
+    ]
+    if any(kw in clean for kw in realtime_keywords):
+        return True
+
+    no_search_patterns = [
+        "explain", "what is", "how does", "write", "make", "create",
+        "code", "generate", "tell me about", "define", "summarize",
+        "build", "help me", "can you", "list", "give me"
+    ]
+    if any(p in clean for p in no_search_patterns):
+        return False
+
+    return False
+
+
 def detect_intent(message: str) -> dict:
     """
     Classify the user's message intent.
@@ -172,28 +206,10 @@ def detect_intent(message: str) -> dict:
     msg_len = len(message)
 
     # ── Web Search Detection ──────────────────────────────────────────────────
-    web_search = False
+    web_search = needs_web_search(message)
     image_search = False
 
-    # 1. URL in message
-    if _URL_PATTERN.search(message):
-        web_search = True
-
-    # 2. Keyword match (fast frozenset scan)
-    if not web_search:
-        for kw in _WEB_SEARCH_KEYWORDS:
-            if kw in msg_lower:
-                web_search = True
-                break
-
-    # 3. Question-word patterns (semantic heuristics)
-    if not web_search:
-        for pat in _QUESTION_WEB_PATTERNS:
-            if pat.search(message):
-                web_search = True
-                break
-
-    # 4. Image request patterns (Aggressive + Typo resistance)
+    # Image request patterns (Aggressive + Typo resistance)
     for pat in _IMAGE_REQUEST_PATTERNS:
         if pat.search(message):
             web_search = True
