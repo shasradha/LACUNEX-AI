@@ -662,12 +662,13 @@ class AIRouter:
         message: str,
         history: Optional[List[dict]] = None,
         memory_profile: Optional[dict] = None,
+        is_academic: bool = False,
     ) -> AsyncGenerator[dict, None]:
         yield {"type": "max_output_activated", "content": "MAX OUTPUT MODE activated"}
         yield {"type": "doc_progress", "content": "Planning document structure...", "phase": "toc", "current": 0, "total": 0}
 
         # ── Pass 1: Table of Contents ─────────────────────────────────
-        toc_sections = await self._generate_toc(message)
+        toc_sections = await self._generate_toc(message, is_academic)
 
         yield {"type": "doc_toc", "content": json.dumps(toc_sections), "total_sections": len(toc_sections)}
 
@@ -691,13 +692,13 @@ class AIRouter:
             prompt = (
                 f"You are writing section {snum} of {total} for a comprehensive document about: {message}\n\n"
                 f"Section: **{stitle}** — {sdesc}\n\n"
-                f"Previously covered: {previous_context or 'Nothing yet'}\n\n"
+                f"Previously covered sections (DO NOT write about these again): {previous_context or 'Nothing yet'}\n\n"
                 f"Write ONLY this section starting with: ## {stitle}\n"
                 f"Requirements:\n"
                 f"- Minimum 10-15 pages of content\n"
                 f"- At least 5-8 ### subtopics\n"
                 f"- Real-world examples, tables, > **Key Point:** callouts\n"
-                f"- NEVER repeat previous sections\n"
+                f"- NEVER repeat previous sections and NEVER add extra introductory/background content not requested.\n"
                 f"- NEVER use LaTeX — plain text math only\n"
                 f"- Output pure markdown only\n"
             )
@@ -706,7 +707,7 @@ class AIRouter:
             success = False
 
             # Try each provider with all its keys (waterfall)
-            async for chunk in self._waterfall_generate(prompt, snum, total, stitle):
+            async for chunk in self._waterfall_generate(prompt, snum, total, stitle, is_academic):
                 if chunk["type"] == "token":
                     section_content += chunk.get("content", "")
                     yield chunk
@@ -718,7 +719,10 @@ class AIRouter:
 
             if success and section_content:
                 full_document += section_content + "\n\n"
-                previous_context += f"{stitle}, "
+                if is_academic:
+                    previous_context += f"{stitle} (completed), "
+                else:
+                    previous_context += f"{stitle}, "
             else:
                 err = f"\n\n## {stitle}\n\n*Section skipped — all providers at capacity. Please regenerate.*\n\n"
                 full_document += err
@@ -736,9 +740,19 @@ class AIRouter:
 
     # ── Max Output Helpers ─────────────────────────────────────────────
 
-    async def _generate_toc(self, message: str) -> List[dict]:
+    async def _generate_toc(self, message: str, is_academic: bool = False) -> List[dict]:
         """Generate Table of Contents using any available provider."""
         toc_sections = []
+        
+        toc_prompt = MAX_OUTPUT_TOC_PROMPT
+        if is_academic:
+            toc_prompt = (
+                "Based on the user's request, extract EXACTLY the topics and numbered subtopics listed.\n"
+                "Assign one full section per numbered subtopic (e.g., 3.1, 3.2). Use the specific numbering from the prompt as section headings.\n"
+                "DO NOT add any extra introductory sections, history chapters, background, future directions, or case studies unless explicitly requested.\n"
+                "Each entry must have: title (string), description (string, 1-2 sentences).\n"
+                "Return ONLY the JSON array, no other text."
+            )
 
         # Try Groq first (all keys)
         for key_idx, api_key in self.groq_rotator.get_available_keys():
@@ -747,7 +761,7 @@ class AIRouter:
                 resp = await client.chat.completions.create(
                     model=DEFAULT_MODELS["groq"],
                     messages=[
-                        {"role": "system", "content": MAX_OUTPUT_TOC_PROMPT},
+                        {"role": "system", "content": toc_prompt},
                         {"role": "user", "content": f"Generate a Table of Contents for: {message}"},
                     ],
                     temperature=0.7,
@@ -769,7 +783,7 @@ class AIRouter:
                 resp = await client.chat.completions.create(
                     model=CEREBRAS_MODELS[0],
                     messages=[
-                        {"role": "system", "content": MAX_OUTPUT_TOC_PROMPT},
+                        {"role": "system", "content": toc_prompt},
                         {"role": "user", "content": f"Generate a Table of Contents for: {message}. Return ONLY a JSON array."},
                     ],
                     temperature=0.7,
@@ -816,13 +830,41 @@ class AIRouter:
         return []
 
     async def _waterfall_generate(
-        self, prompt: str, snum: int, total: int, stitle: str
+        self, prompt: str, snum: int, total: int, stitle: str, is_academic: bool = False
     ) -> AsyncGenerator[dict, None]:
         """
         Generate a section using the full provider waterfall with multi-key rotation.
         Yields token chunks and a final done event.
         """
         sys_msg = MAX_OUTPUT_SYSTEM_PROMPT
+        if is_academic:
+            sys_msg += (
+                "\n### ACADEMIC NOTES MODE (MANDATORY RULES):\n"
+                "- Write as if explaining to diploma students in a classroom (use phrases like 'Now students, let's understand', 'Think of it this way', 'Important for your exams').\n"
+                "- EVERY section MUST have minimum 2-3 fully solved numerical examples in this EXACT format:\n"
+                "  Example 1: [Problem Title]\n"
+                "  Given:\n"
+                "    - [Variable 1] = [Value 1]\n"
+                "  Find:\n"
+                "    - [What to find]\n"
+                "  Solution:\n"
+                "    Step 1: [Explanation]\n"
+                "      [Formula]\n"
+                "      [Calculation]\n"
+                "  Result: [Final answer with unit] ✓\n"
+                "- Use Indian engineering standard units: N/mm², kW, rpm, N·m, N·mm, mm. NEVER use Pa.\n"
+                "- Syllabus Alignment: Reference relevant Indian Standards (IS codes) like IS 733, IS 2048, IS 3231, IS 1370 where applicable. Note alignment with the relevant syllabus if mentioned (e.g. WBSCTVE Diploma in Mechanical Engineering).\n"
+                "- NO case studies unless explicitly requested in the prompt. Maximum 1 real-world example per section.\n"
+                "- Mandatorily include these academic callout boxes with exactly these labels:\n"
+                "  > **📐 Key Formula:**\n"
+                "  > **📝 Exam Tip:**\n"
+                "  > **⚙️ Solved Example:**\n"
+                "  > **🔑 Key Point:**\n"
+                "  > **📊 Quick Revision:**\n"
+                "  > **⚠️ Common Mistake:**\n"
+                "  Make sure to end each section with a Quick Revision box.\n"
+            )
+
         messages = [
             {"role": "system", "content": sys_msg},
             {"role": "user", "content": prompt},

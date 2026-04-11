@@ -544,11 +544,11 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
         w, h = A4
         # header
         canvas.setFont("Helvetica-Bold", 8); canvas.setFillColor(C_NAVY)
-        canvas.drawString(LM, h - 14*mm, "LACUNEX AI")
-        canvas.setFont("Helvetica", 8); canvas.setFillColor(C_GRAY)
-        canvas.drawCentredString(w/2, h - 14*mm,
-                                 _pdf_safe(state.get("chapter", "")[:50]))
-        canvas.drawRightString(w - RM, h - 14*mm, f"Page {doc.page}")
+        
+        short_title = title[:50] + ("..." if len(title) > 50 else "")
+        header_text = f"LACUNEX AI | {short_title} | Page {doc.page}"
+
+        canvas.drawCentredString(w/2, h - 14*mm, _pdf_safe(header_text))
         canvas.setStrokeColor(C_CYAN); canvas.setLineWidth(0.5)
         canvas.line(LM, h - 17*mm, w - RM, h - 17*mm)
         # footer

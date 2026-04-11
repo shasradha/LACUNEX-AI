@@ -727,13 +727,14 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
         def header(self):
             if self.page_no() <= 1:
                 return
-            # Running header: section name (left), page (right)
+            # Document title truncated to max 50 characters
+            short_title = title[:50] + ("..." if len(title) > 50 else "")
+            header_text = f"LACUNEX AI | {short_title} | Page {self.page_no()}"
+            
             self.set_font("Helvetica", "I", 7)
             self.set_text_color(140, 140, 160)
             self.set_y(8)
-            name = current_section_name[:60]
-            self.cell(0, 4, _pdf_safe(name), align="L")
-            self.cell(0, 4, f"Page {self.page_no()}", align="R")
+            self.cell(0, 4, _pdf_safe(header_text), align="C")
             # Thin accent line under header
             self.set_draw_color(*accent)
             self.set_line_width(0.2)

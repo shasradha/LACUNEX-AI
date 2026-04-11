@@ -205,6 +205,20 @@ def detect_intent(message: str) -> dict:
     msg_lower = message.lower().strip()
     msg_len = len(message)
 
+    # ── Academic Intent Detection ─────────────────────────────────────────────
+    is_academic = False
+    _ACADEMIC_KEYWORDS = [
+        "wbsctve", "cbse", "gtu", "msbte", "aktu", "rgpv", "vtu",
+        "syllabus", "lecturer", "professor", "teacher", "faculty",
+        "diploma", "engineering notes", "exam notes", "study material", "course title"
+    ]
+    if any(kw in msg_lower for kw in _ACADEMIC_KEYWORDS):
+        is_academic = True
+    else:
+        # Check patterns for numbered subtopics like 3.1, 3.2, unit 3
+        if re.search(r"\b(?:unit|chapter|topics?)\s+\d+\b", message, re.I) or re.search(r"\b\d+\.\d+\b", message, re.I):
+            is_academic = True
+
     # ── Web Search Detection ──────────────────────────────────────────────────
     web_search = needs_web_search(message)
     image_search = False
@@ -260,14 +274,16 @@ def detect_intent(message: str) -> dict:
                 break
 
     # MAX OUTPUT always implies reasoning mode for deeper analysis
-    if max_output:
+    if max_output or is_academic:
         reasoning = True
+        max_output = True
 
     return {
         "web_search": web_search,
         "reasoning": reasoning,
         "image_search": image_search,
         "max_output": max_output,
+        "is_academic": is_academic,
         "url_fetch": url_fetch,
         "detected_url": url_match.group(0) if url_match else None,
     }

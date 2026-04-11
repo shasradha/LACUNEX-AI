@@ -73,6 +73,7 @@ async def chat(
                 message=request.message,
                 history=request.history,
                 memory_profile=current_user.memory_profile,
+                is_academic=intent.get("is_academic", False),
             ):
                 chunk_type = chunk.get("type")
 
