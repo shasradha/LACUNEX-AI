@@ -112,8 +112,8 @@ async def export_document(
     from services._export_v2 import (
         generate_document_pdf,
         generate_document_docx,
-        generate_document_xlsx,
     )
+    from services.export_service import generate_document_xlsx
 
     doc = body.document_json
     title = doc.get("title", "Lacunex Document")
@@ -166,8 +166,8 @@ async def export_all(
     from services._export_v2 import (
         generate_document_pdf,
         generate_document_docx,
-        generate_document_xlsx,
     )
+    from services.export_service import generate_document_xlsx
 
     doc = body.document_json
     title = doc.get("title", "Lacunex Document")
