@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 from database.connection import async_session_factory
 from models.db_models import User
-from auth.dependencies import get_current_user
+from services.auth_service import get_current_user
 
 router = APIRouter()
 
