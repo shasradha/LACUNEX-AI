@@ -257,8 +257,29 @@ class RateLimitTracker:
 
 
 # ====================================================================
+# ====================================================================
 # HELPER: Load keys from env
 # ====================================================================
+
+def _get_section_title(s: dict) -> str:
+    return (
+        s.get('title') or
+        s.get('name') or
+        s.get('section') or
+        s.get('heading') or
+        s.get('topic') or
+        s.get('chapter') or
+        'Untitled Section'
+    )
+
+def _get_section_description(s: dict) -> str:
+    return (
+        s.get('description') or
+        s.get('desc') or
+        s.get('summary') or
+        s.get('content') or
+        ''
+    )
 
 def _load_keys(env_var: str, legacy_var: str = None) -> List[str]:
     """
@@ -675,7 +696,9 @@ class AIRouter:
         total = len(toc_sections)
         full_document = f"# {message.strip()[:100]}\n\n## Table of Contents\n\n"
         for i, s in enumerate(toc_sections):
-            full_document += f"{i+1}. **{s['title']}** — {s.get('description', '')}\n"
+            title = _get_section_title(s)
+            desc = _get_section_description(s)
+            full_document += f"{i+1}. **{title}** — {desc}\n"
         full_document += "\n---\n\n"
         yield {"type": "token", "content": full_document}
 
@@ -684,8 +707,10 @@ class AIRouter:
 
         for idx, section in enumerate(toc_sections):
             snum = idx + 1
-            stitle = section.get("title", f"Section {snum}")
-            sdesc = section.get("description", "")
+            stitle = _get_section_title(section)
+            if stitle == 'Untitled Section':
+                stitle = f"Section {snum}"
+            sdesc = _get_section_description(section)
 
             yield {"type": "doc_progress", "content": f"Generating: {stitle}", "phase": "section", "current": snum, "total": total}
 
@@ -808,6 +833,24 @@ class AIRouter:
         ]
 
     @staticmethod
+    def _normalize_sections(sections: list) -> list:
+        normalized = []
+        for s in sections:
+            if not isinstance(s, dict):
+                continue
+            title = (s.get('title') or s.get('name') or 
+                     s.get('section') or s.get('heading') or 
+                     s.get('topic') or s.get('chapter') or '').strip()
+            if not title:
+                continue
+            normalized.append({
+                'title': title,
+                'description': (s.get('description') or s.get('desc') or 
+                               s.get('summary') or '').strip()
+            })
+        return normalized
+
+    @staticmethod
     def _parse_toc_response(raw: str) -> List[dict]:
         """Parse TOC JSON from raw response text."""
         raw = raw.strip()
@@ -824,7 +867,7 @@ class AIRouter:
             parsed = json.loads(raw)
             sections = parsed if isinstance(parsed, list) else parsed.get("sections", parsed.get("toc", []))
             if isinstance(sections, list) and len(sections) >= 3:
-                return sections[:20]
+                return AIRouter._normalize_sections(sections[:20])
         except (json.JSONDecodeError, AttributeError):
             pass
         return []
@@ -986,7 +1029,7 @@ class AIRouter:
         """Generate Mermaid diagrams using any available provider."""
         diag_prompt = (
             f"For a document about: {message}\n"
-            f"Sections: {', '.join(s.get('title','') for s in toc_sections[:8])}\n\n"
+            f"Sections: {', '.join(_get_section_title(s) for s in toc_sections[:8])}\n\n"
             "Generate 3-5 Mermaid diagrams that add high value. Return ONLY valid JSON:\n"
             '{"diagrams": [{"title": "...", "section_index": 0, "code": "graph TD\\n  A[Start] --> B[End]"}]}'
         )
