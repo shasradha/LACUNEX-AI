@@ -45,11 +45,50 @@ async def chat(
     intent_injection = get_system_prompt_injection(intent_obj)
 
     # Log intent detection for analytics
-    print(f"[Intent v3] primary={intent_obj.primary} | domain={intent_obj.domain} | "
+    print(f"[Intent v4] primary={intent_obj.primary} | domain={intent_obj.domain} | "
           f"casual={intent_obj.is_casual} | academic={intent_obj.is_academic} | "
           f"search={intent_obj.needs_search} | document={intent_obj.is_document} | "
           f"tone={intent_obj.tone} | lang={intent_obj.language_hint} | "
           f"confidence={intent_obj.confidence:.2f}")
+
+    # ── Smart Greeting System (v4.0: name-first greetings) ────────────────────
+    memory_facts = []
+    user_name = None
+    try:
+        mem_profile = current_user.memory_profile or {}
+        memory_facts = list(mem_profile.get("facts", []))
+        # Extract name from memory facts
+        for fact in memory_facts:
+            fl = fact.lower()
+            if "name is" in fl or "my name" in fl or "i am " in fl:
+                # Extract name after "is" or "am"
+                for pattern in ["name is ", "i am ", "i'm "]:
+                    if pattern in fl:
+                        user_name = fact.split(pattern)[-1].strip().rstrip(".")
+                        user_name = user_name.split()[0].capitalize()
+                        break
+                if user_name:
+                    break
+    except Exception:
+        pass
+
+    # Build memory context injection for AI
+    memory_injection = ""
+    if memory_facts:
+        facts_text = " | ".join(memory_facts[:8])
+        memory_injection = (
+            f"\n[USER MEMORY CONTEXT]: You know these facts about this user: {facts_text}. "
+            f"Use this to personalize your responses when relevant."
+        )
+    if user_name and intent_obj.is_casual and intent_obj.sub_intent == 'greeting':
+        memory_injection += (
+            f"\nCRITICAL: The user's name is '{user_name}'. They just greeted you. "
+            f"You MUST start your response with their name: 'Hey {user_name}! ⚡' "
+            f"NEVER use a generic greeting like 'Hello there!' when you know the name."
+        )
+
+    # Combine all injections
+    full_injection = "\n".join(filter(None, [intent_injection, memory_injection]))
 
     # Trigger background personal memory extraction
     background_tasks.add_task(extract_and_save_memory, current_user.id, request.message)
@@ -252,6 +291,7 @@ async def chat(
             provider=request.provider,
             model=request.model,
             memory_profile=current_user.memory_profile,
+            extra_injection=full_injection,
         ):
             if chunk["type"] == "thinking":
                 yield f"data: {json.dumps(chunk)}\n\n"
@@ -297,3 +337,43 @@ async def chat(
             "X-Accel-Buffering": "no",
         },
     )
+
+class SuggestionRequest(BaseModel):
+    message: str
+
+@router.post("/suggestions")
+async def get_suggestions(request: SuggestionRequest):
+    """
+    Non-blocking background route to fetch contextual follow-up suggestions
+    based on the AI's last message. Uses Groq for blazing speed.
+    """
+    from groq import AsyncGroq
+    try:
+        groq_key = os.getenv("GROQ_API_KEYS", "").split(",")[0].strip() or os.getenv("GROQ_API_KEY")
+        if not groq_key: return {"suggestions": []}
+        
+        client = AsyncGroq(api_key=groq_key)
+        
+        # Determine likely topic context from the message
+        prompt = (
+            "You are an AI suggestion engine. Based on the following AI response, "
+            "generate 3 short, highly relevant follow-up questions the user might ask next. "
+            "Return ONLY a JSON array of strings, for example: "
+            "[\"Can you explain that more simply?\", \"Give me an example.\", \"How does this apply to me?\"]\n\n"
+            f"AI Response:\n{request.message[:1000]}"
+        )
+        
+        res = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=64,
+            response_format={"type": "json_array"}
+        )
+        
+        import json
+        suggestions = json.loads(res.choices[0].message.content)
+        return {"suggestions": suggestions[:3]}
+    except Exception as e:
+        print(f"[Suggestions Error]: {e}")
+        return {"suggestions": []}

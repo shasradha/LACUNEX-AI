@@ -208,6 +208,23 @@ def sanitize_para(text: str) -> str:
         return re.sub(r'<[^>]+>', '', text)
 
 
+def clean_label(text: str) -> str:
+    """Strip ALL markdown formatting from a string before using as a
+    diagram label, TOC entry, chapter divider title, or any ReportLab element.
+    
+    BUG 3 FIX: Prevents raw **bold**, *italic*, and ### heading markers
+    from appearing in the final PDF output.
+    """
+    if not text:
+        return ""
+    text = re.sub(r'\*\*\*(.+?)\*\*\*', r'\1', text)
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'#+\s', '', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    return text.strip()
+
+
 def _para_rich(text: str) -> str:
     """Convert markdown inline formatting → ReportLab Paragraph XML.
     
@@ -258,9 +275,9 @@ def _make_timeline(events, width=400):
         x = 20 + step * (i + 0.5)
         d.add(Circle(x, 40, 6, fillColor=HexColor(NAVY),
                      strokeColor=HexColor(CYAN), strokeWidth=2))
-        d.add(String(x, 54, str(label)[:15], fontSize=7,
+        d.add(String(x, 54, clean_label(str(label))[:15], fontSize=7,
                      textAnchor='middle', fillColor=HexColor(CYAN)))
-        d.add(String(x, 22, str(desc)[:20], fontSize=5.5,
+        d.add(String(x, 22, clean_label(str(desc))[:20], fontSize=5.5,
                      textAnchor='middle', fillColor=HexColor(BODY_TEXT)))
     return d
 
@@ -278,7 +295,7 @@ def _make_bar_chart(data_pairs, chart_title="", width=400):
     chart.width, chart.height = width - 80, 100
     vals = [max(0, v) for _, v in data_pairs[:8]]
     chart.data = [vals or [1]]
-    chart.categoryAxis.categoryNames = [str(l)[:12]
+    chart.categoryAxis.categoryNames = [clean_label(str(l))[:12]
                                         for l, _ in data_pairs[:8]]
     chart.categoryAxis.labels.fontSize = 7
     chart.categoryAxis.labels.angle = 30
@@ -287,7 +304,7 @@ def _make_bar_chart(data_pairs, chart_title="", width=400):
     chart.bars[0].strokeColor = HexColor(NAVY)
     d.add(chart)
     if chart_title:
-        d.add(String(width / 2, 145, str(chart_title)[:50], fontSize=8,
+        d.add(String(width / 2, 145, clean_label(str(chart_title))[:50], fontSize=8,
                      textAnchor='middle', fillColor=HexColor(NAVY)))
     return d
 
@@ -309,7 +326,7 @@ def _make_architecture(layers, width=400):
                    fillColor=HexColor(colors[i % len(colors)]),
                    strokeColor=HexColor(WHITE), strokeWidth=1, rx=4))
         tc = WHITE if i < 3 else NAVY
-        d.add(String(width / 2, y + 7, str(name)[:30], fontSize=8,
+        d.add(String(width / 2, y + 7, clean_label(str(name))[:30], fontSize=8,
                      textAnchor='middle', fillColor=HexColor(tc)))
     return d
 
@@ -329,7 +346,7 @@ def _make_flowchart(steps, width=400):
         d.add(Rect(cx - bw / 2, y, bw, step_h,
                    fillColor=HexColor(LIGHT),
                    strokeColor=HexColor(CYAN), strokeWidth=1.5, rx=6))
-        d.add(String(cx, y + 8, str(step)[:35], fontSize=8,
+        d.add(String(cx, y + 8, clean_label(str(step))[:35], fontSize=8,
                      textAnchor='middle', fillColor=HexColor(NAVY)))
         if i < n - 1:
             d.add(Line(cx, y, cx, y - gap + 4,
@@ -349,7 +366,7 @@ def _make_hierarchy(root, children, width=400):
     rx, ry = width / 2 - rw / 2, 80
     d.add(Rect(rx, ry, rw, rh, fillColor=HexColor(NAVY),
                strokeColor=HexColor(CYAN), strokeWidth=1.5, rx=4))
-    d.add(String(width / 2, ry + 7, str(root)[:20], fontSize=8,
+    d.add(String(width / 2, ry + 7, clean_label(str(root))[:20], fontSize=8,
                  textAnchor='middle', fillColor=HexColor(WHITE)))
     n = min(len(children), 5)
     if n:
@@ -360,10 +377,149 @@ def _make_hierarchy(root, children, width=400):
             cxi = sx + i * (cw + 10)
             d.add(Rect(cxi, cy, cw, rh, fillColor=HexColor(LIGHT),
                        strokeColor=HexColor(CYAN), strokeWidth=1, rx=4))
-            d.add(String(cxi + cw / 2, cy + 7, str(ch)[:12], fontSize=6.5,
+            d.add(String(cxi + cw / 2, cy + 7, clean_label(str(ch))[:12], fontSize=6.5,
                          textAnchor='middle', fillColor=HexColor(NAVY)))
             d.add(Line(width / 2, ry, cxi + cw / 2, cy + rh,
                        strokeColor=HexColor('#cccccc'), strokeWidth=0.8))
+    return d
+
+
+# ── Mechanical Engineering Diagrams (v4.0) ────────────────────────────────
+
+def _make_shaft_cross_section(title="Shaft", outer_d=60, inner_d=0, width=300):
+    """Solid or hollow shaft cross-section circle diagram."""
+    from reportlab.graphics.shapes import Drawing, Circle, String, Line
+    from reportlab.lib.colors import HexColor
+    d = Drawing(width, 140)
+    cx, cy = width / 2, 70
+    # Outer circle
+    d.add(Circle(cx, cy, outer_d / 2, fillColor=HexColor('#e0e0e0'),
+                 strokeColor=HexColor(NAVY), strokeWidth=2))
+    if inner_d > 0:
+        d.add(Circle(cx, cy, inner_d / 2, fillColor=HexColor(WHITE),
+                     strokeColor=HexColor(CYAN), strokeWidth=1.5))
+    # Dimension line
+    d.add(Line(cx - outer_d / 2, cy - outer_d / 2 - 10,
+               cx + outer_d / 2, cy - outer_d / 2 - 10,
+               strokeColor=HexColor(CYAN), strokeWidth=1))
+    d.add(String(cx, cy - outer_d / 2 - 20,
+                 clean_label(f"D = {outer_d}mm"), fontSize=7,
+                 textAnchor='middle', fillColor=HexColor(NAVY)))
+    d.add(String(cx, cy + outer_d / 2 + 8,
+                 clean_label(title)[:30], fontSize=8,
+                 textAnchor='middle', fillColor=HexColor(NAVY)))
+    return d
+
+
+def _make_stress_distribution(title="Stress Distribution", width=350):
+    """Gradient stress bar showing tension to compression."""
+    from reportlab.graphics.shapes import Drawing, Rect, String, Line
+    from reportlab.lib.colors import HexColor
+    d = Drawing(width, 80)
+    bar_w = width - 80
+    bar_h = 25
+    bx, by = 40, 30
+    # Gradient blocks
+    n_blocks = 10
+    bw = bar_w / n_blocks
+    for i in range(n_blocks):
+        r = int(50 + (200 * i / n_blocks))
+        g = int(200 - (150 * i / n_blocks))
+        b = int(200 - (180 * i / n_blocks))
+        color = f"#{r:02x}{g:02x}{b:02x}"
+        d.add(Rect(bx + i * bw, by, bw, bar_h,
+                    fillColor=HexColor(color), strokeWidth=0))
+    # Border
+    d.add(Rect(bx, by, bar_w, bar_h, fillColor=None,
+               strokeColor=HexColor(NAVY), strokeWidth=1.5))
+    d.add(String(bx, by - 10, "Tension", fontSize=6,
+                 fillColor=HexColor('#cc4444')))
+    d.add(String(bx + bar_w, by - 10, "Compression", fontSize=6,
+                 textAnchor='end', fillColor=HexColor('#4444cc')))
+    d.add(String(width / 2, by + bar_h + 10,
+                 clean_label(title)[:40], fontSize=8,
+                 textAnchor='middle', fillColor=HexColor(NAVY)))
+    return d
+
+
+def _make_key_design(title="Key Cross-Section", width=300):
+    """Rectangular key in shaft keyway cross-section."""
+    from reportlab.graphics.shapes import Drawing, Rect, Circle, String, Line
+    from reportlab.lib.colors import HexColor
+    d = Drawing(width, 140)
+    cx, cy = width / 2, 70
+    shaft_r = 35
+    d.add(Circle(cx, cy, shaft_r, fillColor=HexColor('#e8e8e8'),
+                 strokeColor=HexColor(NAVY), strokeWidth=2))
+    key_w, key_h = 30, 12
+    d.add(Rect(cx - key_w / 2, cy + shaft_r - key_h,
+               key_w, key_h * 2,
+               fillColor=HexColor(CYAN),
+               strokeColor=HexColor(NAVY), strokeWidth=1.5))
+    d.add(String(cx, cy + shaft_r + key_h + 8,
+                 f"Key: {key_w}x{key_h}mm", fontSize=6,
+                 textAnchor='middle', fillColor=HexColor(NAVY)))
+    d.add(String(cx, 10, clean_label(title)[:30], fontSize=8,
+                 textAnchor='middle', fillColor=HexColor(NAVY)))
+    return d
+
+
+def _make_coupling_assembly(title="Flanged Coupling", width=350):
+    """Flanged coupling with bolts diagram."""
+    from reportlab.graphics.shapes import Drawing, Rect, Circle, String, Line
+    from reportlab.lib.colors import HexColor
+    d = Drawing(width, 120)
+    cx = width / 2
+    # Left shaft
+    d.add(Rect(20, 50, cx - 40, 20, fillColor=HexColor('#d0d0d0'),
+               strokeColor=HexColor(NAVY), strokeWidth=1.5))
+    # Right shaft
+    d.add(Rect(cx + 20, 50, cx - 40, 20, fillColor=HexColor('#d0d0d0'),
+               strokeColor=HexColor(NAVY), strokeWidth=1.5))
+    # Left flange
+    d.add(Rect(cx - 20, 30, 20, 60, fillColor=HexColor('#b0b0b0'),
+               strokeColor=HexColor(NAVY), strokeWidth=2))
+    # Right flange
+    d.add(Rect(cx, 30, 20, 60, fillColor=HexColor('#b0b0b0'),
+               strokeColor=HexColor(NAVY), strokeWidth=2))
+    # Bolts
+    for yy in [38, 58, 78]:
+        d.add(Circle(cx, yy, 3, fillColor=HexColor(CYAN),
+                     strokeColor=HexColor(NAVY), strokeWidth=1))
+    d.add(String(cx, 15, clean_label(title)[:30], fontSize=8,
+                 textAnchor='middle', fillColor=HexColor(NAVY)))
+    d.add(String(cx, 100, "Bolt Circle", fontSize=6,
+                 textAnchor='middle', fillColor=HexColor('#666666')))
+    return d
+
+
+def _make_pulley_anatomy(title="Pulley Cross-Section", width=300):
+    """Labeled pulley cross-section."""
+    from reportlab.graphics.shapes import Drawing, Circle, Rect, String, Line
+    from reportlab.lib.colors import HexColor
+    d = Drawing(width, 140)
+    cx, cy = width / 2, 70
+    # Outer rim
+    d.add(Circle(cx, cy, 50, fillColor=HexColor('#e0e0e0'),
+                 strokeColor=HexColor(NAVY), strokeWidth=2))
+    # Hub
+    d.add(Circle(cx, cy, 15, fillColor=HexColor('#c0c0c0'),
+                 strokeColor=HexColor(CYAN), strokeWidth=1.5))
+    # Bore
+    d.add(Circle(cx, cy, 6, fillColor=HexColor(WHITE),
+                 strokeColor=HexColor(NAVY), strokeWidth=1))
+    # Groove
+    d.add(Rect(cx - 52, cy - 5, 104, 10, fillColor=None,
+               strokeColor=HexColor(CYAN), strokeWidth=0.8))
+    # Labels
+    d.add(String(cx + 55, cy + 5, "Rim", fontSize=6,
+                 fillColor=HexColor(NAVY)))
+    d.add(String(cx + 20, cy - 5, "Hub", fontSize=6,
+                 fillColor=HexColor(NAVY)))
+    d.add(String(cx, cy - 55, "Groove", fontSize=6,
+                 textAnchor='middle', fillColor=HexColor(CYAN)))
+    d.add(String(cx, 10, clean_label(title)[:30], fontSize=8,
+                 textAnchor='middle', fillColor=HexColor(NAVY)))
     return d
 
 
@@ -371,6 +527,23 @@ def _make_hierarchy(root, children, width=400):
 
 def _auto_detect_diagram_type(heading, content):
     c = f"{heading} {content}".lower()
+    # Mechanical engineering diagrams (v4.0)
+    if any(k in c for k in ['shaft', 'solid shaft', 'hollow shaft',
+                             'shaft design', 'torsion']):
+        return 'shaft'
+    if any(k in c for k in ['stress distribution', 'bending stress',
+                             'shear stress', 'tension compression']):
+        return 'stress'
+    if any(k in c for k in ['key design', 'keyway', 'key seat',
+                             'woodruff key', 'rectangular key']):
+        return 'key'
+    if any(k in c for k in ['coupling', 'flanged coupling', 'flange',
+                             'muff coupling', 'rigid coupling']):
+        return 'coupling'
+    if any(k in c for k in ['pulley', 'belt drive', 'v-belt',
+                             'flat belt', 'pulley design']):
+        return 'pulley'
+    # General diagrams
     if any(k in c for k in ['timeline', 'history', 'evolution', 'year',
                              'era', 'century', 'generation', 'milestone']):
         return 'timeline'
@@ -403,6 +576,18 @@ def _generate_section_diagram(heading, content, width=400):
     items = (bullets or numbered
              or [l for l in lines if len(l) > 5][:6]
              or [heading])
+    # Mechanical engineering diagrams
+    if dtype == 'shaft':
+        return _make_shaft_cross_section(heading[:30], width=width)
+    if dtype == 'stress':
+        return _make_stress_distribution(heading[:40], width=width)
+    if dtype == 'key':
+        return _make_key_design(heading[:30], width=width)
+    if dtype == 'coupling':
+        return _make_coupling_assembly(heading[:30], width=width)
+    if dtype == 'pulley':
+        return _make_pulley_anatomy(heading[:30], width=width)
+    # General diagrams
     if dtype == 'timeline':
         return _make_timeline(
             [(f"Phase {i+1}", it[:20]) for i, it in enumerate(items[:8])],
@@ -493,8 +678,8 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
         def __init__(self, num, name, desc=""):
             Flowable.__init__(self)
             self.num = num
-            self.name = _pdf_safe(name)[:55]
-            self.desc = _pdf_safe(desc)[:90]
+            self.name = _pdf_safe(clean_label(name))[:55]
+            self.desc = _pdf_safe(clean_label(desc))[:90]
             self.width = PW
             self.height = 60*mm
 
@@ -592,10 +777,11 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
         canvas.drawCentredString(w/2, h - 14*mm, _pdf_safe(header_text))
         canvas.setStrokeColor(C_CYAN); canvas.setLineWidth(0.5)
         canvas.line(LM, h - 17*mm, w - RM, h - 17*mm)
-        # footer
+        # footer — BUG 1 FIX: Max 50 chars to prevent full prompt repetition
+        footer_text = title[:50] + "..." if len(title) > 50 else title
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(HexColor('#999999'))
-        canvas.drawString(LM, 8*mm, _pdf_safe(title[:55]))
+        canvas.drawString(LM, 8*mm, _pdf_safe(footer_text))
         canvas.drawRightString(w - RM, 8*mm, "(c) LACUNEX AI")
         canvas.setStrokeColor(HexColor('#cccccc')); canvas.setLineWidth(0.3)
         canvas.line(LM, 12*mm, w - RM, 12*mm)
@@ -647,13 +833,13 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
                                spaceAfter=0.5*mm)
 
         for idx, entry in enumerate(toc):
-            t = _pdf_safe(entry.get("title", ""))[:70]
+            t = _pdf_safe(clean_label(entry.get("title", "")))[:70]
             dots = '.' * max(2, 70 - len(t) - len(str(idx+1)) - 4)
             story.append(Paragraph(
                 f"<b>{idx+1}.</b>  {t}  "
                 f"<font color='#cccccc'>{dots}</font>", ch_s))
             for child in entry.get("children", []):
-                ct = _pdf_safe(child.get("title", ""))[:60]
+                ct = _pdf_safe(clean_label(child.get("title", "")))[:60]
                 d2 = '.' * max(2, 60 - len(ct))
                 story.append(Paragraph(
                     f"{ct}  <font color='#dddddd'>{d2}</font>", sub_s))
@@ -662,12 +848,18 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
     # ── Content sections ──────────────────────────────────────────────────
     diagram_count = 0
 
-    # BUG 1 & 2 FIX: Track which sections have been written to prevent duplicates
+    # BUG 1, 2, 4 FIX: Track written sections and intros to prevent ALL duplicates
     written_sections = set()
+    written_intros = set()  # BUG 4 FIX: track section intro paragraphs
+    toc_written = True  # BUG 2 FIX: TOC already written above, skip any duplicate
 
     for sec_idx, section in enumerate(sections):
-        heading_text = section.get("heading", "Section")
-        desc = (section.get("content", "") or "").split("\n")[0][:80]
+        heading_text = clean_label(section.get("heading", "Section"))
+        desc = clean_label((section.get("content", "") or "").split("\n")[0][:80])
+
+        # BUG 2 FIX: Skip any section that looks like a duplicate TOC
+        if "table of contents" in heading_text.lower():
+            continue
 
         # Skip if this section was already written (prevents duplicate intros)
         if heading_text in written_sections:
@@ -691,8 +883,8 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
 
             elif bt == "heading":
                 lvl = min(block.get("level", 2), 4)
-                heading_text_raw = block.get("text", "")
-                # BUG 1 FIX: Skip duplicate TOC headings from content
+                heading_text_raw = clean_label(block.get("text", ""))
+                # BUG 2 FIX: Skip duplicate TOC headings from content
                 if "table of contents" in heading_text_raw.lower():
                     continue
                 txt = _para_rich(heading_text_raw)
@@ -714,7 +906,14 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
                     S['num']))
 
             elif bt == "text":
-                txt = _para_rich(block.get("text", ""))
+                raw_text = block.get("text", "")
+                # BUG 4 FIX: Skip duplicate section intro paragraphs
+                intro_key = raw_text.strip()[:80]
+                if intro_key and intro_key in written_intros:
+                    continue
+                if intro_key:
+                    written_intros.add(intro_key)
+                txt = _para_rich(raw_text)
                 if txt.strip():
                     story.append(Paragraph(txt, S['body']))
 
@@ -840,7 +1039,7 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
                                    alignment=TA_CENTER, spaceAfter=2*mm)
             story.append(Spacer(1, 3*mm))
             story.append(Paragraph(
-                _pdf_safe(f"Figure {diagram_count}: {heading_text[:45]}"),
+                _pdf_safe(f"Figure {diagram_count}: {clean_label(heading_text)[:45]}"),
                 fig_s))
             story.append(dia)
             story.append(Spacer(1, 3*mm))
@@ -1144,7 +1343,9 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
     ftab_r.set(qn('w:pos'), '9360')
     ftabs.append(ftab_r)
     fpPr.append(ftabs)
-    fr1 = fp.add_run(title[:45])
+    # BUG 1 FIX: Max 50 chars footer in DOCX too
+    footer_title = title[:50] + "..." if len(title) > 50 else title
+    fr1 = fp.add_run(footer_title)
     fr1.font.size = Pt(7)
     fr1.font.name = "Arial"
     fr1.font.color.rgb = RGBColor(0x99, 0x99, 0x99)

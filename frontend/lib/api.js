@@ -430,3 +430,18 @@ export async function exportDocumentAll(docJson, theme = "professional") {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+export async function getSuggestions(messageContent) {
+  const response = await fetch(`${API_BASE_URL}/api/chat/suggestions`, {
+    method: "POST",
+    headers: buildHeaders(),
+    body: JSON.stringify({ message: messageContent }),
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return data.suggestions || [];
+}

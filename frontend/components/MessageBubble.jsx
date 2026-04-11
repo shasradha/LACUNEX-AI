@@ -1,12 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { memo, useMemo, useState } from "react";
+import React, { memo, useMemo, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getUser } from "@/lib/auth";
 import { executeCode } from "@/lib/api";
 import ImageGallery from "./ImageGallery";
+import QuizWidget from "./QuizWidget";
 
 /* ── Inline icons ─────────────────────────────── */
 function IconBot() {
@@ -148,7 +149,8 @@ function createImageSource(image) {
   return null;
 }
 
-const MessageBubble = memo(({ message, onOpenArtifact }) => {
+const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
+  const markdownRef = useRef(null);
   const currentUser = useMemo(() => getUser(), []);
   const isUser = message.role === "user";
   const imageSource = useMemo(() => createImageSource(message.image), [message.image]);
@@ -168,6 +170,20 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
     return null;
   }, [message.content, isUser]);
 
+  // Extract Quiz Data
+  const quizData = useMemo(() => {
+    if (isUser || !message.content) return null;
+    const match = message.content.match(/<lacunex-quiz>([\s\S]*?)<\/lacunex-quiz>/i);
+    if (match && match[1]) {
+      try {
+        return JSON.parse(match[1]);
+      } catch {
+        return null; // ignore invalid JSON
+      }
+    }
+    return null;
+  }, [message.content, isUser]);
+
   // Clean content: strip artifact blocks from the displayed markdown
   const cleanContent = useMemo(() => {
     let content = message.content || "";
@@ -175,8 +191,12 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
     content = content.replace(/<lacunex-artifact[^>]*>[\s\S]*?<\/lacunex-artifact>/ig, "");
     // 2. Strip UNCLOSED artifact tags (AI response cut off before closing tag)
     content = content.replace(/<lacunex-artifact[^>]*>[\s\S]*/ig, "");
+    // 3. Strip Quiz blocks
+    content = content.replace(/<lacunex-quiz>[\s\S]*?<\/lacunex-quiz>/ig, "");
     // Citation formatting
-    content = content.replace(/\[(\d+)\]/g, "[$1](#source-$1)");
+    // Fact-check badges
+    content = content.replace(/\[✓ Verified\]/g, "<span class='fact-badge verified'>[✓ Verified]</span>");
+    content = content.replace(/\[~Approx\]/g, "<span class='fact-badge approx'>[~Approx]</span>");
     return content.trim();
   }, [message.content]);
 
@@ -200,6 +220,19 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
     "rust", "rs", "php", "ruby", "rb", "swift", "kotlin", "kt",
     "bash", "sh", "perl", "lua", "dart", "scala", "r", "haskell", "elixir", "sql",
   ]);
+
+  // Render KaTeX Math
+  useEffect(() => {
+    if (markdownRef.current && window.renderMathInElement) {
+      window.renderMathInElement(markdownRef.current, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+        ],
+        throwOnError: false,
+      });
+    }
+  }, [cleanContent]);
 
   const handleRunCode = async (code, lang) => {
     const key = code.slice(0, 100);
@@ -366,6 +399,7 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
               <>
                 <IconBot />
                 LACUNEX AI
+                {message.provider && <span className="msg-provider-badge">[{message.provider}]</span>}
                 {message.model_name && <span className="msg-model-name">({message.model_name})</span>}
                 {message.web_search && (
                   <span className="msg-mode-badge msg-mode-badge-search">
@@ -440,15 +474,40 @@ const MessageBubble = memo(({ message, onOpenArtifact }) => {
           )}
 
           {/* Content */}
-          <div className="markdown-body">
+          <div className="markdown-body" ref={markdownRef}>
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
               {cleanContent}
             </ReactMarkdown>
           </div>
 
+          {/* Refinement Buttons (v4.0) */}
+          {!isUser && message.content && message.role !== 'system' && onSendFollowUp && (
+            <div className="msg-refinement-buttons">
+              {message.suggestions?.length > 0 ? (
+                message.suggestions.map((sug, i) => (
+                  <button key={i} onClick={() => onSendFollowUp(sug)} className="refinement-btn">
+                    <span className="eyebrow" style={{ color: "var(--accent-primary)" }}>✨ Follow-up</span> {sug}
+                  </button>
+                ))
+              ) : (
+                <>
+                  <button onClick={() => onSendFollowUp("Make this longer and more detailed")} className="refinement-btn">🔄 Longer</button>
+                  <button onClick={() => onSendFollowUp("Simplify this for a beginner")} className="refinement-btn">✂️ Simplify</button>
+                  <button onClick={() => onSendFollowUp("Add more Indian/relatable examples")} className="refinement-btn">🇮🇳 Examples</button>
+                  <button onClick={() => onSendFollowUp("Add numerical problems and solutions")} className="refinement-btn">📐 Numericals</button>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Search Image Gallery */}
           {message.image_results?.length > 0 && (
             <ImageGallery images={message.image_results} />
+          )}
+
+          {/* Interactive Quiz Mode */}
+          {quizData && (
+            <QuizWidget quizData={quizData} />
           )}
 
           {/* Web Sources Citation Block */}

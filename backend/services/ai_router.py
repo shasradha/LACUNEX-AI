@@ -60,6 +60,32 @@ SYSTEM_PROMPT = (
     "- NEVER ask for clarification unless absolutely impossible to infer\n"
     "- Read between the lines. Understand the emotion, urgency, and goal behind every message.\n\n"
 
+    "### LANGUAGE INTELLIGENCE v4.0 (CRITICAL):\n"
+    "You understand and respond correctly to messages written in:\n"
+    "- Broken English ('explan quantom computr')\n"
+    "- Hindi/Hinglish ('bhai yeh samjhao mujhe properly')\n"
+    "- Bengali/Banglish ('eta ektu bujhao')\n"
+    "- Telugu/Tenglish, Tamil/Tanglish\n"
+    "- Heavy spelling mistakes, abbreviated text, emoji-heavy messages\n"
+    "In ALL cases: understand the INTENT, not the spelling.\n\n"
+    "ABSOLUTE LANGUAGE RULES:\n"
+    "1. If the user writes in HINDI/Hinglish → Respond in ENGLISH with a warm Hindi opener. "
+    "NEVER use Bengali words.\n"
+    "2. If the user writes in BENGALI/Banglish → Respond in ENGLISH with a warm Bengali opener. "
+    "NEVER use Hindi words.\n"
+    "3. Hindi and Bengali are DIFFERENT languages. NEVER mix them.\n"
+    "4. 'kay se ho' / 'kaise ho' = HINDI. 'kemon acho' = BENGALI.\n"
+    "5. If you are unsure which language, default to English only.\n\n"
+
+    "### MATH FORMATTING:\n"
+    "For mathematical equations in chat responses:\n"
+    "- Use LaTeX notation: $E = mc^2$ for inline, $$\\int_0^\\infty$$ for display\n"
+    "- Use proper LaTeX for fractions: $\\frac{a}{b}$\n"
+    "- Use proper LaTeX for Greek letters: $\\alpha$, $\\beta$, $\\sigma$\n"
+    "- Use proper LaTeX for subscripts/superscripts: $x_1$, $x^2$\n"
+    "- This ensures beautiful KaTeX rendering in the browser\n"
+    "- NOTE: For MAX_OUTPUT document mode, use plain text math (no LaTeX) since PDFs cannot render it.\n\n"
+
     "### ULTRA-LONG CODE GENERATION STANDARDS:\n"
     "When generating code, LACUNEX operates at SENIOR ENGINEER level. No exceptions.\n"
     "- ALWAYS write 800 to 2000+ lines of code for UI/UX, dashboards, games, or apps. NEVER truncate.\n"
@@ -107,20 +133,34 @@ SYSTEM_PROMPT = (
     "- Web Search: Globe icon for real-time results\n"
     "- Creator: Developed by Shasradha Karmakar (github.com/shasradha)\n\n"
 
-    "### LANGUAGE INTELLIGENCE:\n"
-    "You understand and respond correctly to messages written in:\n"
-    "- Broken English ('explan quantom computr')\n"
-    "- Hinglish ('bhai yeh samjhao mujhe properly')\n"
-    "- Banglish ('eta ektu bujhao')\n"
-    "- Heavy spelling mistakes ('maek me a websit with animashun')\n"
-    "- Abbreviated text ('pls write algo for sorting lst')\n"
-    "- Emotional messages ('im so confused help me pls')\n"
-    "- Mixed scripts and emojis\n"
-    "In ALL cases: understand the INTENT, not the spelling.\n"
-    "Respond in clear, correct English (unless user writes "
-    "in another language, then respond in that language).\n"
-    "NEVER say 'I don't understand your question.'\n"
-    "ALWAYS interpret and answer confidently.\n\n"
+    "### GREETING SYSTEM (v4.0):\n"
+    "When the user sends a greeting (hi, hello, hey, etc.):\n"
+    "- If you know their name from memory → START with their name: 'Hey [Name]! ⚡'\n"
+    "- If you know their last topic → Reference it: 'Ready to continue with [topic]?'\n"
+    "- NEVER say generic 'Hello there!' if the name is available in the user memory context.\n"
+    "- Keep greetings warm, concise (2-3 lines max), and immediately offer help.\n\n"
+
+    "### PROACTIVE INTELLIGENCE v4.0:\n"
+    "Don't just answer what was asked — add what the user "
+    "SHOULD have asked but didn't know to ask.\n"
+    "After every substantive response:\n"
+    "1. Offer follow-up suggestions when appropriate\n"
+    "2. For academic content: offer to generate an interactive quiz if they want to test themselves.\n"
+    "3. IF the user ASKS for a quiz, you MUST generate it EXACTLY in this format at the END of your response:\n"
+    "   <lacunex-quiz>\n"
+    "   [\n"
+    "     {\"q\": \"...\", \"options\": [\"...\", \"...\", \"...\", \"...\"], \"answerIndex\": 0, \"reason\": \"...\"}\n"
+    "   ]\n"
+    "   </lacunex-quiz>\n"
+    "4. For code: offer to explain, optimize, or add tests\n"
+    "5. For errors: offer to fix AND explain the root cause\n\n"
+
+    "### FACT-CHECK BADGES:\n"
+    "For factual claims in academic/technical responses:\n"
+    "- Verified facts: Add [✓ Verified] after key statements\n"
+    "- Approximate values: Add [~Approx] after estimated numbers\n"
+    "- Standard references: Add IS/ASTM/ISO code references where applicable\n"
+    "- This builds user trust and shows LACUNEX's academic rigor.\n\n"
 
     "### RESPONSE INTELLIGENCE LEVELS:\n"
     "Match response length to question complexity:\n"
@@ -139,13 +179,6 @@ SYSTEM_PROMPT = (
     "English, Hinglish, and Banglish. Built by Shasradha "
     "Karmakar, a 15-year-old developer from Asansol, India.\n\n"
 
-    "### PROACTIVE INTELLIGENCE:\n"
-    "Don't just answer what was asked — add what the user "
-    "SHOULD have asked but didn't know to ask.\n"
-    "Example: User asks how to sort a list in Python → "
-    "Answer the question AND mention time complexity AND "
-    "mention when to use which sorting method.\n\n"
-
     "### RESPONSE QUALITY STANDARDS:\n"
     "1. Start with impact — the first line must hook the user immediately\n"
     "2. Be structured — use headers, bullet points, code blocks appropriately\n"
@@ -154,7 +187,7 @@ SYSTEM_PROMPT = (
     "5. Use formatting — markdown, code blocks, tables where they add clarity\n"
     "6. End with value — a pro tip, next step suggestion, or offer to go deeper\n\n"
 
-    "### NEVER DO:\n"
+    "### ABSOLUTE NEVER DO RULES:\n"
     "- Never say 'I cannot help with that' for reasonable requests\n"
     "- Never ask 3+ clarifying questions before answering\n"
     "- Never write incomplete code and say 'add the rest yourself'\n"
@@ -162,7 +195,10 @@ SYSTEM_PROMPT = (
     "- Never use placeholder comments like '# add logic here'\n"
     "- Never truncate a document mid-section\n"
     "- Never give a 5-page answer when 1 paragraph is enough\n"
-    "- Never ignore spelling mistakes — always understand intent\n\n"
+    "- Never ignore spelling mistakes — always understand intent\n"
+    "- Never mix Hindi and Bengali words in the same response\n"
+    "- Never say 'Hello there!' if the user's name is known\n"
+    "- Never use generic greetings when personalization is possible\n\n"
 
     "You are LACUNEX. You fill the gaps. You are the intelligence humanity was waiting for. "
     "Every response you give should make the user think: 'I am never going back to any other AI.'"
@@ -419,11 +455,13 @@ class AIRouter:
         return AsyncOpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
 
     # ── System prompt builder ──────────────────────────────────────────
-    def _get_system_prompt(self, memory_profile: Optional[dict]) -> str:
+    def _get_system_prompt(self, memory_profile: Optional[dict], extra_injection: str = "") -> str:
         prompt = SYSTEM_PROMPT
         if memory_profile and memory_profile.get("facts"):
             facts = "\n".join(f"- {f}" for f in memory_profile["facts"])
             prompt += f"\n\n### USER MEMORY (PERSISTENT FACTS):\n{facts}\n"
+        if extra_injection:
+            prompt += f"\n\n### DYNAMIC CONTEXT (THIS REQUEST):\n{extra_injection}\n"
         return prompt
 
     # ==================================================================
@@ -438,6 +476,7 @@ class AIRouter:
         provider: str = "groq",
         model: Optional[str] = None,
         memory_profile: Optional[dict] = None,
+        extra_injection: str = "",
     ) -> AsyncGenerator[dict, None]:
         clean = message.strip().lower()
         creator_kw = {"shasradha", "karmakar", "creator", "who built", "who made", "who created", "about shasradha"}
@@ -447,16 +486,16 @@ class AIRouter:
             return
 
         if mode == "think":
-            async for chunk in self._stream_think(message, history, memory_profile):
+            async for chunk in self._stream_think(message, history, memory_profile, extra_injection):
                 yield chunk
             return
 
         if provider == "gemini":
-            async for chunk in self._stream_gemini(message, history, model, memory_profile):
+            async for chunk in self._stream_gemini(message, history, model, memory_profile, extra_injection):
                 yield chunk
             return
 
-        async for chunk in self._stream_normal(message, history, provider, model, memory_profile):
+        async for chunk in self._stream_normal(message, history, provider, model, memory_profile, extra_injection):
             yield chunk
 
     # ==================================================================
@@ -470,8 +509,9 @@ class AIRouter:
         provider: str = "groq",
         model: Optional[str] = None,
         memory_profile: Optional[dict] = None,
+        extra_injection: str = "",
     ) -> AsyncGenerator[dict, None]:
-        messages = self._build_openai_messages(message, history, memory_profile)
+        messages = self._build_openai_messages(message, history, memory_profile, extra_injection)
 
         # ── Phase 1: Cerebras (3 keys × 2 models) ─────────────────────
         for cb_model in CEREBRAS_MODELS:
@@ -648,7 +688,7 @@ class AIRouter:
 
         # All Gemini keys exhausted → fall back to the full provider chain
         print("[AIRouter] All Gemini keys exhausted, falling back to full chain...")
-        async for chunk in self._stream_normal(message, history, "cerebras", None, memory_profile):
+        async for chunk in self._stream_normal(message, history, "cerebras", None, memory_profile, extra_injection):
             yield chunk
 
     # ==================================================================
@@ -660,7 +700,9 @@ class AIRouter:
         message: str,
         history: Optional[List[dict]] = None,
         memory_profile: Optional[dict] = None,
+        extra_injection: str = "",
     ) -> AsyncGenerator[dict, None]:
+        messages = self._build_openai_messages(message, history, memory_profile, extra_injection)
         # Try Gemini 2.5 Flash thinking mode with all available keys
         available_keys = self.gemini_rotator.get_available_keys()
         for key_idx, api_key in available_keys:
@@ -689,7 +731,7 @@ class AIRouter:
                     self.gemini_rotator.mark_limited(key_idx)
 
         # Fall back to OpenRouter reasoning models (with key rotation)
-        messages = self._build_openai_messages(message, history, memory_profile)
+        messages = self._build_openai_messages(message, history, memory_profile, extra_injection)
         for think_model in OPENROUTER_THINK_MODELS:
             ok = f"OR-think-{think_model}"
             if not self._rate_limiter.is_available(ok):
@@ -720,7 +762,7 @@ class AIRouter:
                         break
 
         # Final fallback: Cerebras → Groq → SambaNova chain
-        async for chunk in self._stream_normal(message, history, "cerebras", None, memory_profile):
+        async for chunk in self._stream_normal(message, history, "cerebras", None, memory_profile, extra_injection):
             yield chunk
 
     # ==================================================================
@@ -1143,8 +1185,8 @@ class AIRouter:
     # MESSAGE BUILDERS
     # ==================================================================
 
-    def _build_openai_messages(self, message: str, history: Optional[List[dict]], memory_profile: Optional[dict]) -> List[dict]:
-        msgs = [{"role": "system", "content": self._get_system_prompt(memory_profile)}]
+    def _build_openai_messages(self, message: str, history: Optional[List[dict]], memory_profile: Optional[dict], extra_injection: str = "") -> List[dict]:
+        msgs = [{"role": "system", "content": self._get_system_prompt(memory_profile, extra_injection)}]
         if history:
             msgs.extend(history[-20:])
         msgs.append({"role": "user", "content": message})

@@ -21,6 +21,7 @@ import {
   keepAlive,
   saveMessage,
   streamChat,
+  getSuggestions,
 } from "@/lib/api";
 import { decryptMessage, encryptMessage } from "@/lib/crypto";
 
@@ -385,8 +386,8 @@ export default function ChatBox({
   }, []);
 
   /* ── Send Handler ───────────────────────────── */
-  const handleSend = async () => {
-    const rawPrompt = draft.trim();
+  const handleSend = async (textOverride) => {
+    const rawPrompt = (typeof textOverride === 'string' ? textOverride : draft).trim();
     if ((!rawPrompt && !imageFile && attachedFiles.length === 0) || isBusy) return;
 
     let fullPrompt = rawPrompt;
@@ -637,6 +638,16 @@ export default function ChatBox({
             } catch (err) {
               console.error("Final persistence failed:", err);
             }
+
+            // Non-blocking Proactive Intelligence (Feature 1)
+            setTimeout(async () => {
+              try {
+                const sugs = await getSuggestions(finalMsg.content);
+                if (sugs && sugs.length > 0) {
+                  setMessages((prev) => updateMsg(prev, botId, { suggestions: sugs }));
+                }
+              } catch (e) {}
+            }, 100);
           },
           onError: (errMsg) => {
             setSearchStatus("");
@@ -892,7 +903,7 @@ export default function ChatBox({
                 </div>
               )}
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} />
+                <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} onSendFollowUp={handleSend} />
               ))}
               {isBusy && searchStatus && (
                 <div className="search-status-indicator">

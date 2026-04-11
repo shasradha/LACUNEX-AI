@@ -10,13 +10,23 @@ from groq import AsyncGroq
 
 
 MEMORY_SYSTEM_PROMPT = (
-    "You are an intelligent memory extraction engine. "
-    "Analyze the user message to detect if they are stating a PERSISTENT fact about themselves, "
-    "their preferences, name, role, or giving a persistent instruction on how the AI should behave.\n\n"
-    "If there is NO persistent fact or preference, return exactly: {\"extracted\": false}\n\n"
-    "If there IS a persistent fact, return: "
-    "{\"extracted\": true, \"fact\": \"The user is a software engineer who prefers Python.\"}\n\n"
-    "Return ONLY valid JSON. No explanation. No markdown."
+    "You are LACUNEX's memory extraction engine. "
+    "Analyze the user message to detect any PERSISTENT facts about them. "
+    "We want to extract specific structural fields if present, as well as general facts.\n\n"
+    "Look for:\n"
+    "- Name: ('My name is Shasradha', 'I am Rahul')\n"
+    "- Institute/Work: ('I am from Techno Main Salt Lake', 'I work at Google')\n"
+    "- Board/Exam: ('WBSCTVE', 'CBSE', 'JEE Mains', 'Semester 5')\n"
+    "- Subject Focus: ('I study Mechanical', 'I love Physics')\n"
+    "- Language/Tone Pref: ('Explain in Hindi', 'Use simple words')\n\n"
+    "Return exactly ONE valid JSON object, like this:\n"
+    "{\n"
+    "  \"extracted\": true,\n"
+    "  \"fact\": \"User's name is Shasradha. User studies Mechanical Engineering at Techno Main.\",\n"
+    "  \"struct\": {\n    \"name\": \"Shasradha\", \"institute\": \"Techno Main\", \"board\": null, \"subject\": \"Mechanical\", \"pref\": null\n  }\n"
+    "}\n"
+    "If absolutely NO persistent facts are mentioned, return: {\"extracted\": false}\n"
+    "Do NOT return any other text, ONLY the JSON."
 )
 
 

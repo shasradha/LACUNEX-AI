@@ -65,6 +65,84 @@ CORRECTION_MAP = {
     'asap': 'as soon as possible', 'imo': 'in my opinion',
 }
 
+# ── Indian Language Discriminator (CRITICAL — Hindi ≠ Bengali) ─────
+
+HINDI_WORDS = {
+    'kya', 'kaise', 'kaisa', 'kyun', 'kahan', 'kitna', 'kab',
+    'mujhe', 'tumhe', 'aap', 'hum', 'yeh', 'woh', 'hai', 'hain',
+    'kar', 'karo', 'bata', 'batao', 'samjhao', 'dekho', 'suno',
+    'theek', 'accha', 'nahi', 'haan', 'bahut', 'bohot', 'thoda',
+    'zyada', 'abhi', 'baad', 'pehle', 'sirf', 'lekin', 'aur',
+    'matlab', 'bhai', 'yaar', 'dost', 'bhaiya', 'didi',
+    'koi', 'kuch', 'jo', 'tab', 'jab', 'phir', 'toh',
+    'kay', 'karo', 'bana', 'banao', 'dikhao',
+    'likhna', 'chahiye', 'wala', 'se', 'ho', 'mein',
+    'samajh', 'padhai', 'padhao', 'ghar', 'kaam',
+}
+
+BENGALI_WORDS = {
+    'kemon', 'achen', 'tumi', 'apni', 'ami', 'amra', 'tomra',
+    'ki', 'keno', 'kothay', 'koto', 'kokhon', 'bolo', 'bolun',
+    'koro', 'korle', 'jao', 'eso', 'eta', 'ota', 'seta',
+    'itar', 'otar', 'theke', 'diye', 'hobe', 'hoyeche',
+    'korlam', 'giyechi', 'ache', 'achhe', 'bhalo', 'manda',
+    'sundor', 'beshi', 'kom', 'abar', 'ektu', 'bujhao',
+    'shikhao', 'likho', 'banaao', 'dekhaao', 'tor', 'tomar',
+    'amar', 'amader', 'tomader', 'dada', 'acho', 'banao',
+    'korbo', 'jani', 'bujhi', 'parbo', 'holo', 'hoye',
+}
+
+TELUGU_WORDS = {
+    'ela', 'emiti', 'nenu', 'meeru', 'memu', 'idi', 'adi',
+    'cheyyi', 'cheppandi', 'adugandi', 'enti', 'enduku',
+}
+
+TAMIL_WORDS = {
+    'enna', 'epdi', 'naan', 'neenga', 'avar', 'idu', 'adu',
+    'seyyi', 'sollunga', 'theriyuma', 'ange', 'inge',
+}
+
+
+def detect_indian_language(text: str) -> str:
+    """Discriminate between Indian languages written in Latin script.
+    
+    CRITICAL: 'kay se ho' = HINDI (not Bengali). Always.
+              'kemon acho' = BENGALI (not Hindi). Always.
+    """
+    text_lower = text.lower()
+    words = set(text_lower.split())
+
+    # ── Special case overrides (highest priority) ─────────
+    if 'kemon' in text_lower or 'acho' in text_lower:
+        return 'bengali'
+    if 'kaise' in text_lower or 'kya' in text_lower:
+        return 'hindi'
+    if 'se ho' in text_lower or 'kaisa' in text_lower:
+        return 'hindi'
+    if 'kay' in words and ('se' in words or 'ho' in words):
+        return 'hindi'
+
+    # ── Score-based detection ─────────────────────────────
+    hindi_score = len(words & HINDI_WORDS)
+    bengali_score = len(words & BENGALI_WORDS)
+    telugu_score = len(words & TELUGU_WORDS)
+    tamil_score = len(words & TAMIL_WORDS)
+
+    scores = {
+        'hindi': hindi_score,
+        'bengali': bengali_score,
+        'telugu': telugu_score,
+        'tamil': tamil_score,
+    }
+    best = max(scores, key=scores.get)
+    best_score = scores[best]
+
+    if best_score == 0:
+        return 'english'
+    if hindi_score > 0 and hindi_score == bengali_score:
+        return 'hindi'  # Ambiguous → default to Hindi
+    return best
+
 # ── Domain Classifier ─────────────────────────────────────
 DOMAIN_PATTERNS = {
     'mechanical_engineering': [
@@ -252,20 +330,15 @@ def detect_intent(message: str) -> Intent:
         )
     corrected = ' '.join(corrected_words)
 
-    # ── Step 2: Detect language mix ───────────────────────
-    hinglish_words = sum(1 for w in words
-                         if w in CORRECTION_MAP
-                         and CORRECTION_MAP[w] in
-                         ['make/create', 'tell me/explain',
-                          'explain to me', 'write', 'show me'])
-    banglish_words = sum(1 for w in words
-                         if w in ['bolo', 'likho', 'shikhao',
-                                  'bujhao', 'dekho', 'koro'])
-
-    if hinglish_words > 0:
-        lang = 'hinglish'
-    elif banglish_words > 0:
-        lang = 'banglish'
+    # ── Step 2: Detect language mix (REWRITTEN v4.0) ──────
+    lang = detect_indian_language(message)
+    # Map to hint format for backward compat
+    if lang == 'hindi':
+        lang = 'hindi'
+    elif lang == 'bengali':
+        lang = 'bengali'
+    elif lang in ('telugu', 'tamil'):
+        lang = lang
     elif any(ord(c) > 127 for c in message):
         lang = 'non-english'
     else:
@@ -564,17 +637,34 @@ def get_system_prompt_injection(intent: Intent) -> str:
             "then add explanation if needed."
         )
 
-    if intent.language_hint == 'hinglish':
+    # ── CRITICAL: Language-specific response rules (v4.0) ──────────
+    if intent.language_hint == 'hindi':
         injections.append(
-            "The user is writing in Hinglish (Hindi+English mix). "
-            "Respond in clear English but acknowledge their "
-            "Indian context. Use relatable Indian examples."
+            "CRITICAL LANGUAGE RULE: The user is writing in HINDI/Hinglish. "
+            "Respond in clear English BUT with a warm Hindi opener like "
+            "'Bilkul bhai!' or 'Haan, samajh gaya!' at the start. "
+            "Use Indian examples (ISRO, Tata, IIT, cricket). "
+            "NEVER respond in Bengali. NEVER use Bengali words. "
+            "The user is Hindi-speaking — treat them as such."
         )
-
-    if intent.language_hint == 'banglish':
+    elif intent.language_hint == 'bengali':
         injections.append(
-            "The user is writing in Banglish (Bengali+English mix). "
-            "Respond in clear English. Use relatable Bengali/WB context."
+            "CRITICAL LANGUAGE RULE: The user is writing in BENGALI/Banglish. "
+            "Respond in clear English with a warm Bengali opener like "
+            "'Ekdom thik!' or 'Haan, bujhechi!' at the start. "
+            "Reference West Bengal context (WB polytechnic, Kolkata, etc.). "
+            "NEVER respond in Hindi. NEVER use Hindi words. "
+            "The user is Bengali-speaking — treat them as such."
+        )
+    elif intent.language_hint == 'telugu':
+        injections.append(
+            "The user is writing in Telugu/Tenglish. "
+            "Respond in clear English with Andhra/Telangana context."
+        )
+    elif intent.language_hint == 'tamil':
+        injections.append(
+            "The user is writing in Tamil/Tanglish. "
+            "Respond in clear English with Tamil Nadu context."
         )
 
     if intent.is_academic:
