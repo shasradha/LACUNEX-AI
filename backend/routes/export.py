@@ -109,7 +109,7 @@ async def export_document(
     Export a structured document (from document_json) in the specified format.
     Uses the document rendering engine for themed output.
     """
-    from services.export_service import (
+    from services._export_v2 import (
         generate_document_pdf,
         generate_document_docx,
         generate_document_xlsx,
@@ -119,24 +119,31 @@ async def export_document(
     title = doc.get("title", "Lacunex Document")
     filename = _safe_filename(title)
 
-    if body.format == "pdf":
-        content = generate_document_pdf(doc, body.theme)
-        media_type = "application/pdf"
-        ext = "pdf"
-    elif body.format == "docx":
-        content = generate_document_docx(doc, body.theme)
-        media_type = (
-            "application/vnd.openxmlformats-officedocument"
-            ".wordprocessingml.document"
-        )
-        ext = "docx"
-    else:
-        content = generate_document_xlsx(doc, body.theme)
-        media_type = (
-            "application/vnd.openxmlformats-officedocument"
-            ".spreadsheetml.sheet"
-        )
-        ext = "xlsx"
+    from fastapi import HTTPException
+    import traceback
+
+    try:
+        if body.format == "pdf":
+            content = generate_document_pdf(doc, body.theme)
+            media_type = "application/pdf"
+            ext = "pdf"
+        elif body.format == "docx":
+            content = generate_document_docx(doc, body.theme)
+            media_type = (
+                "application/vnd.openxmlformats-officedocument"
+                ".wordprocessingml.document"
+            )
+            ext = "docx"
+        else:
+            content = generate_document_xlsx(doc, body.theme)
+            media_type = (
+                "application/vnd.openxmlformats-officedocument"
+                ".spreadsheetml.sheet"
+            )
+            ext = "xlsx"
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate {body.format.upper()}: {str(e)}")
 
     return Response(
         content=content,
@@ -156,7 +163,7 @@ async def export_all(
     """
     Export a structured document in ALL formats (PDF + DOCX + XLSX) as a ZIP bundle.
     """
-    from services.export_service import (
+    from services._export_v2 import (
         generate_document_pdf,
         generate_document_docx,
         generate_document_xlsx,
@@ -166,16 +173,23 @@ async def export_all(
     title = doc.get("title", "Lacunex Document")
     filename = _safe_filename(title)
 
-    pdf_bytes = generate_document_pdf(doc, body.theme)
-    docx_bytes = generate_document_docx(doc, body.theme)
-    xlsx_bytes = generate_document_xlsx(doc, body.theme)
+    from fastapi import HTTPException
+    import traceback
 
-    # Bundle into ZIP
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(f"{filename}.pdf", pdf_bytes)
-        zf.writestr(f"{filename}.docx", docx_bytes)
-        zf.writestr(f"{filename}.xlsx", xlsx_bytes)
+    try:
+        pdf_bytes = generate_document_pdf(doc, body.theme)
+        docx_bytes = generate_document_docx(doc, body.theme)
+        xlsx_bytes = generate_document_xlsx(doc, body.theme)
+
+        # Bundle into ZIP
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"{filename}.pdf", pdf_bytes)
+            zf.writestr(f"{filename}.docx", docx_bytes)
+            zf.writestr(f"{filename}.xlsx", xlsx_bytes)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to bundle all exports: {str(e)}")
 
     return Response(
         content=zip_buffer.getvalue(),

@@ -151,6 +151,7 @@ export default function DocumentPreview({
       setTimeout(() => setExportSuccess(null), 2500);
     } catch (err) {
       console.error("Export failed:", err);
+      alert(`Export failed: ${err.message || "Unknown error"}`);
     } finally {
       setIsExporting(false);
       setExportingFormat(null);
@@ -168,6 +169,7 @@ export default function DocumentPreview({
       setTimeout(() => setExportSuccess(null), 2500);
     } catch (err) {
       console.error("Export all failed:", err);
+      alert(`Export failed: ${err.message || "Unknown error"}`);
     } finally {
       setIsExporting(false);
       setExportingFormat(null);
