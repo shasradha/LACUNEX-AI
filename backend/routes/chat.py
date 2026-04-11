@@ -12,8 +12,10 @@ Pipeline:
   7. Emit structured `done` event with full metadata
 """
 
+import os
 import json
 import asyncio
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from models.schemas import ChatRequest
