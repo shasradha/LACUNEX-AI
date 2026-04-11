@@ -152,6 +152,12 @@ def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
                 i += 1
                 continue
 
+            # BUG 4 FIX: Horizontal rules (---/***/___)  should NOT be rendered as text
+            if re.match(r'^[-*_]{3,}$', stripped):
+                blocks.append({"type": "hr"})
+                i += 1
+                continue
+
             # Plain text
             blocks.append({"type": "text", "text": stripped})
             i += 1
@@ -203,19 +209,33 @@ def sanitize_para(text: str) -> str:
 
 
 def _para_rich(text: str) -> str:
-    """Convert markdown inline formatting → ReportLab Paragraph XML."""
+    """Convert markdown inline formatting → ReportLab Paragraph XML.
+    
+    BUG 3 FIX: Catches ALL bold patterns including:
+      **3.1 Types of shaft** → <b>3.1 Types of shaft</b>
+      **Note:** → <b>Note:</b>
+    """
     text = _pdf_safe(text)
     # Temporarily hide <br> tags from HTML escaping execution
     text = re.sub(r'(?i)<br\s*/?>', '{{BR_TAG_TEMP}}', text)
     text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     # Restore <br> tags as proper XML self-closing tags
     text = text.replace('{{BR_TAG_TEMP}}', '<br/>')
+    # Handle bold+italic first (***text***)
     text = re.sub(r'\*\*\*(.+?)\*\*\*', r'<b><i>\1</i></b>', text)
+    # Handle bold at start of line: **3.1 Types of shaft**
+    text = re.sub(r'^\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Handle bold mid-sentence and all remaining: **Note:** etc.
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Handle italic: *text*
     text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+    # Handle inline code: `code`
     text = re.sub(r'`([^`]+)`',
                   r'<font face="Courier" size="9" color="#37306e">\1</font>',
                   text)
+    # Strip any remaining raw markdown heading markers
+    text = re.sub(r'^#{1,4}\s+', '', text)
+    # Run sanitize after EVERY conversion
     return sanitize_para(text)
 
 
@@ -642,9 +662,17 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
     # ── Content sections ──────────────────────────────────────────────────
     diagram_count = 0
 
+    # BUG 1 & 2 FIX: Track which sections have been written to prevent duplicates
+    written_sections = set()
+
     for sec_idx, section in enumerate(sections):
         heading_text = section.get("heading", "Section")
         desc = (section.get("content", "") or "").split("\n")[0][:80]
+
+        # Skip if this section was already written (prevents duplicate intros)
+        if heading_text in written_sections:
+            continue
+        written_sections.add(heading_text)
 
         if section.get("level", 2) <= 2:
             if sec_idx > 0:
@@ -663,7 +691,11 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
 
             elif bt == "heading":
                 lvl = min(block.get("level", 2), 4)
-                txt = _para_rich(block.get("text", ""))
+                heading_text_raw = block.get("text", "")
+                # BUG 1 FIX: Skip duplicate TOC headings from content
+                if "table of contents" in heading_text_raw.lower():
+                    continue
+                txt = _para_rich(heading_text_raw)
                 if lvl <= 2:
                     story.append(AccentBar(1.5 if lvl == 1 else 1, 5))
                 story.append(Paragraph(txt, S[f'h{lvl}']))
@@ -1267,6 +1299,10 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
             if bt == "blank":
                 doc.add_paragraph().paragraph_format.space_after = Pt(1)
 
+            elif bt == "hr":
+                # BUG 4 FIX: Render HR as proper paragraph border, NOT as text
+                add_hr()
+
             elif bt == "heading":
                 lvl = min(block.get("level", 2), 4)
                 doc.add_heading(block.get("text", ""), level=lvl)
@@ -1359,65 +1395,404 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
 # ═══════════════════════════════════════════════════════════════════════════
 
 def generate_document_xlsx(doc_json: dict, theme: str = "professional") -> bytes:
+    """
+    BUG 5 FIX: Complete, production-quality XLSX export.
+    
+    Creates:
+      Sheet 1: "Overview"  — Title, metadata, statistics
+      Sheet 2: "TOC"       — Full Table of Contents with descriptions
+      Sheet 3+: One sheet per section with all content
+    """
     import io
     from openpyxl import Workbook
-    from openpyxl.styles import PatternFill, Font, Alignment
-    
+    from openpyxl.styles import (
+        PatternFill, Font, Alignment, Border, Side, NamedStyle
+    )
+    from openpyxl.utils import get_column_letter
+
     wb = Workbook()
+    title = doc_json.get("title", "Untitled Document")
+    sections = doc_json.get("sections", [])
+    toc = doc_json.get("table_of_contents", [])
+    meta = doc_json.get("metadata", {})
+
+    # ── Style definitions ─────────────────────────────────────────────────
+    NAVY = "0A0A2E"
+    CYAN = "00D4FF"
+    WHITE = "FFFFFF"
+    LIGHT_GRAY = "F8F9FA"
+    ALT_ROW = "F0F4FF"
+    BORDER_COLOR = "D0D5DD"
+
+    header_fill = PatternFill("solid", fgColor=NAVY)
+    accent_fill = PatternFill("solid", fgColor=CYAN)
+    alt_fill = PatternFill("solid", fgColor=ALT_ROW)
+    light_fill = PatternFill("solid", fgColor=LIGHT_GRAY)
+    white_fill = PatternFill("solid", fgColor=WHITE)
+
+    header_font = Font(name="Arial", bold=True, color=WHITE, size=11)
+    title_font = Font(name="Arial", bold=True, color=NAVY, size=16)
+    subtitle_font = Font(name="Arial", bold=False, color="666666", size=10)
+    section_font = Font(name="Arial", bold=True, color=NAVY, size=12)
+    body_font = Font(name="Arial", color="2D2D2D", size=10)
+    bold_font = Font(name="Arial", bold=True, color="2D2D2D", size=10)
+    code_font = Font(name="Courier New", color="37306E", size=9)
+    link_font = Font(name="Arial", color="0066CC", size=10, underline="single")
+    meta_key_font = Font(name="Arial", bold=True, color="555555", size=10)
+    meta_val_font = Font(name="Arial", color="2D2D2D", size=10)
+    footer_font = Font(name="Arial", italic=True, color="999999", size=8)
+    toc_num_font = Font(name="Arial", bold=True, color=CYAN, size=11)
+    toc_title_font = Font(name="Arial", bold=True, color=NAVY, size=11)
+    toc_desc_font = Font(name="Arial", color="666666", size=9)
+
+    thin_border = Border(
+        left=Side(style="thin", color=BORDER_COLOR),
+        right=Side(style="thin", color=BORDER_COLOR),
+        top=Side(style="thin", color=BORDER_COLOR),
+        bottom=Side(style="thin", color=BORDER_COLOR),
+    )
+    wrap_align = Alignment(wrap_text=True, vertical="top")
+    center_align = Alignment(horizontal="center", vertical="center")
+
+    def safe_sheet_name(name: str, idx: int) -> str:
+        """Create a valid Excel sheet name (max 31 chars, no special chars)."""
+        clean = "".join(c for c in name if c.isalnum() or c in " ._-")[:28].strip()
+        if not clean:
+            clean = f"Section {idx + 1}"
+        # Ensure uniqueness by prefixing with section number
+        return f"{idx + 1}. {clean}"[:31]
+
+    def apply_row_style(ws, row, fill, font, border=None, align=None):
+        """Apply consistent styling to an entire row."""
+        for cell in ws[row]:
+            cell.fill = fill
+            cell.font = font
+            if border:
+                cell.border = border
+            if align:
+                cell.alignment = align
+
+    def strip_md_inline(text: str) -> str:
+        """Strip markdown formatting for clean Excel text."""
+        if not text:
+            return ""
+        text = re.sub(r'\*\*\*(.+?)\*\*\*', r'\1', text)
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'\*(.+?)\*', r'\1', text)
+        text = re.sub(r'`([^`]+)`', r'\1', text)
+        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+        text = re.sub(r'^[-*_]{3,}$', '', text, flags=re.MULTILINE)
+        return text.strip()
+
+    # ═══════════════════════════════════════════════════════════════════════
+    #  SHEET 1: Overview
+    # ═══════════════════════════════════════════════════════════════════════
     ws_ov = wb.active
     ws_ov.title = "Overview"
-    
-    blue_fill = PatternFill(start_color="0A0A2E", end_color="0A0A2E", fill_type="solid")
-    white_font = Font(color="FFFFFF", bold=True, size=12)
-    alt_fill = PatternFill(start_color="F0F8FF", end_color="F0F8FF", fill_type="solid")
-    
-    ws_ov.append(["Document Metadata", ""])
-    ws_ov["A1"].font = white_font
-    ws_ov["A1"].fill = blue_fill
-    ws_ov["B1"].fill = blue_fill
-    ws_ov.append(["Title", doc_json.get("title", "Untitled")])
-    ws_ov.append(["Generated", "LACUNEX AI"])
-    
+    ws_ov.sheet_properties.tabColor = NAVY
+
+    # Title block
+    ws_ov.merge_cells("A1:C1")
+    c_title = ws_ov["A1"]
+    c_title.value = title
+    c_title.font = title_font
+    c_title.alignment = Alignment(vertical="center")
+
+    ws_ov.merge_cells("A2:C2")
+    c_sub = ws_ov["A2"]
+    c_sub.value = f"Generated by LACUNEX AI on {_ts()}"
+    c_sub.font = subtitle_font
+
+    ws_ov.append([])  # Row 3: spacer
+
+    # Metadata section header
+    ws_ov.append(["Document Information", "", ""])
+    r_meta = ws_ov.max_row
+    for col in range(1, 4):
+        cell = ws_ov.cell(row=r_meta, column=col)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+
+    # Metadata rows
+    meta_items = [
+        ("Title", title),
+        ("Total Sections", str(meta.get("total_sections", len(sections)))),
+        ("Estimated Pages", str(meta.get("total_pages_estimate", "N/A"))),
+        ("Total Tables", str(meta.get("total_tables", 0))),
+        ("Total Code Blocks", str(meta.get("total_code_blocks", 0))),
+        ("Total Highlights", str(meta.get("total_highlights", 0))),
+        ("Generator", "LACUNEX AI by Shasradha Karmakar"),
+        ("Theme", theme.capitalize()),
+    ]
+    for key, val in meta_items:
+        ws_ov.append([key, val, ""])
+        r = ws_ov.max_row
+        ws_ov.cell(row=r, column=1).font = meta_key_font
+        ws_ov.cell(row=r, column=1).border = thin_border
+        ws_ov.cell(row=r, column=2).font = meta_val_font
+        ws_ov.cell(row=r, column=2).border = thin_border
+        if (r - r_meta) % 2 == 0:
+            ws_ov.cell(row=r, column=1).fill = alt_fill
+            ws_ov.cell(row=r, column=2).fill = alt_fill
+
+    ws_ov.append([])  # spacer
+
+    # Quick stats summary
+    ws_ov.append(["Section Summary", "Subsections", "Content Length"])
+    r_sum = ws_ov.max_row
+    for col in range(1, 4):
+        cell = ws_ov.cell(row=r_sum, column=col)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+        cell.alignment = center_align
+
+    for idx, sec in enumerate(sections):
+        heading = sec.get("heading", f"Section {idx + 1}")
+        num_subs = len(sec.get("subsections", []))
+        content_len = len(sec.get("content", "") or "")
+        for sub in sec.get("subsections", []):
+            content_len += len(sub.get("content", "") or "")
+        ws_ov.append([heading[:60], num_subs,
+                      f"~{content_len} chars"])
+        r = ws_ov.max_row
+        ws_ov.cell(row=r, column=1).font = bold_font
+        ws_ov.cell(row=r, column=1).border = thin_border
+        ws_ov.cell(row=r, column=2).font = body_font
+        ws_ov.cell(row=r, column=2).border = thin_border
+        ws_ov.cell(row=r, column=2).alignment = center_align
+        ws_ov.cell(row=r, column=3).font = body_font
+        ws_ov.cell(row=r, column=3).border = thin_border
+        if idx % 2 == 0:
+            for c in range(1, 4):
+                ws_ov.cell(row=r, column=c).fill = alt_fill
+
+    # Footer
     ws_ov.append([])
-    ws_ov.append(["Table of Contents", ""])
-    r_toc = ws_ov.max_row
-    ws_ov.cell(row=r_toc, column=1).font = white_font
-    ws_ov.cell(row=r_toc, column=1).fill = blue_fill
-    ws_ov.cell(row=r_toc, column=2).fill = blue_fill
-    
-    for idx, t in enumerate(doc_json.get("table_of_contents", [])):
-        ws_ov.append([f"{idx+1}. {t.get('title', '')}"])
-    
-    ws_ov.column_dimensions['A'].width = 30
-    ws_ov.column_dimensions['B'].width = 50
-    
-    for sec_idx, section in enumerate(doc_json.get("sections", [])):
-        heading = section.get("heading", f"Section {sec_idx+1}")
-        sht_name = "".join(c for c in heading if c.isalnum() or c == " ")[:31].strip()
-        if not sht_name: sht_name = f"Sec {sec_idx+1}"
-        ws = wb.create_sheet(title=sht_name)
-        
-        ws.append(["Topic/Heading", "Content Summary"])
-        ws["A1"].font = white_font
-        ws["A1"].fill = blue_fill
-        ws["B1"].font = white_font
-        ws["B1"].fill = blue_fill
-        ws.freeze_panes = "A2"
-        
-        row_idx = 2
-        for sub in section.get("subsections", []):
-            ws.append([sub.get("heading", ""), sub.get("content", "")])
-            if row_idx % 2 == 0:
-                ws.cell(row=row_idx, column=1).fill = alt_fill
-                ws.cell(row=row_idx, column=2).fill = alt_fill
-            
-            ws.cell(row=row_idx, column=1).alignment = Alignment(wrap_text=True, vertical="top")
-            ws.cell(row=row_idx, column=2).alignment = Alignment(wrap_text=True, vertical="top")
-            row_idx += 1
-            
-        ws.column_dimensions['A'].width = 30
-        ws.column_dimensions['B'].width = 80
-        
+    ws_ov.append(["© Generated by LACUNEX AI — Shasradha Karmakar"])
+    ws_ov.cell(row=ws_ov.max_row, column=1).font = footer_font
+
+    ws_ov.column_dimensions["A"].width = 30
+    ws_ov.column_dimensions["B"].width = 20
+    ws_ov.column_dimensions["C"].width = 20
+    ws_ov.freeze_panes = "A4"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    #  SHEET 2: Table of Contents
+    # ═══════════════════════════════════════════════════════════════════════
+    ws_toc = wb.create_sheet(title="Table of Contents")
+    ws_toc.sheet_properties.tabColor = CYAN
+
+    ws_toc.merge_cells("A1:C1")
+    ws_toc["A1"].value = "Table of Contents"
+    ws_toc["A1"].font = title_font
+
+    ws_toc.append([])  # spacer
+
+    # TOC headers
+    ws_toc.append(["#", "Section Title", "Description"])
+    r_th = ws_toc.max_row
+    for col in range(1, 4):
+        cell = ws_toc.cell(row=r_th, column=col)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+        cell.alignment = center_align
+
+    # TOC entries
+    for idx, entry in enumerate(toc):
+        entry_title = entry.get("title", f"Section {idx + 1}")
+        entry_desc = entry.get("description", "")
+        ws_toc.append([idx + 1, entry_title, entry_desc])
+        r = ws_toc.max_row
+        ws_toc.cell(row=r, column=1).font = toc_num_font
+        ws_toc.cell(row=r, column=1).alignment = center_align
+        ws_toc.cell(row=r, column=1).border = thin_border
+        ws_toc.cell(row=r, column=2).font = toc_title_font
+        ws_toc.cell(row=r, column=2).border = thin_border
+        ws_toc.cell(row=r, column=2).alignment = wrap_align
+        ws_toc.cell(row=r, column=3).font = toc_desc_font
+        ws_toc.cell(row=r, column=3).border = thin_border
+        ws_toc.cell(row=r, column=3).alignment = wrap_align
+        if idx % 2 == 0:
+            for c in range(1, 4):
+                ws_toc.cell(row=r, column=c).fill = alt_fill
+
+        # Subtopics / children
+        for child in entry.get("children", []):
+            child_title = child.get("title", "")
+            ws_toc.append(["", f"   └ {child_title}", ""])
+            rc = ws_toc.max_row
+            ws_toc.cell(row=rc, column=2).font = Font(
+                name="Arial", color="888888", size=9)
+            ws_toc.cell(row=rc, column=2).border = thin_border
+
+    ws_toc.column_dimensions["A"].width = 6
+    ws_toc.column_dimensions["B"].width = 50
+    ws_toc.column_dimensions["C"].width = 50
+    ws_toc.freeze_panes = "A4"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    #  SHEETS 3+: One sheet per section
+    # ═══════════════════════════════════════════════════════════════════════
+    for sec_idx, section in enumerate(sections):
+        heading = section.get("heading", f"Section {sec_idx + 1}")
+        sheet_name = safe_sheet_name(heading, sec_idx)
+
+        try:
+            ws = wb.create_sheet(title=sheet_name)
+        except Exception:
+            ws = wb.create_sheet(title=f"Section {sec_idx + 1}")
+
+        ws.sheet_properties.tabColor = NAVY
+
+        # Section title
+        ws.merge_cells("A1:D1")
+        ws["A1"].value = heading
+        ws["A1"].font = Font(name="Arial", bold=True, color=WHITE, size=14)
+        ws["A1"].fill = header_fill
+        ws["A1"].alignment = Alignment(vertical="center")
+
+        # Content headers
+        ws.append(["Type", "Heading/Label", "Content", "Notes"])
+        r_hdr = ws.max_row
+        for col in range(1, 5):
+            cell = ws.cell(row=r_hdr, column=col)
+            cell.fill = PatternFill("solid", fgColor="1a1a4e")
+            cell.font = header_font
+            cell.border = thin_border
+            cell.alignment = center_align
+
+        current_row = r_hdr + 1
+
+        # ── Flatten and write all content ─────────────────────────────────
+        blocks = _doc_flatten_content(section)
+
+        for block in blocks:
+            bt = block.get("type")
+
+            if bt == "heading":
+                lvl = block.get("level", 2)
+                txt = strip_md_inline(block.get("text", ""))
+                type_label = f"H{lvl}"
+                ws.append([type_label, txt, "", ""])
+                r = ws.max_row
+                ws.cell(row=r, column=1).font = Font(
+                    name="Arial", bold=True, color=CYAN, size=10)
+                ws.cell(row=r, column=1).alignment = center_align
+                ws.cell(row=r, column=2).font = section_font
+                for c in range(1, 5):
+                    ws.cell(row=r, column=c).border = thin_border
+                    ws.cell(row=r, column=c).fill = light_fill
+
+            elif bt == "text":
+                txt = strip_md_inline(block.get("text", ""))
+                if txt and not re.match(r'^[-*_]{3,}$', txt.strip()):
+                    ws.append(["Text", "", txt, ""])
+                    r = ws.max_row
+                    ws.cell(row=r, column=3).font = body_font
+                    ws.cell(row=r, column=3).alignment = wrap_align
+                    for c in range(1, 5):
+                        ws.cell(row=r, column=c).border = thin_border
+                    if (r - r_hdr) % 2 == 0:
+                        for c in range(1, 5):
+                            ws.cell(row=r, column=c).fill = alt_fill
+
+            elif bt == "bullet":
+                txt = strip_md_inline(block.get("text", ""))
+                ws.append(["•", "", f"• {txt}", ""])
+                r = ws.max_row
+                ws.cell(row=r, column=3).font = body_font
+                ws.cell(row=r, column=3).alignment = wrap_align
+                for c in range(1, 5):
+                    ws.cell(row=r, column=c).border = thin_border
+
+            elif bt == "numbered":
+                txt = strip_md_inline(block.get("text", ""))
+                num = block.get("number", "")
+                ws.append(["List", f"{num}.", txt, ""])
+                r = ws.max_row
+                ws.cell(row=r, column=3).font = body_font
+                ws.cell(row=r, column=3).alignment = wrap_align
+                for c in range(1, 5):
+                    ws.cell(row=r, column=c).border = thin_border
+
+            elif bt == "code":
+                lang = block.get("language", "code")
+                code_text = "\n".join(block.get("lines", []))
+                ws.append(["Code", lang.upper() if lang else "CODE",
+                           code_text, ""])
+                r = ws.max_row
+                ws.cell(row=r, column=3).font = code_font
+                ws.cell(row=r, column=3).alignment = wrap_align
+                ws.cell(row=r, column=1).font = Font(
+                    name="Courier New", bold=True, color="37306E", size=9)
+                for c in range(1, 5):
+                    ws.cell(row=r, column=c).border = thin_border
+                    ws.cell(row=r, column=c).fill = PatternFill(
+                        "solid", fgColor="F1F5F9")
+
+            elif bt == "callout":
+                ctype = block.get("callout_type", "note")
+                txt = strip_md_inline(block.get("text", ""))
+                ws.append([ctype.upper(), "", txt, ""])
+                r = ws.max_row
+                ws.cell(row=r, column=1).font = Font(
+                    name="Arial", bold=True, color="FF6600", size=9)
+                ws.cell(row=r, column=3).font = body_font
+                ws.cell(row=r, column=3).alignment = wrap_align
+                for c in range(1, 5):
+                    ws.cell(row=r, column=c).border = thin_border
+                    ws.cell(row=r, column=c).fill = PatternFill(
+                        "solid", fgColor="FFF8E1")
+
+            elif bt == "table":
+                td = block.get("data", {})
+                hdrs = td.get("headers", [])
+                rows = td.get("rows", [])
+                if hdrs:
+                    ws.append(["TABLE", "",
+                               " | ".join(str(h) for h in hdrs), ""])
+                    r = ws.max_row
+                    ws.cell(row=r, column=1).font = Font(
+                        name="Arial", bold=True, color=NAVY, size=9)
+                    ws.cell(row=r, column=3).font = bold_font
+                    for c in range(1, 5):
+                        ws.cell(row=r, column=c).border = thin_border
+                        ws.cell(row=r, column=c).fill = light_fill
+
+                    for row_data in rows:
+                        ws.append(["", "",
+                                   " | ".join(str(v) for v in row_data), ""])
+                        r = ws.max_row
+                        ws.cell(row=r, column=3).font = body_font
+                        ws.cell(row=r, column=3).alignment = wrap_align
+                        for c in range(1, 5):
+                            ws.cell(row=r, column=c).border = thin_border
+
+            elif bt == "diagram":
+                dtitle = block.get("title", "Diagram")
+                dcode = block.get("code", "")
+                ws.append(["DIAGRAM", dtitle, dcode[:500], "Mermaid"])
+                r = ws.max_row
+                ws.cell(row=r, column=1).font = Font(
+                    name="Arial", bold=True, color="0066CC", size=9)
+                ws.cell(row=r, column=3).font = code_font
+                ws.cell(row=r, column=3).alignment = wrap_align
+                for c in range(1, 5):
+                    ws.cell(row=r, column=c).border = thin_border
+
+        # Column widths
+        ws.column_dimensions["A"].width = 10
+        ws.column_dimensions["B"].width = 25
+        ws.column_dimensions["C"].width = 80
+        ws.column_dimensions["D"].width = 15
+        ws.freeze_panes = "A3"
+
+    # ── Save ──────────────────────────────────────────────────────────────
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+

@@ -77,6 +77,7 @@ export default function DocumentPreview({
   const [isExporting, setIsExporting] = useState(false);
   const [exportingFormat, setExportingFormat] = useState(null);
   const [exportSuccess, setExportSuccess] = useState(null);
+  const [exportError, setExportError] = useState(null);
   const [showToc, setShowToc] = useState(true);
   const previewRef = useRef(null);
   const contentRef = useRef(null);
@@ -145,13 +146,15 @@ export default function DocumentPreview({
     setIsExporting(true);
     setExportingFormat(format);
     setExportSuccess(null);
+    setExportError(null);
     try {
       await exportDocument(documentJson, theme, format);
       setExportSuccess(format);
       setTimeout(() => setExportSuccess(null), 2500);
     } catch (err) {
       console.error("Export failed:", err);
-      alert(`Export failed: ${err.message || "Unknown error"}`);
+      setExportError(`Export failed: ${err.message || "Unknown error"}`);
+      setTimeout(() => setExportError(null), 5000);
     } finally {
       setIsExporting(false);
       setExportingFormat(null);
@@ -163,13 +166,15 @@ export default function DocumentPreview({
     setIsExporting(true);
     setExportingFormat("all");
     setExportSuccess(null);
+    setExportError(null);
     try {
       await exportDocumentAll(documentJson, theme);
       setExportSuccess("all");
       setTimeout(() => setExportSuccess(null), 2500);
     } catch (err) {
       console.error("Export all failed:", err);
-      alert(`Export failed: ${err.message || "Unknown error"}`);
+      setExportError(`Export failed: ${err.message || "Unknown error"}`);
+      setTimeout(() => setExportError(null), 5000);
     } finally {
       setIsExporting(false);
       setExportingFormat(null);
@@ -198,7 +203,11 @@ export default function DocumentPreview({
       <div className="doc-preview-header">
         <div className="doc-preview-header-left">
           <IconFileText />
-          <span className="doc-preview-title">Document Preview</span>
+          <span className="doc-preview-title" title={documentJson?.title || "Document Preview"}>
+            {documentJson?.title 
+              ? (documentJson.title.length > 40 ? documentJson.title.substring(0, 40) + "..." : documentJson.title) 
+              : "Document Preview"}
+          </span>
           {isGenerating && (
             <span className="doc-preview-badge doc-preview-badge-generating">
               <IconSpinner /> Generating
@@ -211,8 +220,13 @@ export default function DocumentPreview({
           )}
         </div>
         <div className="doc-preview-header-right">
-          {/* Export success indicator */}
-          {exportSuccess && (
+          {/* Export success/error indicator */}
+          {exportError && (
+            <span className="doc-export-error" style={{ color: "#ef4444", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <IconX /> {exportError}
+            </span>
+          )}
+          {exportSuccess && !exportError && (
             <span className="doc-export-success">
               <IconCheck /> {exportSuccess.toUpperCase()} saved
             </span>

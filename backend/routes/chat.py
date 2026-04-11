@@ -22,7 +22,7 @@ from services.auth_service import get_current_user
 from services.ai_router import ai_router
 from services.gap_detector import gap_detector
 from services.search_service import search_all, format_text_context
-from services.intent_detector import detect_intent
+from services.intent_detector import detect_intent, intent_to_dict, get_system_prompt_injection
 from services.memory_service import extract_and_save_memory
 
 router = APIRouter(prefix="/api", tags=["Chat"])
@@ -39,8 +39,17 @@ async def chat(
     Events: mode_detected | search_status | thinking | token | doc_progress | doc_toc | max_output_activated | done | error
     """
 
-    # ── Step 1: Run intent detection (instant, no API calls) ─────────────────
-    intent = detect_intent(request.message)
+    # ── Step 1: Run intent detection v3 (instant, no API calls) ──────────────
+    intent_obj = detect_intent(request.message)
+    intent = intent_to_dict(intent_obj)
+    intent_injection = get_system_prompt_injection(intent_obj)
+
+    # Log intent detection for analytics
+    print(f"[Intent v3] primary={intent_obj.primary} | domain={intent_obj.domain} | "
+          f"casual={intent_obj.is_casual} | academic={intent_obj.is_academic} | "
+          f"search={intent_obj.needs_search} | document={intent_obj.is_document} | "
+          f"tone={intent_obj.tone} | lang={intent_obj.language_hint} | "
+          f"confidence={intent_obj.confidence:.2f}")
 
     # Trigger background personal memory extraction
     background_tasks.add_task(extract_and_save_memory, current_user.id, request.message)
@@ -66,6 +75,9 @@ async def chat(
                 "reasoning": True,
                 "image_search": False,
                 "max_output": True,
+                "intent_primary": intent_obj.primary,
+                "intent_domain": intent_obj.domain,
+                "intent_confidence": intent_obj.confidence,
             }
             yield f"data: {json.dumps(mode_event)}\n\n"
 
@@ -195,6 +207,9 @@ async def chat(
             "reasoning": auto_reasoning,
             "image_search": auto_image_search,
             "max_output": False,
+            "intent_primary": intent_obj.primary,
+            "intent_domain": intent_obj.domain,
+            "intent_confidence": intent_obj.confidence,
         }
         yield f"data: {json.dumps(mode_event)}\n\n"
 

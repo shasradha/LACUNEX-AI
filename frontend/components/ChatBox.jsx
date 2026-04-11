@@ -171,6 +171,7 @@ export default function ChatBox({
   const [docJson, setDocJson] = useState(null);
   const [docTheme, setDocTheme] = useState("professional");
   const [docGenerating, setDocGenerating] = useState(false);
+  const [intentInfo, setIntentInfo] = useState(null); // v3 intent badge data
   const exportMenuRef = useRef(null);
 
   const textareaRef = useRef(null);
@@ -408,6 +409,7 @@ export default function ChatBox({
     setAttachedFiles([]);
     setConvError("");
     setSaveNotice("");
+    setIntentInfo(null);
     setIsBusy(true);
 
     requestAnimationFrame(() => {
@@ -508,18 +510,31 @@ export default function ChatBox({
               setDocProgress({ content: "MAX OUTPUT MODE activated", current: 0, total: 0 });
             }
 
+            // Capture v3 intent data for badge display
+            if (modeData.intent_primary) {
+              setIntentInfo({
+                primary: modeData.intent_primary,
+                domain: modeData.intent_domain || 'general',
+                confidence: modeData.intent_confidence || 0,
+              });
+            }
+
             // Set specific status message
             const text = modeData.image_search 
               ? "Finding high-quality images..." 
               : modeData.max_output
                 ? "Activating MAX OUTPUT MODE..."
-                : "Searching the web...";
-            setSearchStatus(text);
+                : modeData.web_search
+                  ? "Searching the web..."
+                  : "";
+            if (text) setSearchStatus(text);
 
             setMessages((prev) => updateMsg(prev, botId, {
               web_search: modeData.web_search,
               reasoning: modeData.reasoning,
               mode: modeData.max_output ? "max_output" : (modeData.reasoning ? "think" : "normal"),
+              intent_primary: modeData.intent_primary,
+              intent_domain: modeData.intent_domain,
             }));
           },
           onSearchStatus: (status) => {
@@ -887,6 +902,24 @@ export default function ChatBox({
                     <path d="M2 12h20" />
                   </svg>
                   <span>{searchStatus}</span>
+                  {intentInfo && (
+                    <span className={`intent-badge intent-badge-${
+                      intentInfo.primary === 'academic_notes' ? 'academic' :
+                      intentInfo.primary === 'code_generation' ? 'code' :
+                      intentInfo.primary === 'web_search' ? 'search' :
+                      intentInfo.primary === 'creative_writing' ? 'creative' :
+                      intentInfo.primary === 'document_generation' ? 'document' :
+                      'casual'
+                    }`}>
+                      {intentInfo.primary === 'academic_notes' ? '📚 Academic' :
+                       intentInfo.primary === 'code_generation' ? '💻 Code' :
+                       intentInfo.primary === 'web_search' ? '🌐 Search' :
+                       intentInfo.primary === 'creative_writing' ? '✨ Creative' :
+                       intentInfo.primary === 'document_generation' ? '📄 Document' :
+                       intentInfo.primary === 'casual_chat' ? '💬 Chat' :
+                       `🔍 ${intentInfo.primary}`}
+                    </span>
+                  )}
                 </div>
               )}
               {isBusy && !searchStatus && <TypingIndicator />}
