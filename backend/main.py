@@ -78,7 +78,7 @@ async def root():
     return {
         "name": "LACUNEX AI",
         "tagline": "Filling the gaps humans can't reach",
-        "version": "3.0.0",
+        "version": "4.0.0",
         "status": "operational",
         "author": "Shasradha Karmakar",
         "allowed_origins": get_allowed_origins(),
