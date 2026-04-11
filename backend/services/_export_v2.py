@@ -181,6 +181,27 @@ def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
 #  RICH-TEXT HELPER (ReportLab Paragraph XML)
 # ═══════════════════════════════════════════════════════════════════════════
 
+def sanitize_para(text: str) -> str:
+    import re
+    try:
+        stack = []
+        for tag in re.finditer(r'<(/?)(\w+)[^>]*>', text):
+            closing, name = tag.group(1), tag.group(2).lower()
+            if name in ('br',):
+                continue
+            if closing:
+                if stack and stack[-1] == name:
+                    stack.pop()
+                else:
+                    text = re.sub(r'<(?!para|/para)[^>]+>', '', text)
+                    return text
+            else:
+                stack.append(name)
+        return text
+    except Exception:
+        return re.sub(r'<[^>]+>', '', text)
+
+
 def _para_rich(text: str) -> str:
     """Convert markdown inline formatting → ReportLab Paragraph XML."""
     text = _pdf_safe(text)
@@ -195,7 +216,7 @@ def _para_rich(text: str) -> str:
     text = re.sub(r'`([^`]+)`',
                   r'<font face="Courier" size="9" color="#37306e">\1</font>',
                   text)
-    return text
+    return sanitize_para(text)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -915,19 +936,29 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
         p.paragraph_format.space_after = Pt(2)
 
     def add_runs(para, text, base_size=11, base_color=None):
+        import re
         if base_color is None:
             base_color = RGBColor(0x2d, 0x2d, 0x2d)
-        for r in _inline_runs(text):
-            run = para.add_run(r["text"])
-            run.bold = r["bold"]
-            run.italic = r["italic"]
-            run.font.size = Pt(base_size)
-            run.font.name = "Arial"
-            if r["code"]:
-                run.font.name = "Courier New"
-                run.font.size = Pt(9)
-                run.font.color.rgb = RGBColor(0x37, 0x30, 0x6e)
-            else:
+        
+        pattern = re.compile(r'(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|([^*]+))')
+        for match in pattern.finditer(text):
+            run = None
+            if match.group(2):
+                run = para.add_run(match.group(2))
+                run.bold = True
+                run.italic = True
+            elif match.group(3):
+                run = para.add_run(match.group(3))
+                run.bold = True
+            elif match.group(4):
+                run = para.add_run(match.group(4))
+                run.italic = True
+            elif match.group(5):
+                run = para.add_run(match.group(5))
+            
+            if run:
+                run.font.size = Pt(base_size)
+                run.font.name = "Arial"
                 run.font.color.rgb = base_color
 
     def add_page_number(paragraph):
@@ -1102,59 +1133,40 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
     # ── Cover Page ────────────────────────────────────────────────────────
     bp = doc.add_paragraph()
     bp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    bp.paragraph_format.space_before = Pt(24)
-    br_ = bp.add_run("L A C U N E X   A I")
+    bp.paragraph_format.space_before = Pt(80)
+    br_ = bp.add_run("LACUNEX AI")
     br_.bold = True
-    br_.font.size = Pt(14)
+    br_.font.size = Pt(36)
     br_.font.name = "Arial"
-    br_.font.color.rgb = RGBColor(0x00, 0xd4, 0xff)
+    br_.font.color.rgb = RGBColor(0x0a, 0x0a, 0x2e)
 
     tp_tag = doc.add_paragraph()
     tp_tag.alignment = WD_ALIGN_PARAGRAPH.CENTER
     tr_tag = tp_tag.add_run("Filling the gaps humans can't reach")
     tr_tag.italic = True
-    tr_tag.font.size = Pt(10)
+    tr_tag.font.size = Pt(14)
     tr_tag.font.name = "Arial"
-    tr_tag.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
-
-    doc.add_paragraph().paragraph_format.space_before = Pt(60)
+    tr_tag.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+    tp_tag.paragraph_format.space_after = Pt(60)
 
     tp = doc.add_paragraph()
     tp.alignment = WD_ALIGN_PARAGRAPH.CENTER
     tr = tp.add_run(title)
     tr.bold = True
-    tr.font.size = Pt(28)
+    tr.font.size = Pt(24)
     tr.font.name = "Arial"
     tr.font.color.rgb = RGBColor(0x0a, 0x0a, 0x2e)
-    tp.paragraph_format.space_after = Pt(8)
-
-    # Cyan bar (1-row table)
-    bar_t = doc.add_table(rows=1, cols=1)
-    bar_t.alignment = WD_TABLE_ALIGNMENT.CENTER
-    bar_c = bar_t.rows[0].cells[0]
-    bar_c.text = ""
-    shade_cell(bar_c, "00d4ff")
-    trEl = bar_t.rows[0]._tr
-    trPr = trEl.get_or_add_trPr()
-    trH = OxmlElement('w:trHeight')
-    trH.set(qn('w:val'), '60')
-    trH.set(qn('w:hRule'), 'exact')
-    trPr.append(trH)
-    tcW = OxmlElement('w:tcW')
-    tcW.set(qn('w:w'), '4000')
-    tcW.set(qn('w:type'), 'dxa')
-    bar_c._tc.get_or_add_tcPr().append(tcW)
+    tp.paragraph_format.space_after = Pt(20)
 
     mp = doc.add_paragraph()
     mp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    mp.paragraph_format.space_before = Pt(16)
     sc = meta.get('total_sections', 0)
     pe = meta.get('total_pages_estimate', 1)
     tc = meta.get('total_tables', 0)
     mr_ = mp.add_run(f"{sc} Sections  |  ~{pe} Pages  |  {tc} Tables")
     mr_.font.size = Pt(10)
     mr_.font.name = "Arial"
-    mr_.font.color.rgb = RGBColor(0x00, 0xd4, 0xff)
+    mr_.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
 
     dp = doc.add_paragraph()
     dp.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1272,9 +1284,23 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
             elif bt == "text":
                 txt = block.get("text", "")
                 if txt.strip():
-                    p = doc.add_paragraph()
-                    add_runs(p, txt)
-                    p.paragraph_format.space_after = Pt(4)
+                    line = txt.strip()
+                    if line.startswith('#### '):
+                        p = doc.add_paragraph(style='Heading 4')
+                        p.add_run(line[5:]).bold = True
+                    elif line.startswith('### '):
+                        p = doc.add_paragraph(style='Heading 3')
+                        p.add_run(line[4:]).bold = True
+                    elif line.startswith('## '):
+                        p = doc.add_paragraph(style='Heading 2')
+                        p.add_run(line[3:]).bold = True
+                    elif line.startswith('# '):
+                        p = doc.add_paragraph(style='Heading 1')
+                        p.add_run(line[2:]).bold = True
+                    else:
+                        p = doc.add_paragraph(style='Normal')
+                        add_runs(p, line)
+                        p.paragraph_format.space_after = Pt(4)
 
             elif bt == "code":
                 lang = block.get("language", "")
@@ -1325,4 +1351,73 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
 
     buf = io.BytesIO()
     doc.save(buf)
+    return buf.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  XLSX GENERATOR — openpyxl
+# ═══════════════════════════════════════════════════════════════════════════
+
+def generate_document_xlsx(doc_json: dict, theme: str = "professional") -> bytes:
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment
+    
+    wb = Workbook()
+    ws_ov = wb.active
+    ws_ov.title = "Overview"
+    
+    blue_fill = PatternFill(start_color="0A0A2E", end_color="0A0A2E", fill_type="solid")
+    white_font = Font(color="FFFFFF", bold=True, size=12)
+    alt_fill = PatternFill(start_color="F0F8FF", end_color="F0F8FF", fill_type="solid")
+    
+    ws_ov.append(["Document Metadata", ""])
+    ws_ov["A1"].font = white_font
+    ws_ov["A1"].fill = blue_fill
+    ws_ov["B1"].fill = blue_fill
+    ws_ov.append(["Title", doc_json.get("title", "Untitled")])
+    ws_ov.append(["Generated", "LACUNEX AI"])
+    
+    ws_ov.append([])
+    ws_ov.append(["Table of Contents", ""])
+    r_toc = ws_ov.max_row
+    ws_ov.cell(row=r_toc, column=1).font = white_font
+    ws_ov.cell(row=r_toc, column=1).fill = blue_fill
+    ws_ov.cell(row=r_toc, column=2).fill = blue_fill
+    
+    for idx, t in enumerate(doc_json.get("table_of_contents", [])):
+        ws_ov.append([f"{idx+1}. {t.get('title', '')}"])
+    
+    ws_ov.column_dimensions['A'].width = 30
+    ws_ov.column_dimensions['B'].width = 50
+    
+    for sec_idx, section in enumerate(doc_json.get("sections", [])):
+        heading = section.get("heading", f"Section {sec_idx+1}")
+        sht_name = "".join(c for c in heading if c.isalnum() or c == " ")[:31].strip()
+        if not sht_name: sht_name = f"Sec {sec_idx+1}"
+        ws = wb.create_sheet(title=sht_name)
+        
+        ws.append(["Topic/Heading", "Content Summary"])
+        ws["A1"].font = white_font
+        ws["A1"].fill = blue_fill
+        ws["B1"].font = white_font
+        ws["B1"].fill = blue_fill
+        ws.freeze_panes = "A2"
+        
+        row_idx = 2
+        for sub in section.get("subsections", []):
+            ws.append([sub.get("heading", ""), sub.get("content", "")])
+            if row_idx % 2 == 0:
+                ws.cell(row=row_idx, column=1).fill = alt_fill
+                ws.cell(row=row_idx, column=2).fill = alt_fill
+            
+            ws.cell(row=row_idx, column=1).alignment = Alignment(wrap_text=True, vertical="top")
+            ws.cell(row=row_idx, column=2).alignment = Alignment(wrap_text=True, vertical="top")
+            row_idx += 1
+            
+        ws.column_dimensions['A'].width = 30
+        ws.column_dimensions['B'].width = 80
+        
+    buf = io.BytesIO()
+    wb.save(buf)
     return buf.getvalue()
