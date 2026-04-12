@@ -605,6 +605,7 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
             </div>
           )}
         </div>
+        )}
 
         {/* Actions */}
         {message.content && (
