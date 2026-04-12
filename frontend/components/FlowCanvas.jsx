@@ -21,7 +21,7 @@ function useReactFlow() {
       setLoaded(true);
     }).catch((err) => {
       console.error('[FlowCanvas] Failed to load @xyflow/react:', err);
-      setLoaded(true); // still set loaded so we can show error
+      setLoaded(true); 
     });
   }, []);
 
@@ -29,158 +29,203 @@ function useReactFlow() {
 }
 
 // ---------------------------------------------------------
-// Custom Node: ChatPromptNode
+// Universal Custom Node: LacunexNode
 // ---------------------------------------------------------
-function ChatPromptNode({ data, id }) {
-  // Safely import Handle + Position at render time from the cached module
+function LacunexNode({ data, selected }) {
   const Handle = ReactFlowModule?.Handle;
   const Position = ReactFlowModule?.Position;
 
-  if (!Handle || !Position) return <div className="flow-custom-node glass-panel-strong">Loading...</div>;
+  if (!Handle || !Position) return <div className="flow-node">...</div>;
 
   return (
-    <div className="flow-custom-node glass-panel-strong">
-      <Handle type="target" position={Position.Top} className="flow-handle" />
+    <div className={`flow-node ${data.category} ${selected ? 'selected' : ''}`} style={{
+      background: '#111128',
+      border: `1px solid ${selected ? '#00e5ff' : '#222244'}`,
+      borderRadius: '8px',
+      padding: '12px',
+      width: '260px',
+      fontFamily: '"Space Grotesk", "Inter", sans-serif',
+      boxShadow: selected ? '0 0 15px rgba(0, 229, 255, 0.2)' : 'none',
+      color: '#fff',
+      transition: 'all 0.2s ease'
+    }}>
+      <Handle type="target" position={Position.Left} style={{ background: '#00e5ff', width: '8px', height: '8px' }} />
       
-      <div className="flow-node-header">
-        <span className="flow-node-title">AI Prompt Node {id}</span>
-        {data.status === 'running' && <span className="flow-status running">⏳ Running</span>}
-        {data.status === 'success' && <span className="flow-status success">✅ Done</span>}
-        {data.status === 'error' && <span className="flow-status error">❌ Error</span>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #222244', paddingBottom: '8px', marginBottom: '10px' }}>
+        <div style={{ fontSize: '1.2rem' }}>{data.icon}</div>
+        <div style={{ fontWeight: '600', fontSize: '0.9rem', color: data.category === 'input' ? '#4ade80' : data.category === 'action' ? '#00e5ff' : '#c084fc' }}>
+          {data.label}
+        </div>
       </div>
       
-      <div className="flow-node-body">
-        <textarea 
-          className="flow-textarea" 
-          placeholder="System Prompt / Instructions..." 
-          value={data.prompt} 
-          onChange={(e) => data.onChange?.(id, e.target.value)}
-        />
+      <div className="node-content">
+        {data.type === 'text_input' && (
+          <textarea
+            value={data.text || ''}
+            onChange={e => data.onChange && data.onChange(data.id, e.target.value)}
+            placeholder="Enter your prompt..."
+            rows={3}
+            style={{ width: '100%', background: '#0a0a18', border: '1px solid #333', color: '#fff', padding: '8px', borderRadius: '4px', fontSize: '0.8rem', resize: 'vertical' }}
+          />
+        )}
+        
+        {data.type === 'translate' && (
+          <select
+            value={data.language || 'Hindi'}
+            onChange={e => data.onLanguageChange && data.onLanguageChange(data.id, e.target.value)}
+            style={{ width: '100%', background: '#0a0a18', border: '1px solid #333', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '0.8rem' }}
+          >
+            <option>Hindi</option>
+            <option>Bengali</option>
+            <option>Tamil</option>
+            <option>Telugu</option>
+            <option>French</option>
+            <option>Spanish</option>
+          </select>
+        )}
+        
+        {data.status && (
+          <div style={{ marginTop: '10px', fontSize: '0.75rem', fontWeight: 'bold', 
+            color: data.status === 'running' ? '#facc15' : data.status === 'done' ? '#4ade80' : '#f87171' 
+          }}>
+            {data.status === 'running' && '⏳ Running...'}
+            {data.status === 'done' && '✅ Done'}
+            {data.status === 'error' && '❌ Error'}
+          </div>
+        )}
         
         {data.output && (
-          <div className="flow-output-console">
-            <div className="flow-output-label">Output:</div>
-            <div className="flow-output-content">{data.output}</div>
+          <div style={{ marginTop: '10px', background: '#0a0a18', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', maxHeight: '100px', overflowY: 'auto', border: '1px solid #222244' }}>
+            <div style={{ color: '#888', marginBottom: '4px' }}>Result:</div>
+            {data.output}
           </div>
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="flow-handle" />
+      <Handle type="source" position={Position.Right} style={{ background: '#00e5ff', width: '8px', height: '8px' }} />
     </div>
   );
 }
 
 // ---------------------------------------------------------
-// Engine Logic — uses the CORRECT production API URL
+// TEMPLATES
 // ---------------------------------------------------------
+const TEMPLATES = [
+  {
+    id: "t1",
+    name: "📚 Student Notes Package",
+    description: "Type a topic → get notes + quiz + PDF",
+    nodes: [
+      { id: 'n1', type: 'lacunexNode', position: { x: 50, y: 150 }, data: { id: 'n1', type: 'text_input', category: 'input', icon: '📝', label: 'Topic Input', text: 'Quantum Physics' } },
+      { id: 'n2', type: 'lacunexNode', position: { x: 400, y: 50 }, data: { id: 'n2', type: 'generate_notes', category: 'action', icon: '🧠', label: 'Generate Notes' } },
+      { id: 'n3', type: 'lacunexNode', position: { x: 400, y: 250 }, data: { id: 'n3', type: 'quiz_generator', category: 'action', icon: '❓', label: 'Quiz Generator' } },
+      { id: 'n4', type: 'lacunexNode', position: { x: 750, y: 150 }, data: { id: 'n4', type: 'download_pdf', category: 'output', icon: '📥', label: 'Download PDF' } }
+    ],
+    edges: [
+      { id: 'e1-2', source: 'n1', target: 'n2', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e1-3', source: 'n1', target: 'n3', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e2-4', source: 'n2', target: 'n4', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+    ]
+  },
+  {
+    id: "t2",
+    name: "🔍 Research & Summarize",
+    description: "Type a question → get live researched summary",
+    nodes: [
+      { id: 'n1', type: 'lacunexNode', position: { x: 50, y: 150 }, data: { id: 'n1', type: 'text_input', category: 'input', icon: '📝', label: 'Research Question', text: 'What is the latest advancement in AI?' } },
+      { id: 'n2', type: 'lacunexNode', position: { x: 400, y: 150 }, data: { id: 'n2', type: 'web_search', category: 'action', icon: '🔍', label: 'Web Search' } },
+      { id: 'n3', type: 'lacunexNode', position: { x: 750, y: 150 }, data: { id: 'n3', type: 'summarize', category: 'action', icon: '📋', label: 'Summarize' } },
+      { id: 'n4', type: 'lacunexNode', position: { x: 1100, y: 150 }, data: { id: 'n4', type: 'show_in_chat', category: 'output', icon: '💬', label: 'Show in Chat' } }
+    ],
+    edges: [
+      { id: 'e1-2', source: 'n1', target: 'n2', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e2-3', source: 'n2', target: 'n3', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e3-4', source: 'n3', target: 'n4', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+    ]
+  },
+  {
+    id: "t3",
+    name: "💻 Code & Explain",
+    description: "Describe what you want → get code + explanation",
+    nodes: [
+      { id: 'n1', type: 'lacunexNode', position: { x: 50, y: 150 }, data: { id: 'n1', type: 'text_input', category: 'input', icon: '📝', label: 'Code Request', text: 'Write a python script to parse CSV' } },
+      { id: 'n2', type: 'lacunexNode', position: { x: 400, y: 50 }, data: { id: 'n2', type: 'write_code', category: 'action', icon: '💻', label: 'Write Code' } },
+      { id: 'n3', type: 'lacunexNode', position: { x: 400, y: 250 }, data: { id: 'n3', type: 'summarize', category: 'action', icon: '📋', label: 'Explain Code' } },
+      { id: 'n4', type: 'lacunexNode', position: { x: 750, y: 150 }, data: { id: 'n4', type: 'show_in_chat', category: 'output', icon: '💬', label: 'Show in Chat' } }
+    ],
+    edges: [
+      { id: 'e1-2', source: 'n1', target: 'n2', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e2-3', source: 'n2', target: 'n3', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e3-4', source: 'n3', target: 'n4', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+    ]
+  },
+  {
+    id: "t4",
+    name: "🌐 Translate Content",
+    description: "Topic → notes → translated to your language",
+    nodes: [
+      { id: 'n1', type: 'lacunexNode', position: { x: 50, y: 150 }, data: { id: 'n1', type: 'text_input', category: 'input', icon: '📝', label: 'Source Text', text: 'Artificial Intelligence' } },
+      { id: 'n2', type: 'lacunexNode', position: { x: 400, y: 150 }, data: { id: 'n2', type: 'generate_notes', category: 'action', icon: '🧠', label: 'Generate Notes' } },
+      { id: 'n3', type: 'lacunexNode', position: { x: 750, y: 150 }, data: { id: 'n3', type: 'translate', category: 'action', icon: '🌐', label: 'Translate', language: 'Hindi' } },
+      { id: 'n4', type: 'lacunexNode', position: { x: 1100, y: 150 }, data: { id: 'n4', type: 'show_in_chat', category: 'output', icon: '💬', label: 'Show in Chat' } }
+    ],
+    edges: [
+      { id: 'e1-2', source: 'n1', target: 'n2', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e2-3', source: 'n2', target: 'n3', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+      { id: 'e3-4', source: 'n3', target: 'n4', animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } },
+    ]
+  }
+];
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-async function runChatCompletion(prompt, inputContext, jwtToken) {
-  let finalPrompt = prompt;
-  if (inputContext) {
-    finalPrompt = `Context from previous step:\n<context>\n${inputContext}\n</context>\n\nInstructions:\n${prompt}`;
-  }
-
-  const res = await fetch(`${API_BASE}/api/generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${jwtToken || "guest"}`
-    },
-    body: JSON.stringify({
-      message: finalPrompt,
-      history: [],
-      mode: "normal",
-      provider: "groq",
-      model: "llama-3.3-70b-versatile"
-    })
-  });
-
-  if (!res.ok) throw new Error(`API failed (${res.status})`);
-  
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let fullText = "";
-  
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    
-    const lines = chunk.split('\n');
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          const data = JSON.parse(line.slice(6));
-          if (data.type === "token") {
-            fullText += data.content;
-          } else if (data.type === "done") {
-            if (data.answer && !fullText) fullText = data.answer;
-          }
-        } catch(e) {}
-      }
-    }
-  }
-
-  return fullText || "(No output)";
-}
 
 // ---------------------------------------------------------
 // FlowCanvas Main Component
 // ---------------------------------------------------------
-const initialNodes = [
-  {
-    id: '1',
-    type: 'chatPrompt',
-    position: { x: 250, y: 50 },
-    data: { prompt: 'Generate 3 startup ideas.', output: '', status: 'idle' },
-  },
-  {
-    id: '2',
-    type: 'chatPrompt',
-    position: { x: 250, y: 350 },
-    data: { prompt: 'Write a catchy slogan for each idea.', output: '', status: 'idle' },
-  },
-  {
-    id: '3',
-    type: 'chatPrompt',
-    position: { x: 250, y: 650 },
-    data: { prompt: 'Translate the slogans into French.', output: '', status: 'idle' },
-  }
-];
-
-const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2', animated: true },
-  { id: 'e2-3', source: '2', target: '3', animated: true },
-];
-
 export default function FlowCanvas() {
   const { loaded, mod } = useReactFlow();
   const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState(initialEdges);
+  const [edges, setEdges] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [globalError, setGlobalError] = useState("");
 
-  const handlePromptChange = useCallback((id, newPrompt) => {
+  const handleTextChange = useCallback((id, newText) => {
     setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === id) {
-          return { ...node, data: { ...node.data, prompt: newPrompt } };
-        }
-        return node;
-      })
+      nds.map((n) => n.id === id ? { ...n, data: { ...n.data, text: newText } } : n)
     );
   }, []);
 
-  // Initialize nodes once
-  useEffect(() => {
-    const initialized = initialNodes.map(n => ({
-      ...n,
-      data: { ...n.data, onChange: handlePromptChange }
-    }));
-    setNodes(initialized);
-  }, [handlePromptChange]);
+  const handleLangChange = useCallback((id, newLang) => {
+    setNodes((nds) =>
+      nds.map((n) => n.id === id ? { ...n, data: { ...n.data, language: newLang } } : n)
+    );
+  }, []);
 
-  const nodeTypes = useMemo(() => ({ chatPrompt: ChatPromptNode }), []);
+  const loadTemplate = (templateId) => {
+    const tmpl = TEMPLATES.find(t => t.id === templateId);
+    if (!tmpl) return;
+    
+    // Wire up the handlers
+    const wiredNodes = tmpl.nodes.map(n => ({
+      ...n,
+      data: {
+        ...n.data,
+        onChange: handleTextChange,
+        onLanguageChange: handleLangChange
+      }
+    }));
+    
+    setNodes(wiredNodes);
+    setEdges(tmpl.edges);
+    setGlobalError("");
+  };
+
+  // Load template 1 by default
+  useEffect(() => {
+    loadTemplate("t1");
+  }, [handleTextChange, handleLangChange]);
+
+  const nodeTypes = useMemo(() => ({ lacunexNode: LacunexNode }), []);
 
   const onNodesChange = useCallback((changes) => {
     if (!mod) return;
@@ -194,80 +239,69 @@ export default function FlowCanvas() {
 
   const onConnect = useCallback((params) => {
     if (!mod) return;
-    setEdges((eds) => mod.addEdge({ ...params, animated: true }, eds));
+    setEdges((eds) => mod.addEdge({ ...params, animated: true, style: { stroke: '#00e5ff', strokeWidth: 2 } }, eds));
   }, [mod]);
 
   const executeFlow = async () => {
     if (isRunning) return;
     setIsRunning(true);
-    
-    // Basic Topological Sort
-    const adj = {};
-    const inDegree = {};
-    nodes.forEach(n => { adj[n.id] = []; inDegree[n.id] = 0; });
-    edges.forEach(e => {
-      if (adj[e.source]) adj[e.source].push(e.target);
-      if (inDegree[e.target] !== undefined) inDegree[e.target]++;
-    });
+    setGlobalError("");
+    setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: null, output: null } })));
 
-    const queue = [];
-    Object.keys(inDegree).forEach(id => { if (inDegree[id] === 0) queue.push(id); });
+    try {
+      // Find initial input
+      const startNodes = nodes.filter(n => n.data.type === 'text_input');
+      let initial_input = "Start";
+      if (startNodes.length > 0) initial_input = startNodes[0].data.text || "";
 
-    const order = [];
-    while (queue.length > 0) {
-      const u = queue.shift();
-      order.push(u);
-      (adj[u] || []).forEach(v => {
-        inDegree[v]--;
-        if (inDegree[v] === 0) queue.push(v);
-      });
-    }
-    
-    const nodeOutputs = {};
-    const localToken = typeof localStorage !== 'undefined' ? localStorage.getItem("token") : null;
-
-    // Reset status
-    setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'idle', output: '' } })));
-
-    for (const nodeId of order) {
-      setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'running' } } : n));
+      // We handle the topological sort in the backend to save frontend state complexity.
+      // But we need to fake real-time updates. Since backend `/flow/execute` runs as one request right now,
+      // we'll just show "running" on all nodes, then "done" when the payload comes back.
+      // A more robust flow engine would use WebSockets.
       
-      const nodeObj = nodes.find(n => n.id === nodeId);
-      if (!nodeObj) continue;
-      const prompt = nodeObj.data.prompt;
+      setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'running' } })));
 
-      const predecessors = edges.filter(e => e.target === nodeId).map(e => e.source);
-      const inputContext = predecessors.map(pId => nodeOutputs[pId]).filter(Boolean).join("\n\n");
+      const res = await fetch(`${API_BASE}/api/flow/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodes, edges, initial_input })
+      });
 
-      try {
-        const resultText = await runChatCompletion(prompt, inputContext, localToken);
-        nodeOutputs[nodeId] = resultText;
-        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'success', output: resultText } } : n));
-      } catch (err) {
-        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', output: err.message } } : n));
-        break;
+      if (!res.ok) throw new Error("Flow execution failed on the server.");
+      const data = await res.json();
+      const resultsMap = data.results || {};
+
+      setNodes(nds => nds.map(n => ({
+        ...n,
+        data: {
+          ...n.data,
+          status: 'done',
+          output: resultsMap[n.id] ? (typeof resultsMap[n.id] === 'string' ? resultsMap[n.id].substring(0, 150) + "..." : "Success") : ''
+        }
+      })));
+
+      if (resultsMap.should_download && resultsMap.pdf_content) {
+        // trigger fake download
+        const blob = new Blob([resultsMap.pdf_content], { type: 'text/markdown' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `lacunex_output_${Date.now()}.md`;
+        a.click();
       }
+
+    } catch (e) {
+      setGlobalError(e.message);
+      setNodes(nds => nds.map(n => n.data.status === 'running' ? { ...n, data: { ...n.data, status: 'error' } } : n));
+    } finally {
+      setIsRunning(false);
     }
-
-    setIsRunning(false);
-  };
-
-  const addNode = () => {
-    const newId = String(Date.now());
-    const newNode = {
-      id: newId,
-      type: 'chatPrompt',
-      position: { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 },
-      data: { prompt: '', output: '', status: 'idle', onChange: handlePromptChange }
-    };
-    setNodes((nds) => [...nds, newNode]);
   };
 
   // --- Loading / Error States ---
   if (!loaded) {
     return (
-      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', color: '#a855f7' }}>
+      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: '#00e5ff' }}>
           <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🌟</div>
           <div style={{ fontSize: '1rem', opacity: 0.8 }}>Loading LACUNEX Flow Engine...</div>
         </div>
@@ -277,21 +311,20 @@ export default function FlowCanvas() {
 
   if (!mod) {
     return (
-      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', color: '#ef4444', maxWidth: '400px', padding: '2rem' }}>
           <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚠️</div>
           <div style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Flow Engine could not load</div>
-          <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>The @xyflow/react dependency may not be installed correctly. Try refreshing.</div>
+          <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>The @xyflow/react dependency may not be installed.</div>
         </div>
       </div>
     );
   }
 
-  // --- Main Render ---
   const { ReactFlow: RF, Background, MiniMap, Controls, Panel } = mod;
 
   return (
-    <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a0a' }}>
+    <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '700px', background: '#0a0a2e' }}>
       <RF
         nodes={nodes}
         edges={edges}
@@ -300,18 +333,45 @@ export default function FlowCanvas() {
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
-        colorMode="dark"
       >
-        <Background gap={16} size={1} color="#333" />
-        <MiniMap nodeColor="#a855f7" maskColor="rgba(0,0,0,0.8)" style={{ background: '#111' }} />
-        <Controls />
-        <Panel position="top-right" className="flow-panel-nav">
-          <button className="flow-btn primary" onClick={executeFlow} disabled={isRunning}>
+        <Background gap={20} size={2} color="#222244" />
+        <MiniMap nodeColor="#00e5ff" maskColor="rgba(0,0,0,0.8)" style={{ background: '#111128', border: '1px solid #333' }} />
+        <Controls style={{ fill: '#00e5ff' }} />
+        
+        <Panel position="top-left" style={{ display: 'flex', gap: '10px' }}>
+          <select 
+            onChange={(e) => loadTemplate(e.target.value)}
+            style={{ background: '#111128', color: '#fff', border: '1px solid #00e5ff', padding: '8px', borderRadius: '4px' }}
+          >
+            <option value="">Load Template...</option>
+            {TEMPLATES.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </Panel>
+
+        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+          <button 
+            onClick={executeFlow} 
+            disabled={isRunning}
+            style={{ 
+              background: isRunning ? '#333' : '#00e5ff', 
+              color: isRunning ? '#888' : '#000', 
+              fontWeight: 'bold', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '4px', 
+              cursor: isRunning ? 'not-allowed' : 'pointer' 
+            }}
+          >
             {isRunning ? '⏳ Executing Pipeline...' : '▶ Run Data Workflow'}
           </button>
-          <button className="flow-btn secondary" onClick={addNode}>
-            + Add Step
-          </button>
+          
+          {globalError && (
+            <div style={{ background: '#450a0a', color: '#f87171', padding: '8px', borderRadius: '4px', border: '1px solid #7f1d1d', maxWidth: '300px' }}>
+              {globalError}
+            </div>
+          )}
         </Panel>
       </RF>
     </div>

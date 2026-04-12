@@ -96,12 +96,13 @@ async def chat(
     background_tasks.add_task(extract_and_save_memory, current_user.id, request.message)
 
     # Respect user's explicit choices, but fill in gaps with auto-detection
-    from services.intent_detector import should_auto_search
+    from services.intent_detector import should_auto_search, is_image_request
     auto_web_search, optimized_search_query = should_auto_search(request.message, intent_obj)
     auto_web_search = request.web_search or auto_web_search
     
     auto_reasoning = (request.mode == "think") or intent["reasoning"]
-    auto_image_search = intent["image_search"]
+    image_search_requested, image_query = is_image_request(request.message)
+    auto_image_search = intent.get("image_search", False) or image_search_requested
     auto_max_output = request.max_output or intent.get("max_output", False)
 
     # Determine effective mode
@@ -260,6 +261,15 @@ async def chat(
         if auto_web_search:
             yield f"data: {json.dumps({'type': 'search_status', 'content': '🔍 Searching the web...'})}\n\n"
 
+        if image_search_requested:
+            yield f"data: {json.dumps({'type': 'image_search', 'query': image_query})}\n\n"
+            from routes.image import search_images_endpoint
+            images_data = await search_images_endpoint(image_query, count=12)
+            yield f"data: {json.dumps({'type': 'images', 'data': images_data, 'query': image_query})}\n\n"
+            
+            # Save to history immediately
+            image_results = images_data.get("images", [])
+
         # ── Build Elite Intelligence Message ─────────────────────────────
         effective_message = request.message
         
@@ -290,11 +300,14 @@ async def chat(
             
             search_block = (
                 f"\n--- [LIVE WEB SEARCH RESULTS] ---\n"
-                f"⚠️ CRITICAL DATE CONTEXT: Today is {today_str}. The current year is {current_year}.\n"
-                f"You MUST use ONLY the data from the search results below. Do NOT hallucinate or make up data.\n"
+                f"TODAY'S DATE: {today_str}\n"
+                f"You are synthesizing search results as of {today_str}.\n"
+                f"ONLY use information that is current as of {today_str}.\n"
+                f"If search results contain data from 2024 or 2025,\n"
+                f"clearly label it as 'older data' and prioritize\n"
+                f"2026 results. Never present old data as current.\n"
                 f"If the search results show specific scores, dates, or facts — USE THOSE EXACT numbers.\n"
                 f"NEVER fabricate match scores, player stats, or results that are not in the sources below.\n"
-                f"If you cannot find the specific answer in the search results, say 'Based on available data...' and explain what you found.\n"
                 f"**CRITICAL:** Cite your sources inline using [1], [2] format.\n"
             )
             

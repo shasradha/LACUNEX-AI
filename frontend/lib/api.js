@@ -223,7 +223,7 @@ export async function extractFile(file) {
 }
 
 export async function executeCode(code, language, stdin = "") {
-  return request("/api/code/execute", {
+  return request("/api/execute", {
     method: "POST",
     body: { code, language, stdin },
   });
@@ -299,6 +299,14 @@ export async function streamChat(
 
         if (payload.type === "search_status") {
           callbacks.onSearchStatus?.(payload.content || "Searching...");
+        }
+
+        if (payload.type === "image_search") {
+          callbacks.onImageSearch?.(payload);
+        }
+
+        if (payload.type === "images") {
+          callbacks.onImages?.(payload);
         }
 
         if (payload.type === "token") {

@@ -150,80 +150,73 @@ function createImageSource(image) {
   return null;
 }
 
-const getSuggestionChips = (userMessage, aiResponse) => {
-  const msg = (userMessage || "").toLowerCase().trim();
-  const words = msg.split(' ');
-  
+const getSuggestionChips = (userMsg, aiResp) => {
+  const msg = (userMsg || "").toLowerCase().trim();
+  const respLen = (aiResp || "").length;
+
   // NEVER show chips for:
-  const noChipPatterns = [
-    // Greetings
-    msg.length < 15 && /^(hi|hello|hey|thanks|bye|ok|okay|cool|nice|great|yes|no|yep|nope|sure|got it|understood)/.test(msg),
-    // Questions answered in < 100 chars
-    aiResponse.length < 150,
-    // Identity questions
-    /who are you|what are you|your name|about lacunex/.test(msg),
-  ];
-  
-  if (noChipPatterns.some(Boolean)) return [];
-  
-  // CONTEXT-AWARE chips based on content type:
-  const chips = [];
-  
-  // ACADEMIC/NOTES content
-  if (/notes|explain|concept|theory|chapter|unit|topic|history|science|math|physics|chemistry|biology|engineering/.test(msg)) {
-    chips.push(
-      { label: '📝 Quiz Me', action: 'Generate a 10-question quiz from the above explanation' },
-      { label: '📊 Mind Map', action: 'Create a structured mind map outline of the above topic' },
-      { label: '🎯 Exam Tips', action: 'What are the most important exam points from the above?' },
-      { label: '🔍 Go Deeper', action: 'Explain the most complex part of the above in more detail' }
-    );
+  if (
+    msg.length < 20 ||
+    respLen < 200 ||
+    /^(hi|hello|hey|thanks|bye|ok|okay|yes|no|cool|nice|great|got it|understood|sure|fine|wow|amazing|perfect|awesome)/.test(msg) ||
+    /who are you|what are you|your name|about lacunex|how are you/.test(msg)
+  ) return [];
+
+  // ACADEMIC / NOTES / STUDY
+  if (/notes|explain|concept|theory|chapter|unit|topic|history|science|physics|chemistry|biology|engineering|describe|what is|how does|why does/.test(msg)) {
+    return [
+      { icon: '📝', label: 'Quiz Me', action: 'Create a 10-question quiz from the above explanation' },
+      { icon: '🗺️', label: 'Mind Map', action: 'Create a mind map outline of the above topic' },
+      { icon: '🎯', label: 'Key Points', action: 'List the 5 most important exam points from above' },
+    ];
   }
-  // CODE content
-  else if (/code|function|program|script|build|create|api|website|app|implement/.test(msg) || aiResponse.includes('```')) {
-    chips.push(
-      { label: '⚡ Optimize', action: 'Optimize the above code for better performance' },
-      { label: '🛡️ Add Error Handling', action: 'Add comprehensive error handling to the above code' },
-      { label: '🧪 Write Tests', action: 'Write unit tests for the above code' },
-      { label: '📖 Explain Code', action: 'Explain each part of the above code in simple terms' }
-    );
+
+  // CODE / PROGRAMMING
+  if (/code|function|program|script|build|create.*app|website|api|implement|develop|debug|error/.test(msg) || aiResp.includes('```')) {
+    return [
+      { icon: '⚡', label: 'Optimize', action: 'Optimize the above code for better performance' },
+      { icon: '🛡️', label: 'Add Error Handling', action: 'Add comprehensive error handling to the above code' },
+      { icon: '🧪', label: 'Write Tests', action: 'Write unit tests for the above code' },
+    ];
   }
-  // FACTUAL/RESEARCH content
-  else if (/what is|how does|why|history|difference|compare|vs|between/.test(msg)) {
-    chips.push(
-      { label: '⚔️ Compare', action: 'Compare this with its main alternative' },
-      { label: '🌍 Real Examples', action: 'Give 5 real-world Indian examples' },
-      { label: '📚 Go Deeper', action: 'Provide a more in-depth explanation' },
-      { label: '🎯 Summarize', action: 'Summarize the key points in 5 bullets' }
-    );
+
+  // MATH / ENGINEERING / NUMERICALS
+  if (/calculate|find|solve|formula|equation|numerical|design|shaft|stress|torque|derive|proof|theorem/.test(msg)) {
+    return [
+      { icon: '➕', label: 'Another Example', action: 'Solve another similar problem with different values' },
+      { icon: '📐', label: 'All Formulas', action: 'List all formulas used above with derivations' },
+      { icon: '⚠️', label: 'Common Mistakes', action: 'What are common mistakes in this type of problem?' },
+    ];
   }
-  // MATH/NUMERICAL content  
-  else if (/calculate|find|solve|formula|equation|numerical|design|shaft|stress|torque/.test(msg)) {
-    chips.push(
-      { label: '➕ Another Example', action: 'Solve another similar numerical with different values' },
-      { label: '📐 Show Formula', action: 'List all formulas used with derivations' },
-      { label: '⚠️ Common Mistakes', action: 'What are common mistakes in this type of problem?' },
-      { label: '📋 Step Summary', action: 'Give me a checklist of steps to solve such problems' }
-    );
+
+  // HISTORY / FACTUAL / RESEARCH
+  if (/history|origin|when|who invented|timeline|war|revolution|movement|culture|civilization/.test(msg)) {
+    return [
+      { icon: '📅', label: 'Full Timeline', action: 'Give a detailed timeline of the above events' },
+      { icon: '🌍', label: 'Global Impact', action: 'What was the global impact of the above?' },
+      { icon: '📚', label: 'Key Figures', action: 'Who were the key people involved in the above?' },
+    ];
   }
-  // CREATIVE/WRITING content
-  else if (/write|story|poem|essay|email|letter|script|blog/.test(msg)) {
-    chips.push(
-      { label: '🔄 Rewrite', action: 'Rewrite in a different style' },
-      { label: '✨ Make Punchier', action: 'Make this more engaging and impactful' },
-      { label: '📏 Shorten', action: 'Condense this to half the length' },
-      { label: '🌐 Translate', action: 'Translate this to Hindi' }
-    );
-  } else {
-    // Default fallback
-    chips.push(
-      { label: '🔄 Longer', action: 'Make this longer and more detailed' },
-      { label: '✂️ Simplify', action: 'Simplify this for a beginner' },
-      { label: '🇮🇳 Examples', action: 'Add more Indian/relatable examples' },
-    );
+
+  // CREATIVE / WRITING
+  if (/write|story|poem|essay|email|letter|script|blog|article|content/.test(msg)) {
+    return [
+      { icon: '✨', label: 'Make it Better', action: 'Make the above more engaging and impactful' },
+      { icon: '📏', label: 'Shorten', action: 'Condense the above to half the length' },
+      { icon: '🌐', label: 'Translate', action: 'Translate the above to Hindi' },
+    ];
   }
-  
-  // Show max 3 chips, always most relevant first
-  return chips.slice(0, 3);
+
+  // COMPARISON / ANALYSIS
+  if (/compare|difference|vs|versus|better|best|pros.*cons|advantages|disadvantages/.test(msg)) {
+    return [
+      { icon: '📊', label: 'Full Comparison Table', action: 'Create a detailed comparison table for the above' },
+      { icon: '✅', label: 'Final Recommendation', action: 'Based on the above, give your final recommendation' },
+      { icon: '🔍', label: 'Dive Deeper', action: 'Analyze the above comparison in more depth' },
+    ];
+  }
+
+  return []; // no chips if no category matched
 };
 
 const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
@@ -457,6 +450,11 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
       )}
 
       <div className="msg-body">
+        {message.type === 'images' && message.data ? (
+          <div className={`msg-bubble ${isUser ? "msg-bubble-user" : "msg-bubble-bot"}`}>
+            <ImageSlider images={message.data} query={message.query} />
+          </div>
+        ) : (
         <div className={`msg-bubble ${isUser ? "msg-bubble-user" : "msg-bubble-bot"}`}>
           {/* Sender Label */}
           <div className="msg-sender">
@@ -549,7 +547,7 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
 
           {/* Refinement Buttons (v4.0) */}
           {!isUser && message.content && message.role !== 'system' && onSendFollowUp && (
-            <div className="msg-refinement-buttons">
+            <div className="msg-refinement-buttons" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
               {message.suggestions?.length > 0 ? (
                 message.suggestions.map((sug, i) => (
                   <button key={i} onClick={() => onSendFollowUp(sug)} className="refinement-btn">
@@ -558,8 +556,8 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
                 ))
               ) : (
                 getSuggestionChips(message.user_prompt || "", cleanContent).map((chip, i) => (
-                  <button key={i} onClick={() => onSendFollowUp(chip.action)} className="refinement-btn">
-                    {chip.label}
+                  <button key={i} onClick={() => onSendFollowUp(chip.action)} className="refinement-btn" title={chip.action}>
+                    {chip.icon} {chip.label}
                   </button>
                 ))
               )}

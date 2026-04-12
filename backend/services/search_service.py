@@ -16,13 +16,31 @@ async def search_web(query: str, max_results: int = 15) -> List[dict]:
     Search the web for text results.
     Returns a list of {title, url, snippet} dicts.
     """
+    from datetime import date
+    TODAY = date.today()
+    TODAY_STR = TODAY.strftime("%d %B %Y")
+    TODAY_SHORT = TODAY.strftime("%B %Y")
+    YEAR = TODAY.year
+
+    orig_query = query.lower()
+    final_query = query
+    # Sports/Scores/News
+    if any(k in orig_query for k in ['ipl', 'cricket', 'football', 'fifa', 'score', 'match', 'news', 'update', 'today', 'yesterday']):
+        final_query = f"{query} {TODAY_STR}"
+    # Latest/Recent
+    elif any(k in orig_query for k in ['latest', 'recent', 'this month']):
+        final_query = f"{query} {TODAY_SHORT}"
+    # General current
+    elif any(k in orig_query for k in ['2025', '2026', 'current']):
+        final_query = f"{query} {YEAR}"
+
     try:
         from ddgs import DDGS
 
         def _search():
             with DDGS(timeout=8) as ddgs:
                 results = []
-                for r in ddgs.text(query, max_results=max_results):
+                for r in ddgs.text(final_query, max_results=max_results):
                     results.append({
                         "title": r.get("title", ""),
                         "url": r.get("href", ""),

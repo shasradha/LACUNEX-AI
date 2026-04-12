@@ -77,12 +77,22 @@ export default function Sidebar({
   const [, setTick] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const [contextMenu, setContextMenu] = useState(null);
 
   // Force re-render every minute so the relative times (e.g. "Just now" -> "1 min") automatically update
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 30000); // 30s
     return () => clearInterval(interval);
   }, []);
+
+  // Click outside context menu to close
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    if (contextMenu) {
+      window.addEventListener("click", handleClickOutside);
+    }
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, [contextMenu]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,7 +106,7 @@ export default function Sidebar({
         <div className="sidebar-mobile-overlay" onClick={onToggle} aria-hidden="true" />
       )}
       <aside className={`sidebar-wrap ${collapsed ? "sidebar-collapsed" : ""}`}>
-        <div className="sidebar-inner">
+        <div className="sidebar-inner" onContextMenu={e => e.preventDefault()}>
         <div className="sidebar-actions">
           <button type="button" onClick={onNew} className="btn btn-primary sidebar-new-btn">
             <IconPlus />
@@ -138,6 +148,16 @@ export default function Sidebar({
                   tabIndex={0}
                   className={`ws-item ${active ? "ws-item-active" : ""}`}
                   onClick={() => onSelect(conversation.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContextMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      id: conversation.id,
+                      title: conversation.title
+                    });
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
@@ -231,8 +251,53 @@ export default function Sidebar({
             })
           )}
         </div>
-      </div>
-    </aside>
+        </div>
+      </aside>
+
+      {contextMenu && (
+        <div
+          className="context-menu"
+          style={{
+            position: "fixed",
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 9999,
+            background: "#1e1e1e",
+            border: "1px solid #333",
+            borderRadius: "6px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            padding: "4px 0",
+            minWidth: "140px"
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="context-menu-item"
+            style={{ padding: "8px 12px", cursor: "pointer", fontSize: "0.85rem", color: "#e5e5e5", transition: "background 0.2s" }}
+            onMouseOver={e => e.currentTarget.style.background = "#333"}
+            onMouseOut={e => e.currentTarget.style.background = "transparent"}
+            onClick={() => {
+              setEditingId(contextMenu.id);
+              setEditValue(contextMenu.title);
+              setContextMenu(null);
+            }}
+          >
+            ✏️ Rename Workspace
+          </div>
+          <div
+            className="context-menu-item"
+            style={{ padding: "8px 12px", cursor: "pointer", fontSize: "0.85rem", color: "#ff5f57", transition: "background 0.2s" }}
+            onMouseOver={e => e.currentTarget.style.background = "#4a1212"}
+            onMouseOut={e => e.currentTarget.style.background = "transparent"}
+            onClick={() => {
+              onDelete(contextMenu.id);
+              setContextMenu(null);
+            }}
+          >
+            🗑️ Delete Workspace
+          </div>
+        </div>
+      )}
     </>
   );
 }

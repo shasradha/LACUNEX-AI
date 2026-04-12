@@ -796,3 +796,25 @@ def should_auto_search(message: str, intent: Intent) -> tuple[bool, str]:
         return True, message
     
     return False, message
+
+IMAGE_KEYWORDS = [
+    'show me', 'find me', 'get me', 'search for',
+    'images of', 'photos of', 'pictures of', 'pics of',
+    'wallpaper', 'wallpapers', 'photo', 'picture', 'image',
+    'dog', 'cat', 'animal', 'nature', 'car', 'city',
+    'food', 'anime', 'cartoon', 'animated', 'art',
+    'landscape', 'sunset', 'flower', 'mountain', 'ocean',
+    'space', 'galaxy', 'architecture', 'portrait',
+]
+
+def is_image_request(message: str) -> tuple[bool, str]:
+    msg = message.lower()
+    if any(kw in msg for kw in IMAGE_KEYWORDS):
+        # Extract the subject
+        query = message.strip()
+        for prefix in ['show me some', 'find me some', 'get me',
+                       'show me', 'find me', 'search for',
+                       'images of', 'photos of', 'pictures of']:
+            query = query.replace(prefix, '').strip()
+        return True, query or message
+    return False, message

@@ -541,6 +541,19 @@ export default function ChatBox({
           onSearchStatus: (status) => {
             setSearchStatus(status);
           },
+          onImageSearch: (payload) => {
+            setSearchStatus(`📸 Searching for images of ${payload.query}...`);
+          },
+          onImages: (payload) => {
+            setMessages(prev => [...prev, {
+              id: createMessageId(),
+              role: 'assistant',
+              type: 'images',
+              data: payload.data,
+              query: payload.query
+            }]);
+            setSearchStatus("");
+          },
           onMaxOutputActivated: () => {
             setDocPreviewOpen(true);
             setDocGenerating(true);

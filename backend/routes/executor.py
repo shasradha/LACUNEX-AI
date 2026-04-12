@@ -1,85 +1,86 @@
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
+from typing import Optional, List
 
-router = APIRouter(prefix="/api/code", tags=["Code-Execution"])
+router = APIRouter()
+
+PISTON_URL = "https://emkc.org/api/v2/piston"
+
+LANGUAGE_VERSIONS = {
+    "python": "3.10.0",
+    "javascript": "18.15.0",
+    "typescript": "5.0.3",
+    "c": "10.2.0",
+    "cpp": "10.2.0",
+    "java": "15.0.2",
+    "rust": "1.68.2",
+    "go": "1.16.2",
+    "csharp": "6.12.0",
+    "kotlin": "1.8.20",
+    "php": "8.2.3",
+    "ruby": "3.0.1",
+    "bash": "5.2.0",
+    "r": "4.1.1",
+    "swift": "5.3.3",
+}
 
 class ExecuteRequest(BaseModel):
     code: str
     language: str
-    stdin: str = ""
+    stdin: Optional[str] = ""
+    args: Optional[List[str]] = []
 
 @router.post("/execute")
 async def execute_code(req: ExecuteRequest):
-    """
-    Executes code securely via Piston API (emkc.org).
-    Supports 60+ languages with standard input.
-    """
-    ALIASES = {
-        "python": "python3",
-        "py": "python3",
+    lang = req.language.lower().strip()
+    version = LANGUAGE_VERSIONS.get(lang)
+    
+    if not version:
+        return {
+            "stdout": "",
+            "stderr": f"Language '{lang}' not supported. Supported: {list(LANGUAGE_VERSIONS.keys())}",
+            "exit_code": 1,
+            "execution_time": 0
+        }
+    
+    # Map language aliases
+    piston_lang = {
+        "cpp": "c++",
+        "csharp": "csharp",
         "js": "javascript",
-        "node": "javascript",
-        "c++": "cpp",
-        "c#": "csharp",
-        "java": "java",
-        "go": "go",
-        "rust": "rust",
-        "ruby": "ruby",
-        "php": "php",
-        "swift": "swift"
+        "ts": "typescript",
+    }.get(lang, lang)
+    
+    payload = {
+        "language": piston_lang,
+        "version": version,
+        "files": [{"name": f"main.{lang}", "content": req.code}],
+        "stdin": req.stdin or "",
+        "args": req.args or [],
+        "compile_timeout": 15000,
+        "run_timeout": 10000,
     }
-
-    lang = req.language.lower()
-    lang = ALIASES.get(lang, lang)
-
+    
     try:
-        async with httpx.AsyncClient() as client:
-            # 1. Fetch available runtimes safely to get version
-            runtimes_resp = await client.get("https://emkc.org/api/v2/piston/runtimes")
-            if runtimes_resp.status_code != 200:
-                raise HTTPException(status_code=500, detail="Code compiler service unavailable.")
-            
-            runtimes = runtimes_resp.json()
-            
-            # Find closest matching language
-            matched_runtime = next((r for r in runtimes if r['language'] == lang or lang in r.get('aliases', [])), None)
-            
-            if not matched_runtime:
-                raise HTTPException(status_code=400, detail=f"Language '{req.language}' not supported.")
-
-            # 2. Execute code
-            payload = {
-                "language": matched_runtime['language'],
-                "version": matched_runtime['version'],
-                "files": [
-                    {
-                        "content": req.code
-                    }
-                ],
-                "stdin": req.stdin or "",
-                "compile_timeout": 10000,
-                "run_timeout": 5000,
-                "compile_memory_limit": -1,
-                "run_memory_limit": -1
-            }
-
-            resp = await client.post("https://emkc.org/api/v2/piston/execute", json=payload)
-            if resp.status_code != 200:
-                raise HTTPException(status_code=500, detail="Compilation or execution failed.")
-            
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(f"{PISTON_URL}/execute", json=payload)
+            resp.raise_for_status()
             data = resp.json()
-            run_data = data.get('run', {})
-            compile_data = data.get('compile', {})
+            
+            run = data.get("run", {})
+            compile_info = data.get("compile", {})
             
             return {
-                "stdout": run_data.get('stdout', ''),
-                "stderr": run_data.get('stderr', ''),
-                "output": run_data.get('output', ''),
-                "code": run_data.get('code', run_data.get('signal')),
-                "compile_output": compile_data.get('output', '') if compile_data else ''
+                "stdout": run.get("stdout", ""),
+                "stderr": run.get("stderr", "") or compile_info.get("stderr", ""),
+                "compile_output": compile_info.get("output", ""),
+                "exit_code": run.get("code", 0),
+                "execution_time": run.get("wall_time", 0),
+                "language": lang,
+                "signal": run.get("signal")
             }
-            
+    except httpx.TimeoutException:
+        return {"stdout": "", "stderr": "Execution timed out (10s limit)", "exit_code": 124}
     except Exception as e:
-        print(f"[Compiler Error]: {e}")
-        raise HTTPException(status_code=500, detail=f"Compiler internal error: {str(e)}")
+        return {"stdout": "", "stderr": f"Execution error: {str(e)}", "exit_code": 1}
