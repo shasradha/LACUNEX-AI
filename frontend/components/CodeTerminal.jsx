@@ -52,12 +52,8 @@ const CodeTerminal = ({ code, language, onCodeChange }) => {
 
     // Provide some feedback immediately
     try {
-      const res = await fetch('/api/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, language: detectedLanguage, stdin })
-      });
-      const data = await res.json();
+      const { executeCode } = await import('../lib/api');
+      const data = await executeCode(code, detectedLanguage, stdin);
       console.log("[CodeTerminal] execute response", data);
       
       setOutput(data.stdout || '');

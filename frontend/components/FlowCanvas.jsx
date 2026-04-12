@@ -282,12 +282,33 @@ export default function FlowCanvas() {
       })));
 
       if (resultsMap.should_download && resultsMap.pdf_content) {
-        // trigger fake download
-        const blob = new Blob([resultsMap.pdf_content], { type: 'text/markdown' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `lacunex_output_${Date.now()}.md`;
-        a.click();
+        try {
+          const exportRes = await fetch(`${API_BASE}/api/export`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: [{ role: "assistant", content: resultsMap.pdf_content }], format: "pdf" })
+          });
+          
+          if (!exportRes.ok) throw new Error("Failed to export PDF");
+          
+          const blob = await exportRes.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `lacunex_flow_${Date.now()}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        } catch (exportErr) {
+          console.error("PDF Export failed, falling back to markdown:", exportErr);
+          // Fallback to text file
+          const blob = new Blob([resultsMap.pdf_content], { type: 'text/markdown' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `lacunex_flow_${Date.now()}.md`;
+          a.click();
+        }
       }
 
     } catch (e) {
