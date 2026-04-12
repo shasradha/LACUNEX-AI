@@ -196,6 +196,9 @@ REALTIME_TRIGGERS = {
         'stock price', 'weather', 'trending', 'recently',
         'new release', 'update', 'just launched', '2025',
         '2026', 'yesterday', 'this morning', 'tonight',
+        'ipl', 'match', 'score', 'cricket', 'football',
+        'nba', 'fifa', 'premier league', 'world cup',
+        'last night', 'last match', 'won', 'result',
     ],
     'soft': [  # Search only if ambiguous
         'who is', 'what is the current', 'how many now',
@@ -258,10 +261,12 @@ ACADEMIC_BOARDS = {
     'UPSC': ['upsc', 'ias', 'civil services'],
 }
 
-# ── Image Request Patterns (from v2) ─────────────────────
+# ── Image Request Patterns (from v2 — EXPANDED v5.0) ─────────────────────
 _IMAGE_REQUEST_PATTERNS = [
-    re.compile(r"\b(?:show|find|fine|search|get|see|fetch|display|look|look up)(?:\s+me)?(?:\s+some)?\s+.*(?:pictures?|images?|photos?|wallpapers?|wallapapers?|wallpappers?|wallppapers?|pix|pics|backgrounds?|wallp|walls?)\b", re.I),
-    re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?|wallapapers?|pix|pics|backgrounds?|wallp|walls?)\s+of\b", re.I),
+    re.compile(r"\b(?:show|find|fine|search|get|see|fetch|display|look|look up|suggest|recommend|give|send)(?:\s+me)?(?:\s+some)?(?:\s+cool)?(?:\s+best)?\s+.*(?:pictures?|images?|photos?|wallpapers?|wallapapers?|wallpappers?|wallppapers?|pix|pics|backgrounds?|wallp|walls?)\b", re.I),
+    re.compile(r"\b(?:pictures?|images?|photos?|wallpapers?|wallapapers?|pix|pics|backgrounds?|wallp|walls?)\s+(?:of|for|about|related)\b", re.I),
+    # Standalone requests like "some wallpapers" or "wallpapers for laptop"
+    re.compile(r"\b(?:some|best|cool|beautiful|hd|4k|aesthetic)?\s*(?:wallpapers?|backgrounds?)(?:\s+(?:for|of|about))?\b", re.I),
 ]
 
 _URL_PATTERN = re.compile(
@@ -758,7 +763,7 @@ def should_auto_search(message: str, intent: Intent) -> tuple[bool, str]:
     ]
     for pattern in sports_patterns:
         if re.search(pattern, msg):
-            query = f"{message} {today.strftime('%B %Y')}"
+            query = f"{message} {today.strftime('%d %B %Y')}"
             return True, query
     
     # NEWS & CURRENT EVENTS

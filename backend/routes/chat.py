@@ -284,30 +284,37 @@ async def chat(
             
             text_context = format_text_context(web_results)
             import datetime
-            today_str = datetime.date.today().strftime("%d %B %Y")
+            today = datetime.date.today()
+            today_str = today.strftime("%d %B %Y")
+            current_year = today.year
             
             search_block = (
-                f"\n--- [ADDITIONAL WEB RESEARCH] ---\n"
-                f"Today is {today_str}.\n"
-                f"Use these results to comprehensively answer the user's query.\n"
-                f"**CRITICAL:** You MUST cite your sources inline using precise markdown bracket format like [1], [2], pointing to the matching source numbers provided below.\n"
-                f"Do NOT display raw image URLs or links. Always cite them like [1].\n"
+                f"\n--- [LIVE WEB SEARCH RESULTS] ---\n"
+                f"⚠️ CRITICAL DATE CONTEXT: Today is {today_str}. The current year is {current_year}.\n"
+                f"You MUST use ONLY the data from the search results below. Do NOT hallucinate or make up data.\n"
+                f"If the search results show specific scores, dates, or facts — USE THOSE EXACT numbers.\n"
+                f"NEVER fabricate match scores, player stats, or results that are not in the sources below.\n"
+                f"If you cannot find the specific answer in the search results, say 'Based on available data...' and explain what you found.\n"
+                f"**CRITICAL:** Cite your sources inline using [1], [2] format.\n"
             )
             
             # Detect sports context for formatting
-            sports_keywords = ['ipl', 'cricket', 'match', 'score', 'football', 'fifa']
+            sports_keywords = ['ipl', 'cricket', 'match', 'score', 'football', 'fifa', 'nba', 'tennis', 'won', 'lost', 'result']
             if any(kw in request.message.lower() for kw in sports_keywords):
                 search_block += (
-                    f"\n**SPORTS CARD FORMAT MANDATORY:** The user asked a sports question. You MUST format the main result as an ASCII card. Example:\n"
-                    f"🏏 IPL 2026 — Match Result\n"
+                    f"\n**SPORTS RESPONSE RULES (MANDATORY):**\n"
+                    f"1. The current IPL season is IPL {current_year}. Do NOT reference IPL {current_year - 1} unless the user specifically asks.\n"
+                    f"2. Use ONLY scores and results from the search data below. NEVER make up scores.\n"
+                    f"3. Format the result as an ASCII sports card:\n"
+                    f"🏏 IPL {current_year} — [Match Title]\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"Mumbai Indians    🆚    Chennai Super Kings\n"
-                    f"      187/4                  183/7\n"
-                    f"        ★ MI Won by 4 runs ★\n"
+                    f"Team A    🆚    Team B\n"
+                    f"  Score1          Score2\n"
+                    f"    ★ [Winner] Won by [margin] ★\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"📅 Today, April 11, 2026\n"
-                    f"🏟️ Wankhede Stadium, Mumbai\n"
-                    f"Man of the Match: [Name]\n\n"
+                    f"📅 [Date from search results]\n"
+                    f"🏟️ [Venue from search results]\n\n"
+                    f"4. If search results don't contain exact scores, say so honestly.\n"
                 )
                 
             search_block += f"\n{text_context}\n"

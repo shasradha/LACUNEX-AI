@@ -53,10 +53,10 @@ async def search_images(query: str, max_results: int = 8) -> List[dict]:
     """
     # Clean conversational filler so search APIs actually find images
     clean_query = re.sub(
-        r"(?i)\b(show|find|fine|search|get|see|fetch|display|look)(?:\s+me)?(?:\s+some)?(?:\s+cool)?\s+",
+        r"(?i)\b(show|find|fine|search|get|see|fetch|display|look|suggest|recommend|give|send)(?:\s+me)?(?:\s+some)?(?:\s+cool)?(?:\s+best)?\s+",
         "", query
     )
-    clean_query = re.sub(r"(?i)\b(?:pictures?|images?|photos?)\s+of\b", "", clean_query).strip()
+    clean_query = re.sub(r"(?i)\b(?:pictures?|images?|photos?)\s+(?:of|for|about)\b", "", clean_query).strip()
     if len(clean_query) < 2:
         clean_query = query
 

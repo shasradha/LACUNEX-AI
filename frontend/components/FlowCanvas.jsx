@@ -1,24 +1,43 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from 'react';
-import {
-  ReactFlow,
-  MiniMap,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  Handle,
-  Position,
-  Panel
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+
+let ReactFlowModule = null;
+
+// Dynamic import wrapper to prevent SSR/build crashes if @xyflow/react has issues
+function useReactFlow() {
+  const [loaded, setLoaded] = useState(false);
+  const [mod, setMod] = useState(null);
+
+  useEffect(() => {
+    if (ReactFlowModule) {
+      setMod(ReactFlowModule);
+      setLoaded(true);
+      return;
+    }
+    import('@xyflow/react').then((m) => {
+      ReactFlowModule = m;
+      setMod(m);
+      setLoaded(true);
+    }).catch((err) => {
+      console.error('[FlowCanvas] Failed to load @xyflow/react:', err);
+      setLoaded(true); // still set loaded so we can show error
+    });
+  }, []);
+
+  return { loaded, mod };
+}
 
 // ---------------------------------------------------------
 // Custom Node: ChatPromptNode
 // ---------------------------------------------------------
 function ChatPromptNode({ data, id }) {
+  // Safely import Handle + Position at render time from the cached module
+  const Handle = ReactFlowModule?.Handle;
+  const Position = ReactFlowModule?.Position;
+
+  if (!Handle || !Position) return <div className="flow-custom-node glass-panel-strong">Loading...</div>;
+
   return (
     <div className="flow-custom-node glass-panel-strong">
       <Handle type="target" position={Position.Top} className="flow-handle" />
@@ -35,7 +54,7 @@ function ChatPromptNode({ data, id }) {
           className="flow-textarea" 
           placeholder="System Prompt / Instructions..." 
           value={data.prompt} 
-          onChange={(e) => data.onChange(id, e.target.value)}
+          onChange={(e) => data.onChange?.(id, e.target.value)}
         />
         
         {data.output && (
@@ -52,8 +71,9 @@ function ChatPromptNode({ data, id }) {
 }
 
 // ---------------------------------------------------------
-// Engine Logic
+// Engine Logic — uses the CORRECT production API URL
 // ---------------------------------------------------------
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function runChatCompletion(prompt, inputContext, jwtToken) {
   let finalPrompt = prompt;
@@ -61,9 +81,7 @@ async function runChatCompletion(prompt, inputContext, jwtToken) {
     finalPrompt = `Context from previous step:\n<context>\n${inputContext}\n</context>\n\nInstructions:\n${prompt}`;
   }
 
-  // Use the chat streaming API or fallback to direct execution. For simplicity, we use the standard chat route without stream if possible, or simulate it using the code runner. Let's hit the generic code runner or a new completions endpoint?
-  // Actually, we can fetch from our /api/chat route as regular user message.
-  const res = await fetch("http://localhost:8000/api/chat", {
+  const res = await fetch(`${API_BASE}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -71,14 +89,15 @@ async function runChatCompletion(prompt, inputContext, jwtToken) {
     },
     body: JSON.stringify({
       message: finalPrompt,
-      session_id: "flow_session_" + Date.now(),
-      mode: "chat"
+      history: [],
+      mode: "normal",
+      provider: "groq",
+      model: "llama-3.3-70b-versatile"
     })
   });
 
-  if (!res.ok) throw new Error("API failed");
+  if (!res.ok) throw new Error(`API failed (${res.status})`);
   
-  // Since our chat route is SSE, we can just consume it as text and extract the final message.
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let fullText = "";
@@ -86,23 +105,24 @@ async function runChatCompletion(prompt, inputContext, jwtToken) {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    const chunk = decoder.decode(value);
+    const chunk = decoder.decode(value, { stream: true });
     
-    // Parse SSE
     const lines = chunk.split('\n');
     for (const line of lines) {
       if (line.startsWith("data: ")) {
         try {
-          const data = JSON.parse(line.slice(5));
-          if (data.type === "chunk") {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === "token") {
             fullText += data.content;
+          } else if (data.type === "done") {
+            if (data.answer && !fullText) fullText = data.answer;
           }
         } catch(e) {}
       }
     }
   }
 
-  return fullText;
+  return fullText || "(No output)";
 }
 
 // ---------------------------------------------------------
@@ -135,74 +155,76 @@ const initialEdges = [
 ];
 
 export default function FlowCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const { loaded, mod } = useReactFlow();
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState(initialEdges);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Provide onChange callback to update node state
   const handlePromptChange = useCallback((id, newPrompt) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === id) {
-          node.data = { ...node.data, prompt: newPrompt };
+          return { ...node, data: { ...node.data, prompt: newPrompt } };
         }
         return node;
       })
     );
-  }, [setNodes]);
+  }, []);
 
-  const onConnect = useCallback((params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)), [setEdges]);
-
-  // Inject handlePromptChange on initial mount
+  // Initialize nodes once
   useEffect(() => {
-    const initializedNodes = initialNodes.map(n => ({
+    const initialized = initialNodes.map(n => ({
       ...n,
       data: { ...n.data, onChange: handlePromptChange }
     }));
-    setNodes(initializedNodes);
-  }, [handlePromptChange, setNodes]);
+    setNodes(initialized);
+  }, [handlePromptChange]);
 
   const nodeTypes = useMemo(() => ({ chatPrompt: ChatPromptNode }), []);
+
+  const onNodesChange = useCallback((changes) => {
+    if (!mod) return;
+    setNodes((nds) => mod.applyNodeChanges(changes, nds));
+  }, [mod]);
+
+  const onEdgesChange = useCallback((changes) => {
+    if (!mod) return;
+    setEdges((eds) => mod.applyEdgeChanges(changes, eds));
+  }, [mod]);
+
+  const onConnect = useCallback((params) => {
+    if (!mod) return;
+    setEdges((eds) => mod.addEdge({ ...params, animated: true }, eds));
+  }, [mod]);
 
   const executeFlow = async () => {
     if (isRunning) return;
     setIsRunning(true);
     
     // Basic Topological Sort
-    const getTopoOrder = () => {
-      const adj = {};
-      const inDegree = {};
-      nodes.forEach(n => {
-        adj[n.id] = [];
-        inDegree[n.id] = 0;
-      });
-      edges.forEach(e => {
-        if (adj[e.source]) adj[e.source].push(e.target);
-        if (inDegree[e.target] !== undefined) inDegree[e.target]++;
-      });
+    const adj = {};
+    const inDegree = {};
+    nodes.forEach(n => { adj[n.id] = []; inDegree[n.id] = 0; });
+    edges.forEach(e => {
+      if (adj[e.source]) adj[e.source].push(e.target);
+      if (inDegree[e.target] !== undefined) inDegree[e.target]++;
+    });
 
-      const queue = [];
-      Object.keys(inDegree).forEach(id => {
-        if (inDegree[id] === 0) queue.push(id);
+    const queue = [];
+    Object.keys(inDegree).forEach(id => { if (inDegree[id] === 0) queue.push(id); });
+
+    const order = [];
+    while (queue.length > 0) {
+      const u = queue.shift();
+      order.push(u);
+      (adj[u] || []).forEach(v => {
+        inDegree[v]--;
+        if (inDegree[v] === 0) queue.push(v);
       });
-
-      const order = [];
-      while (queue.length > 0) {
-        const u = queue.shift();
-        order.push(u);
-        (adj[u] || []).forEach(v => {
-          inDegree[v]--;
-          if (inDegree[v] === 0) queue.push(v);
-        });
-      }
-      return order;
-    };
-
-    const order = getTopoOrder();
+    }
     
-    // Execute
     const nodeOutputs = {};
-    const localToken = localStorage.getItem("token");
+    const localToken = typeof localStorage !== 'undefined' ? localStorage.getItem("token") : null;
 
     // Reset status
     setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'idle', output: '' } })));
@@ -211,20 +233,19 @@ export default function FlowCanvas() {
       setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'running' } } : n));
       
       const nodeObj = nodes.find(n => n.id === nodeId);
+      if (!nodeObj) continue;
       const prompt = nodeObj.data.prompt;
 
-      // Find predecessors to collect input contexts
       const predecessors = edges.filter(e => e.target === nodeId).map(e => e.source);
-      const inputContext = predecessors.map(pId => nodeOutputs[pId]).join("\n\n");
+      const inputContext = predecessors.map(pId => nodeOutputs[pId]).filter(Boolean).join("\n\n");
 
       try {
         const resultText = await runChatCompletion(prompt, inputContext, localToken);
         nodeOutputs[nodeId] = resultText;
-        
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'success', output: resultText } } : n));
       } catch (err) {
         setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', output: err.message } } : n));
-        break; // Stop execution on error
+        break;
       }
     }
 
@@ -232,18 +253,46 @@ export default function FlowCanvas() {
   };
 
   const addNode = () => {
+    const newId = String(Date.now());
     const newNode = {
-      id: (nodes.length + 1).toString(),
+      id: newId,
       type: 'chatPrompt',
       position: { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 },
       data: { prompt: '', output: '', status: 'idle', onChange: handlePromptChange }
     };
-    setNodes((nds) => nds.concat(newNode));
+    setNodes((nds) => [...nds, newNode]);
   };
+
+  // --- Loading / Error States ---
+  if (!loaded) {
+    return (
+      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: '#a855f7' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🌟</div>
+          <div style={{ fontSize: '1rem', opacity: 0.8 }}>Loading LACUNEX Flow Engine...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!mod) {
+    return (
+      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: '#ef4444', maxWidth: '400px', padding: '2rem' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚠️</div>
+          <div style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Flow Engine could not load</div>
+          <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>The @xyflow/react dependency may not be installed correctly. Try refreshing.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Main Render ---
+  const { ReactFlow: RF, Background, MiniMap, Controls, Panel } = mod;
 
   return (
     <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '600px', background: '#0a0a0a' }}>
-      <ReactFlow
+      <RF
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
@@ -264,7 +313,7 @@ export default function FlowCanvas() {
             + Add Step
           </button>
         </Panel>
-      </ReactFlow>
+      </RF>
     </div>
   );
 }
