@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import '@xyflow/react/dist/style.css';
 
 let ReactFlowModule = null;
 

@@ -549,7 +549,7 @@ export default function ChatBox({
               id: createMessageId(),
               role: 'assistant',
               type: 'images',
-              data: payload.data,
+              data: payload.data?.images || [], // Safe extraction of child array
               query: payload.query
             }]);
             setSearchStatus("");
