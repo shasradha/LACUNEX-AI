@@ -37,10 +37,10 @@ async def search_web(query: str, max_results: int = 15) -> List[dict]:
     try:
         from ddgs import DDGS
 
-        def _search():
+        def _search(backend="api"):
             with DDGS(timeout=8) as ddgs:
                 results = []
-                for r in ddgs.text(final_query, max_results=max_results):
+                for r in ddgs.text(final_query, backend=backend, max_results=max_results):
                     results.append({
                         "title": r.get("title", ""),
                         "url": r.get("href", ""),
@@ -48,14 +48,18 @@ async def search_web(query: str, max_results: int = 15) -> List[dict]:
                     })
                 return results
 
-        return await asyncio.wait_for(asyncio.to_thread(_search), timeout=10.0)
-    except asyncio.TimeoutError:
-        print(f"[SearchService] Web search timed out for query: {query}")
-        return []
+        try:
+            return await asyncio.wait_for(asyncio.to_thread(_search, "api"), timeout=10.0)
+        except (asyncio.TimeoutError, Exception) as e:
+            print(f"[SearchService] Default search failed ({e}). Retrying with html fallback...")
+            try:
+                return await asyncio.wait_for(asyncio.to_thread(_search, "html"), timeout=12.0)
+            except Exception as fallback_e:
+                print(f"[SearchService] Fallback search also failed: {fallback_e}")
+                return []
     except Exception as e:
-        print(f"[SearchService] Web search failed: {e}")
+        print(f"[SearchService] Web search failed completely: {e}")
         return []
-
 
 import os
 import aiohttp

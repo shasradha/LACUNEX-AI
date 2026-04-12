@@ -221,10 +221,10 @@ export default function FlowCanvas() {
     setGlobalError("");
   };
 
-  // Load template 1 by default
+  // Start with empty state
   useEffect(() => {
-    loadTemplate("t1");
-  }, [handleTextChange, handleLangChange]);
+    // Empty state active by default
+  }, []);
 
   const nodeTypes = useMemo(() => ({ lacunexNode: LacunexNode }), []);
 
@@ -325,7 +325,7 @@ export default function FlowCanvas() {
   const { ReactFlow: RF, Background, MiniMap, Controls, Panel } = mod;
 
   return (
-    <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '700px', background: '#0a0a2e' }}>
+      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '700px', background: '#0a0a2e', position: 'relative' }}>
       <RF
         nodes={nodes}
         edges={edges}
@@ -339,42 +339,73 @@ export default function FlowCanvas() {
         <MiniMap nodeColor="#00e5ff" maskColor="rgba(0,0,0,0.8)" style={{ background: '#111128', border: '1px solid #333' }} />
         <Controls style={{ fill: '#00e5ff' }} />
         
-        <Panel position="top-left" style={{ display: 'flex', gap: '10px' }}>
+        <Panel position="top-left" style={{ display: 'flex', gap: '10px', marginTop: '10px', marginLeft: '10px' }}>
           <select 
             onChange={(e) => loadTemplate(e.target.value)}
-            style={{ background: '#111128', color: '#fff', border: '1px solid #00e5ff', padding: '8px', borderRadius: '4px' }}
+            style={{ background: '#111128', color: '#fff', border: '1px solid #00e5ff', padding: '10px', borderRadius: '8px', cursor: 'pointer', outline: 'none' }}
           >
-            <option value="">Load Template...</option>
+            <option value="">✨ Load a Workflow Template...</option>
             {TEMPLATES.map(t => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
         </Panel>
 
-        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', marginTop: '10px', marginRight: '10px' }}>
           <button 
             onClick={executeFlow} 
-            disabled={isRunning}
+            disabled={isRunning || nodes.length === 0}
             style={{ 
-              background: isRunning ? '#333' : '#00e5ff', 
-              color: isRunning ? '#888' : '#000', 
+              background: isRunning || nodes.length === 0 ? '#333' : 'linear-gradient(90deg, #00e5ff, #3b82f6)', 
+              color: isRunning || nodes.length === 0 ? '#888' : '#fff', 
               fontWeight: 'bold', 
               border: 'none', 
-              padding: '10px 20px', 
-              borderRadius: '4px', 
-              cursor: isRunning ? 'not-allowed' : 'pointer' 
+              padding: '12px 24px', 
+              borderRadius: '8px', 
+              cursor: isRunning || nodes.length === 0 ? 'not-allowed' : 'pointer',
+              boxShadow: isRunning || nodes.length === 0 ? 'none' : '0 4px 15px rgba(0, 229, 255, 0.4)',
+              transition: 'all 0.3s'
             }}
           >
             {isRunning ? '⏳ Executing Pipeline...' : '▶ Run Data Workflow'}
           </button>
           
           {globalError && (
-            <div style={{ background: '#450a0a', color: '#f87171', padding: '8px', borderRadius: '4px', border: '1px solid #7f1d1d', maxWidth: '300px' }}>
-              {globalError}
+            <div style={{ background: '#450a0a', color: '#f87171', padding: '12px', borderRadius: '8px', border: '1px solid #7f1d1d', maxWidth: '300px' }}>
+              <strong>Error:</strong> {globalError}
             </div>
           )}
         </Panel>
       </RF>
+
+      {/* Empty State Overlay */}
+      {nodes.length === 0 && (
+        <div style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(10, 10, 46, 0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10,
+          pointerEvents: 'none'
+        }}>
+          <div style={{ textAlign: 'center', background: '#111128', padding: '40px', borderRadius: '16px', border: '1px solid #00e5ff', pointerEvents: 'auto', maxWidth: '500px', boxShadow: '0 0 30px rgba(0,229,255,0.2)' }}>
+            <h2 style={{ fontSize: '1.8rem', color: '#00e5ff', marginBottom: '10px' }}>Welcome to LACUNEX Flow</h2>
+            <p style={{ color: '#aaa', marginBottom: '30px', lineHeight: '1.5' }}>
+              Build infinite parallel AI pipelines. String together Code generation, Translation, APIs, and Web searches visually without writing code.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', textAlign: 'left' }}>
+              {TEMPLATES.slice(0, 4).map(t => (
+                <div key={t.id} onClick={() => loadTemplate(t.id)} style={{ background: '#222244', padding: '15px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s', border: '1px solid #333' }}>
+                  <div style={{ fontSize: '1.1rem', marginBottom: '5px', color: '#fff' }}>{t.name.split(' ')[0]} {t.name.slice(3)}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>{t.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
