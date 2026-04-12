@@ -18,3 +18,4 @@ asyncpg
 psycopg2-binary
 ddgs
 PyPDF2
+aiohttp
