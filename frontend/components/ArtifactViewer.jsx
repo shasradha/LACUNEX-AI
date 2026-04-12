@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -135,15 +135,32 @@ export default function ArtifactViewer({ code, onClose }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const downloadMenuRef = useRef(null);
 
-  // Normalize code into a files object
-  const files = useMemo(() => {
+  // Local editable code state
+  const [localFiles, setLocalFiles] = useState({});
+  const [debouncedFiles, setDebouncedFiles] = useState({});
+  const editorRef = useRef(null);
+
+  // Normalize code into a files object (init once or when external code completely changes)
+  useEffect(() => {
     if (typeof code === "object" && code.isMultiFile) {
-      return code.files;
+      setLocalFiles(code.files);
+      setDebouncedFiles(code.files);
+    } else {
+      const content = typeof code === "object" ? "" : code;
+      setLocalFiles({ "index.html": content });
+      setDebouncedFiles({ "index.html": content });
     }
-    // Single file logic
-    const content = typeof code === "object" ? "" : code;
-    return { "index.html": content };
   }, [code]);
+
+  // Debounce the code to prevent intense iframe reloading and thread blocking
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFiles(localFiles);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localFiles]);
+
+  const files = localFiles;
 
   // Set initial active file
   useEffect(() => {
@@ -154,17 +171,17 @@ export default function ArtifactViewer({ code, onClose }) {
     }
   }, [files, activeFile]);
 
-  // Build the unified srcdoc for preview
+  // Build the unified srcdoc for preview using debounced files for performance
   const srcdocHtml = useMemo(() => {
-    const htmlFile = files["index.html"];
+    const htmlFile = debouncedFiles["index.html"];
     if (!htmlFile) return "<h3>Error: No index.html found.</h3>";
 
     let bundled = htmlFile;
 
     // Inject CSS
-    Object.keys(files).forEach(name => {
+    Object.keys(debouncedFiles).forEach(name => {
       if (name.endsWith(".css")) {
-        const cssContent = `<style>\n/* Injected from ${name} */\n${files[name]}\n</style>`;
+        const cssContent = `<style>\n/* Injected from ${name} */\n${debouncedFiles[name]}\n</style>`;
         if (bundled.includes("</head>")) {
           bundled = bundled.replace("</head>", `${cssContent}\n</head>`);
         } else {
@@ -174,9 +191,9 @@ export default function ArtifactViewer({ code, onClose }) {
     });
 
     // Inject JS
-    Object.keys(files).forEach(name => {
+    Object.keys(debouncedFiles).forEach(name => {
       if (name.endsWith(".js")) {
-        const jsContent = `<script>\n/* Injected from ${name} */\n${files[name]}\n</script>`;
+        const jsContent = `<script>\n/* Injected from ${name} */\n${debouncedFiles[name]}\n</script>`;
         if (bundled.includes("</body>")) {
           bundled = bundled.replace("</body>", `${jsContent}\n</body>`);
         } else {
@@ -191,7 +208,7 @@ export default function ArtifactViewer({ code, onClose }) {
     }
 
     return bundled;
-  }, [files]);
+  }, [debouncedFiles]);
 
   // Close download menu on outside click
   useEffect(() => {
@@ -336,24 +353,73 @@ export default function ArtifactViewer({ code, onClose }) {
             className="artifact-iframe"
           />
         ) : (
-          <div className="artifact-code-view">
-            <SyntaxHighlighter
-              language={currentLang}
-              style={vscDarkPlus}
-              showLineNumbers
-              wrapLines
-              lineNumberStyle={{ color: "#4a5568", minWidth: "3em", paddingRight: "1em", userSelect: "none" }}
-              customStyle={{
+          <div className="artifact-code-view" style={{ position: "relative" }}>
+            <textarea
+              ref={editorRef}
+              value={files[activeFile] || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                setLocalFiles(prev => ({ ...prev, [activeFile]: val }));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  const start = e.target.selectionStart;
+                  const end = e.target.selectionEnd;
+                  const val = e.target.value;
+                  const newVal = val.substring(0, start) + "  " + val.substring(end);
+                  setLocalFiles(prev => ({ ...prev, [activeFile]: newVal }));
+                  setTimeout(() => {
+                    if (editorRef.current) {
+                      editorRef.current.selectionStart = editorRef.current.selectionEnd = start + 2;
+                    }
+                  }, 0);
+                }
+              }}
+              spellCheck={false}
+              className="artifact-textarea"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
                 margin: 0,
                 padding: "1.25rem",
+                paddingLeft: "4.25rem", // Align with line numbers
                 background: "transparent",
+                color: "transparent",
+                caretColor: "white",
                 fontSize: "0.85rem",
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
                 lineHeight: "1.6",
-                borderRadius: 0,
+                border: "none",
+                resize: "none",
+                outline: "none",
+                zIndex: 2,
+                whiteSpace: "pre-wrap",
+                wordBreak: "keep-all"
               }}
-            >
-              {files[activeFile] || ""}
-            </SyntaxHighlighter>
+            />
+            <div style={{ position: "relative", zIndex: 1, pointerEvents: "none" }}>
+              <SyntaxHighlighter
+                language={currentLang}
+                style={vscDarkPlus}
+                showLineNumbers
+                wrapLines={false}
+                lineNumberStyle={{ color: "#4a5568", minWidth: "3em", paddingRight: "1em", userSelect: "none" }}
+                customStyle={{
+                  margin: 0,
+                  padding: "1.25rem",
+                  background: "transparent",
+                  fontSize: "0.85rem",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+                  lineHeight: "1.6",
+                  borderRadius: 0,
+                }}
+              >
+                {files[activeFile] || ""}
+              </SyntaxHighlighter>
+            </div>
           </div>
         )}
       </div>

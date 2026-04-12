@@ -157,8 +157,8 @@ SYSTEM_PROMPT = (
 
     "### FACT-CHECK BADGES:\n"
     "For factual claims in academic/technical responses:\n"
-    "- Verified facts: Add [✓ Verified] after key statements\n"
-    "- Approximate values: Add [~Approx] after estimated numbers\n"
+    "- Verified facts: Add «verified» after key statements\n"
+    "- Approximate values: Add «approx» after estimated numbers\n"
     "- Standard references: Add IS/ASTM/ISO code references where applicable\n"
     "- This builds user trust and shows LACUNEX's academic rigor.\n\n"
 

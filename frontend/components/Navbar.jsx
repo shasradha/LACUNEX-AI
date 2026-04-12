@@ -39,7 +39,7 @@ function IconUserRound() {
   );
 }
 
-export default function Navbar({ conversationCount, onToggleSidebar }) {
+export default function Navbar({ conversationCount, onToggleSidebar, viewMode, onToggleFlow }) {
   const router = useRouter();
   const user = getUser();
   const [chaosLogo, setChaosLogo] = useState(null);
@@ -93,6 +93,15 @@ export default function Navbar({ conversationCount, onToggleSidebar }) {
         </div>
 
         <div className="topbar-right">
+          <button 
+            type="button" 
+            onClick={onToggleFlow}
+            className={`btn ${viewMode === 'flow' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem" }}
+          >
+            {viewMode === 'flow' ? 'Close Flow Canvas' : '🌟 LACUNEX Flow'}
+          </button>
+
           <div className="stat-pill">
             <span className="stat-pill-value">{conversationCount}</span>
             <span>workspace{conversationCount === 1 ? "" : "s"}</span>

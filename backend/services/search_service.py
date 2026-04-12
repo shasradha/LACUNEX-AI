@@ -39,66 +39,126 @@ async def search_web(query: str, max_results: int = 15) -> List[dict]:
         return []
 
 
+import os
+import aiohttp
+
 async def search_images(query: str, max_results: int = 8) -> List[dict]:
     """
-    Search for images using the ddgs package.
+    Search for images using the fallback chain:
+    1. Unsplash
+    2. Pixabay
+    3. Pexels
+    4. DuckDuckGo (Fallback)
     Returns a list of {title, url, thumbnail, source, source_url} dicts.
     """
-    # Clean conversational filler so DuckDuckGo actually finds images
+    # Clean conversational filler so search APIs actually find images
     clean_query = re.sub(
         r"(?i)\b(show|find|fine|search|get|see|fetch|display|look)(?:\s+me)?(?:\s+some)?(?:\s+cool)?\s+",
         "", query
     )
-    # Strip "pictures of", "images of", "photos of" etc.
-    clean_query = re.sub(
-        r"(?i)\b(?:pictures?|images?|photos?)\s+of\b", "", clean_query
-    ).strip()
-
-    # Fallback to the original query if cleaning stripped everything
+    clean_query = re.sub(r"(?i)\b(?:pictures?|images?|photos?)\s+of\b", "", clean_query).strip()
     if len(clean_query) < 2:
         clean_query = query
 
-    print(f"[SearchService] 🔍 Image search starting | Original: '{query}' | Cleaned: '{clean_query}'")
+    print(f"[SearchService] 📸 Target query: '{clean_query}'")
 
-    try:
-        from ddgs import DDGS
+    unsplash_key = os.getenv("UNSPLASH_ACCESS_KEY")
+    pixabay_key = os.getenv("PIXABAY_API_KEY")
+    pexels_key = os.getenv("PEXELS_KEY")
 
-        def _search():
-            with DDGS(timeout=8) as ddgs:
-                raw_results = list(ddgs.images(
-                    clean_query,
-                    region="wt-wt",
-                    safesearch="moderate",
-                    max_results=max_results
-                ))
+    results = []
 
-                print(f"[SearchService] 📸 DuckDuckGo returned {len(raw_results)} raw image results")
+    async with aiohttp.ClientSession() as session:
+        # Phase 1: Unsplash
+        if unsplash_key and len(results) == 0:
+            try:
+                async with session.get(
+                    "https://api.unsplash.com/search/photos",
+                    params={"query": clean_query, "per_page": max_results, "client_id": unsplash_key},
+                    timeout=5,
+                ) as res:
+                    if res.status == 200:
+                        data = await res.json()
+                        for item in data.get("results", []):
+                            results.append({
+                                "title": item.get("description") or item.get("alt_description", "Unsplash Image"),
+                                "url": item["urls"]["regular"],
+                                "thumbnail": item["urls"]["small"],
+                                "source": "Unsplash",
+                                "source_url": item["links"]["html"]
+                            })
+            except Exception as e:
+                print(f"[SearchService] Unsplash failed: {e}")
 
-                results = []
-                for r in raw_results:
-                    image_url = r.get("image", "")
-                    if not image_url or not image_url.startswith("http"):
-                        continue
+        # Phase 2: Pixabay
+        if pixabay_key and len(results) == 0:
+            try:
+                async with session.get(
+                    "https://pixabay.com/api/",
+                    params={"key": pixabay_key, "q": clean_query, "per_page": max_results + 2},
+                    timeout=5,
+                ) as res:
+                    if res.status == 200:
+                        data = await res.json()
+                        for item in data.get("hits", [])[:max_results]:
+                            results.append({
+                                "title": item.get("tags", "Pixabay Image"),
+                                "url": item["largeImageURL"],
+                                "thumbnail": item["previewURL"],
+                                "source": "Pixabay",
+                                "source_url": item["pageURL"]
+                            })
+            except Exception as e:
+                print(f"[SearchService] Pixabay failed: {e}")
 
-                    results.append({
-                        "title": r.get("title", ""),
-                        "url": image_url,
-                        "thumbnail": r.get("thumbnail", image_url),
-                        "source": r.get("source", "Web"),
-                        "source_url": r.get("url", ""),
-                    })
+        # Phase 3: Pexels
+        if pexels_key and len(results) == 0:
+            try:
+                async with session.get(
+                    "https://api.pexels.com/v1/search",
+                    headers={"Authorization": pexels_key},
+                    params={"query": clean_query, "per_page": max_results},
+                    timeout=5,
+                ) as res:
+                    if res.status == 200:
+                        data = await res.json()
+                        for item in data.get("photos", []):
+                            results.append({
+                                "title": item.get("alt", "Pexels Image"),
+                                "url": item["src"]["large"],
+                                "thumbnail": item["src"]["medium"],
+                                "source": "Pexels",
+                                "source_url": item["url"]
+                            })
+            except Exception as e:
+                print(f"[SearchService] Pexels failed: {e}")
 
-                print(f"[SearchService] ✅ Returning {len(results)} valid images to frontend")
-                return results
+    # Phase 4: DuckDuckGo Fallback
+    if len(results) == 0:
+        print("[SearchService] 🦆 Falling back to DuckDuckGo Images")
+        try:
+            from ddgs import DDGS
+            def _ddgs_search():
+                with DDGS(timeout=8) as ddgs:
+                    raw_results = list(ddgs.images(clean_query, safesearch="moderate", max_results=max_results))
+                    ddgs_res = []
+                    for r in raw_results:
+                        if r.get("image", "").startswith("http"):
+                            ddgs_res.append({
+                                "title": r.get("title", ""),
+                                "url": r.get("image", ""),
+                                "thumbnail": r.get("thumbnail", r.get("image", "")),
+                                "source": r.get("source", "Web"),
+                                "source_url": r.get("url", ""),
+                            })
+                    return ddgs_res
 
-        result = await asyncio.wait_for(asyncio.to_thread(_search), timeout=10.0)
-        return result
-    except asyncio.TimeoutError:
-        print(f"[SearchService] ⏰ Image search timed out for: {clean_query}")
-        return []
-    except Exception as e:
-        print(f"[SearchService] ❌ Image search FAILED: {type(e).__name__}: {e}")
-        return []
+            results = await asyncio.wait_for(asyncio.to_thread(_ddgs_search), timeout=10.0)
+        except Exception as e:
+            print(f"[SearchService] DDGS Fallback failed: {e}")
+
+    print(f"[SearchService] ✅ Returning {len(results)} image results")
+    return results
 
 
 async def search_all(query: str, image_search: bool = False) -> dict:

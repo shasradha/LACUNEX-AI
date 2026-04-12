@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import ChatBox from "@/components/ChatBox";
+import FlowCanvas from "@/components/FlowCanvas";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { AuthError, deleteConversation, getConversations, pingServer } from "@/lib/api";
@@ -69,6 +70,7 @@ export default function ChatPage() {
   const [bootState, setBootState] = useState("booting");
   const [error, setError] = useState("");
   const [resetToken, setResetToken] = useState(0);
+  const [viewMode, setViewMode] = useState("chat"); // "chat" | "flow"
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) {
@@ -164,6 +166,20 @@ export default function ChatPage() {
     [activeId, handleAuthExpired, loadConversations]
   );
 
+  const handleRename = useCallback(
+    async (id, newTitle) => {
+      try {
+        setConversations(prev => prev.map(c => c.id === id ? { ...c, title: newTitle } : c));
+        const { updateConversationTitle } = await import("@/lib/api");
+        await updateConversationTitle(id, newTitle);
+      } catch (err) {
+        if (err instanceof AuthError) { handleAuthExpired(); return; }
+        setError(err.message || "Unable to rename workspace.");
+      }
+    },
+    [handleAuthExpired]
+  );
+
   /* ── Boot screen (Initial Load) ──────────────── */
   if (bootState === "booting") {
     return (
@@ -188,6 +204,8 @@ export default function ChatPage() {
         conversationCount={conversations.length}
         onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
         sidebarCollapsed={sidebarCollapsed}
+        viewMode={viewMode}
+        onToggleFlow={() => setViewMode(v => v === "flow" ? "chat" : "flow")}
       />
 
       <div className="chat-layout">
@@ -209,25 +227,32 @@ export default function ChatPage() {
             }
           }}
           onToggle={() => setSidebarCollapsed((c) => !c)}
+          onRename={handleRename}
         />
 
-        <section className="chat-main">
-          {error && (
-            <div className="banner banner-warning animate-fade" style={{ margin: "0 0 0.5rem" }}>
-              <IconWarning />
-              <span>{error}</span>
-            </div>
-          )}
+        {viewMode === "flow" ? (
+          <section className="chat-main" style={{ padding: 0 }}>
+            <FlowCanvas />
+          </section>
+        ) : (
+          <section className="chat-main">
+            {error && (
+              <div className="banner banner-warning animate-fade" style={{ margin: "0 0 0.5rem" }}>
+                <IconWarning />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <ChatBox
-            conversation={activeConversation}
-            conversationId={activeId}
-            onConversationCreated={loadConversations}
-            onRequireLogin={handleAuthExpired}
-            resetToken={resetToken}
-            setConversationId={setActiveId}
-          />
-        </section>
+            <ChatBox
+              conversation={activeConversation}
+              conversationId={activeId}
+              onConversationCreated={loadConversations}
+              onRequireLogin={handleAuthExpired}
+              resetToken={resetToken}
+              setConversationId={setActiveId}
+            />
+          </section>
+        )}
       </div>
     </main>
   );

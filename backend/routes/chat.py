@@ -96,7 +96,10 @@ async def chat(
     background_tasks.add_task(extract_and_save_memory, current_user.id, request.message)
 
     # Respect user's explicit choices, but fill in gaps with auto-detection
-    auto_web_search = request.web_search or intent["web_search"]
+    from services.intent_detector import should_auto_search
+    auto_web_search, optimized_search_query = should_auto_search(request.message, intent_obj)
+    auto_web_search = request.web_search or auto_web_search
+    
     auto_reasoning = (request.mode == "think") or intent["reasoning"]
     auto_image_search = intent["image_search"]
     auto_max_output = request.max_output or intent.get("max_output", False)
@@ -209,7 +212,7 @@ async def chat(
     # Task A: Search (Web + Images)
     if auto_web_search:
         tasks.append(asyncio.create_task(asyncio.wait_for(
-            search_all(request.message, image_search=auto_image_search),
+            search_all(optimized_search_query, image_search=auto_image_search),
             timeout=15.0
         )))
     else:
@@ -255,7 +258,7 @@ async def chat(
         yield f"data: {json.dumps(mode_event)}\n\n"
 
         if auto_web_search:
-            yield f"data: {json.dumps({'type': 'search_status', 'content': 'Searching the web...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'search_status', 'content': '🔍 Searching the web...'})}\n\n"
 
         # ── Build Elite Intelligence Message ─────────────────────────────
         effective_message = request.message
@@ -276,14 +279,38 @@ async def chat(
             )
 
         if web_results:
+            yield f"data: {json.dumps({'type': 'search_status', 'content': f'📡 Found {len(web_results)} sources...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'search_status', 'content': '⚡ Synthesizing...'})}\n\n"
+            
             text_context = format_text_context(web_results)
+            import datetime
+            today_str = datetime.date.today().strftime("%d %B %Y")
+            
             search_block = (
                 f"\n--- [ADDITIONAL WEB RESEARCH] ---\n"
+                f"Today is {today_str}.\n"
                 f"Use these results to comprehensively answer the user's query.\n"
                 f"**CRITICAL:** You MUST cite your sources inline using precise markdown bracket format like [1], [2], pointing to the matching source numbers provided below.\n"
-                f"Do NOT display raw image URLs or links. Always cite them like [1].\n\n"
-                f"{text_context}\n"
+                f"Do NOT display raw image URLs or links. Always cite them like [1].\n"
             )
+            
+            # Detect sports context for formatting
+            sports_keywords = ['ipl', 'cricket', 'match', 'score', 'football', 'fifa']
+            if any(kw in request.message.lower() for kw in sports_keywords):
+                search_block += (
+                    f"\n**SPORTS CARD FORMAT MANDATORY:** The user asked a sports question. You MUST format the main result as an ASCII card. Example:\n"
+                    f"🏏 IPL 2026 — Match Result\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"Mumbai Indians    🆚    Chennai Super Kings\n"
+                    f"      187/4                  183/7\n"
+                    f"        ★ MI Won by 4 runs ★\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"📅 Today, April 11, 2026\n"
+                    f"🏟️ Wankhede Stadium, Mumbai\n"
+                    f"Man of the Match: [Name]\n\n"
+                )
+                
+            search_block += f"\n{text_context}\n"
             effective_message += search_block
 
         async for chunk in ai_router.stream_chat(

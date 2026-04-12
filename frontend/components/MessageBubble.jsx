@@ -6,8 +6,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getUser } from "@/lib/auth";
 import { executeCode } from "@/lib/api";
-import ImageGallery from "./ImageGallery";
+import ImageSlider from "./ImageSlider";
 import QuizWidget from "./QuizWidget";
+import CodeTerminal from "./CodeTerminal";
 
 /* ── Inline icons ─────────────────────────────── */
 function IconBot() {
@@ -149,24 +150,112 @@ function createImageSource(image) {
   return null;
 }
 
+const getSuggestionChips = (userMessage, aiResponse) => {
+  const msg = (userMessage || "").toLowerCase().trim();
+  const words = msg.split(' ');
+  
+  // NEVER show chips for:
+  const noChipPatterns = [
+    // Greetings
+    msg.length < 15 && /^(hi|hello|hey|thanks|bye|ok|okay|cool|nice|great|yes|no|yep|nope|sure|got it|understood)/.test(msg),
+    // Questions answered in < 100 chars
+    aiResponse.length < 150,
+    // Identity questions
+    /who are you|what are you|your name|about lacunex/.test(msg),
+  ];
+  
+  if (noChipPatterns.some(Boolean)) return [];
+  
+  // CONTEXT-AWARE chips based on content type:
+  const chips = [];
+  
+  // ACADEMIC/NOTES content
+  if (/notes|explain|concept|theory|chapter|unit|topic|history|science|math|physics|chemistry|biology|engineering/.test(msg)) {
+    chips.push(
+      { label: '📝 Quiz Me', action: 'Generate a 10-question quiz from the above explanation' },
+      { label: '📊 Mind Map', action: 'Create a structured mind map outline of the above topic' },
+      { label: '🎯 Exam Tips', action: 'What are the most important exam points from the above?' },
+      { label: '🔍 Go Deeper', action: 'Explain the most complex part of the above in more detail' }
+    );
+  }
+  // CODE content
+  else if (/code|function|program|script|build|create|api|website|app|implement/.test(msg) || aiResponse.includes('```')) {
+    chips.push(
+      { label: '⚡ Optimize', action: 'Optimize the above code for better performance' },
+      { label: '🛡️ Add Error Handling', action: 'Add comprehensive error handling to the above code' },
+      { label: '🧪 Write Tests', action: 'Write unit tests for the above code' },
+      { label: '📖 Explain Code', action: 'Explain each part of the above code in simple terms' }
+    );
+  }
+  // FACTUAL/RESEARCH content
+  else if (/what is|how does|why|history|difference|compare|vs|between/.test(msg)) {
+    chips.push(
+      { label: '⚔️ Compare', action: 'Compare this with its main alternative' },
+      { label: '🌍 Real Examples', action: 'Give 5 real-world Indian examples' },
+      { label: '📚 Go Deeper', action: 'Provide a more in-depth explanation' },
+      { label: '🎯 Summarize', action: 'Summarize the key points in 5 bullets' }
+    );
+  }
+  // MATH/NUMERICAL content  
+  else if (/calculate|find|solve|formula|equation|numerical|design|shaft|stress|torque/.test(msg)) {
+    chips.push(
+      { label: '➕ Another Example', action: 'Solve another similar numerical with different values' },
+      { label: '📐 Show Formula', action: 'List all formulas used with derivations' },
+      { label: '⚠️ Common Mistakes', action: 'What are common mistakes in this type of problem?' },
+      { label: '📋 Step Summary', action: 'Give me a checklist of steps to solve such problems' }
+    );
+  }
+  // CREATIVE/WRITING content
+  else if (/write|story|poem|essay|email|letter|script|blog/.test(msg)) {
+    chips.push(
+      { label: '🔄 Rewrite', action: 'Rewrite in a different style' },
+      { label: '✨ Make Punchier', action: 'Make this more engaging and impactful' },
+      { label: '📏 Shorten', action: 'Condense this to half the length' },
+      { label: '🌐 Translate', action: 'Translate this to Hindi' }
+    );
+  } else {
+    // Default fallback
+    chips.push(
+      { label: '🔄 Longer', action: 'Make this longer and more detailed' },
+      { label: '✂️ Simplify', action: 'Simplify this for a beginner' },
+      { label: '🇮🇳 Examples', action: 'Add more Indian/relatable examples' },
+    );
+  }
+  
+  // Show max 3 chips, always most relevant first
+  return chips.slice(0, 3);
+};
+
 const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
   const markdownRef = useRef(null);
   const currentUser = useMemo(() => getUser(), []);
   const isUser = message.role === "user";
   const imageSource = useMemo(() => createImageSource(message.image), [message.image]);
 
-  // Extract artifact code from this message for the "Launch Artifact" card
   const artifactCode = useMemo(() => {
     if (isUser || !message.content) return null;
-    // 1. Properly closed tags
-    const tagMatch = message.content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i);
-    if (tagMatch && tagMatch[1]) return tagMatch[1].trim();
-    // 2. Unclosed tags (AI cut off)
-    const openMatch = message.content.match(/<lacunex-artifact[^>]*>([\s\S]+)/i);
-    if (openMatch && openMatch[1] && openMatch[1].trim().length > 80) return openMatch[1].trim();
-    // 3. Markdown code blocks
-    const mdMatch = message.content.match(/```(?:html|jsx|tsx|js)\s*\n([\s\S]*?)\n\s*```/i);
+    
+    const content = message.content;
+    const tagMatch = content.match(/<lacunex-artifact[^>]*>([\s\S]*?)<\/lacunex-artifact>/i) || 
+                     content.match(/<lacunex-artifact[^>]*>([\s\S]+)/i);
+    
+    if (tagMatch && tagMatch[1]) {
+      const raw = tagMatch[1].trim();
+      if (raw.includes("<file name=")) {
+        const files = {};
+        const fileRegex = /<file name=["']([^"']+)["']>([\s\S]*?)<\/file>/gi;
+        let m;
+        while ((m = fileRegex.exec(raw)) !== null) {
+          files[m[1]] = m[2].trim();
+        }
+        if (Object.keys(files).length > 0) return { isMultiFile: true, files };
+      }
+      return raw;
+    }
+    
+    const mdMatch = content.match(/```(?:html|jsx|tsx|js)\s*\n([\s\S]*?)\n\s*```/i);
     if (mdMatch && mdMatch[1] && mdMatch[1].trim().length > 80) return mdMatch[1].trim();
+    
     return null;
   }, [message.content, isUser]);
 
@@ -195,8 +284,10 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
     content = content.replace(/<lacunex-quiz>[\s\S]*?<\/lacunex-quiz>/ig, "");
     // Citation formatting
     // Fact-check badges
-    content = content.replace(/\[✓ Verified\]/g, "<span class='fact-badge verified'>[✓ Verified]</span>");
-    content = content.replace(/\[~Approx\]/g, "<span class='fact-badge approx'>[~Approx]</span>");
+    content = content.replace(/\[✓ Verified\]/g, "[✓ Verified](#badge-verified)");
+    content = content.replace(/\[~Approx\]/g, "[~Approx](#badge-approx)");
+    content = content.replace(/«verified»/g, "[✓ Verified](#badge-verified)");
+    content = content.replace(/«approx»/g, "[~Approx](#badge-approx)");
     return content.trim();
   }, [message.content]);
 
@@ -277,25 +368,15 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
       const output = codeOutputs[codeKey];
 
       if (!inline) {
+        if (isRunnable) {
+          return <CodeTerminal code={code} lang={lang} />;
+        }
+        
         return (
           <div className="code-block">
             <div className="code-header">
               <span>{lang}</span>
               <div style={{ display: "flex", gap: "0.25rem" }}>
-                {isRunnable && (
-                  <button
-                    type="button"
-                    onClick={() => handleRunCode(code, lang)}
-                    className="code-run-btn"
-                    disabled={runningCode === codeKey}
-                  >
-                    {runningCode === codeKey ? (
-                      <>⏳ Running...</>
-                    ) : (
-                      <>▶ Run {output?.isLocal && <span className="local-badge">⚡ Local</span>}</>
-                    )}
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -317,26 +398,6 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
             <pre className="code-content">
               <code className={className} {...props}>{children}</code>
             </pre>
-            {output && (
-              <div className={`code-output ${output.success ? "code-output-success" : "code-output-error"}`}>
-                <div className="code-output-header">
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
-                    {output.isLocal ? (
-                      <span className="local-env-tag" title="Executed in your browser via WebAssembly">⚡ Local Env</span>
-                    ) : (
-                      <span className="remote-env-tag" title="Executed on a secure remote server">🌐 Remote</span>
-                    )}
-                    <span style={{ fontSize: "0.6rem", opacity: 0.8 }}>{output.success ? "✅ Success" : "❌ Error"}</span>
-                  </div>
-                  {output.executionTime && (
-                    <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", opacity: 0.8 }}>
-                      ⏱ {output.executionTime}ms
-                    </span>
-                  )}
-                </div>
-                <pre className="code-output-body">{output.output}</pre>
-              </div>
-            )}
           </div>
         );
       }
@@ -346,6 +407,12 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
       );
     },
     a({ href, children }) {
+      if (href === "#badge-verified") {
+        return <span className="fact-badge verified">✓ Verified</span>;
+      }
+      if (href === "#badge-approx") {
+        return <span className="fact-badge approx">~ Approx</span>;
+      }
       if (href?.startsWith("#source-")) {
         return <span className="citation-badge" title={`Source ${children}`}>{children}</span>;
       }
@@ -490,19 +557,20 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
                   </button>
                 ))
               ) : (
-                <>
-                  <button onClick={() => onSendFollowUp("Make this longer and more detailed")} className="refinement-btn">🔄 Longer</button>
-                  <button onClick={() => onSendFollowUp("Simplify this for a beginner")} className="refinement-btn">✂️ Simplify</button>
-                  <button onClick={() => onSendFollowUp("Add more Indian/relatable examples")} className="refinement-btn">🇮🇳 Examples</button>
-                  <button onClick={() => onSendFollowUp("Add numerical problems and solutions")} className="refinement-btn">📐 Numericals</button>
-                </>
+                getSuggestionChips(message.user_prompt || "", cleanContent).map((chip, i) => (
+                  <button key={i} onClick={() => onSendFollowUp(chip.action)} className="refinement-btn">
+                    {chip.label}
+                  </button>
+                ))
               )}
             </div>
           )}
 
-          {/* Search Image Gallery */}
-          {message.image_results?.length > 0 && (
-            <ImageGallery images={message.image_results} />
+          {/* Search Data */}
+          {!isUser && message.image_results?.length > 0 && (
+            <div className="msg-gallery">
+              <ImageSlider images={message.image_results} />
+            </div>
           )}
 
           {/* Interactive Quiz Mode */}

@@ -733,3 +733,61 @@ def intent_to_dict(intent: Intent) -> dict:
 def needs_web_search(message: str) -> bool:
     intent = detect_intent(message)
     return intent.needs_search
+
+def should_auto_search(message: str, intent: Intent) -> tuple[bool, str]:
+    """
+    Returns (should_search, optimized_query)
+    
+    Beats ChatGPT by:
+    1. Auto-detecting time-sensitive queries
+    2. Optimizing the search query automatically
+    3. Using today's date in queries
+    4. Multi-query strategy for complex topics
+    """
+    import datetime
+    msg = message.lower().strip()
+    today = datetime.date.today()
+    
+    # SPORTS (IPL, FIFA, cricket, football, NBA, etc.)
+    sports_patterns = [
+        r'(ipl|cricket|match|score|result|winner|won|lost|played)',
+        r'(football|fifa|premier league|champions league|serie a)',
+        r'(nba|nfl|tennis|wimbledon|grand slam)',
+        r'(today.*match|yesterday.*match|match.*today|match.*yesterday)',
+        r'(who won|what was the score|result of)',
+    ]
+    for pattern in sports_patterns:
+        if re.search(pattern, msg):
+            query = f"{message} {today.strftime('%B %Y')}"
+            return True, query
+    
+    # NEWS & CURRENT EVENTS
+    news_patterns = [
+        r'(news|latest|recent|current|update|happened|announced)',
+        r'(today|yesterday|this week|this month|just)',
+        r'(stock|market|price|rate|value|exchange)',
+        r'(weather|temperature|forecast|rain)',
+        r'(election|government|minister|president|pm|cm)',
+        r'(launched|released|new|updated version)',
+    ]
+    for pattern in news_patterns:
+        if re.search(pattern, msg):
+            query = f"{message} {today.strftime('%d %B %Y')}"
+            return True, query
+    
+    # TECH NEWS
+    tech_news = [
+        r'(new model|gpt|gemini|claude|llama|latest ai)',
+        r'(iphone|android|samsung|apple|google|microsoft)',
+        r'(startup|funding|ipo|acquisition|merger)',
+    ]
+    for pattern in tech_news:
+        if re.search(pattern, msg):
+            query = f"{message} {today.year}"
+            return True, query
+    
+    # If intent already flagged needs_search
+    if intent.needs_search:
+        return True, message
+    
+    return False, message

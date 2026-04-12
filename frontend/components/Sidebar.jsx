@@ -71,9 +71,12 @@ export default function Sidebar({
   onNew,
   onSelect,
   onToggle,
+  onRename,
 }) {
   const [query, setQuery] = useState("");
   const [, setTick] = useState(0);
+  const [editingId, setEditingId] = useState(null);
+  const [editValue, setEditValue] = useState('');
 
   // Force re-render every minute so the relative times (e.g. "Just now" -> "1 min") automatically update
   useEffect(() => {
@@ -150,7 +153,57 @@ export default function Sidebar({
                   {!collapsed && (
                     <>
                       <div className="ws-content">
-                        <div className="ws-title">{conversation.title}</div>
+                        <div className="ws-title">
+                          <span
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setEditingId(conversation.id);
+                              setEditValue(conversation.title);
+                            }}
+                            style={{ display: editingId === conversation.id ? 'none' : 'block' }}
+                          >
+                            {conversation.title}
+                          </span>
+                          {editingId === conversation.id && (
+                            <input
+                              autoFocus
+                              value={editValue}
+                              onChange={e => setEditValue(e.target.value)}
+                              onBlur={() => {
+                                if (editValue.trim() && editValue !== conversation.title && onRename) {
+                                  onRename(conversation.id, editValue.trim());
+                                }
+                                setEditingId(null);
+                              }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  if (editValue.trim() && editValue !== conversation.title && onRename) {
+                                    onRename(conversation.id, editValue.trim());
+                                  }
+                                  setEditingId(null);
+                                }
+                                if (e.key === 'Escape') setEditingId(null);
+                              }}
+                              className="workspace-rename-input"
+                              style={{ width: '100%', background: 'transparent', border: '1px solid var(--border)', color: 'inherit', padding: '2px 4px', borderRadius: '4px' }}
+                              onClick={e => e.stopPropagation()}
+                            />
+                          )}
+                          {!editingId && (
+                            <button
+                              className="ws-edit-icon"
+                              style={{ opacity: 0, padding: '0 4px', fontSize: '0.8rem', background: 'none', border: 'none', cursor: 'pointer', display: 'none' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingId(conversation.id);
+                                setEditValue(conversation.title);
+                              }}
+                              title="Rename workspace"
+                            >
+                              ✏️
+                            </button>
+                          )}
+                        </div>
                         <div className="ws-meta">
                           <span className="ws-meta-item">
                             <IconClock />
