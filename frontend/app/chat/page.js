@@ -90,12 +90,16 @@ export default function ChatPage() {
         const items = await getConversations();
         setConversations(items);
         setActiveId((current) => {
-          if (selectConversationId && items.some((i) => i.id === selectConversationId)) {
+          // 1. If explicitly asked to select an ID (like right after creation), honor it immediately
+          if (selectConversationId) {
             return selectConversationId;
           }
-          if (current && items.some((i) => i.id === current)) {
+          // 2. If we already have an active ID, NEVER wipe it out even if the database index
+          // hasn't synced yet (this prevents the 'Blank Workspace' wipe glitch)
+          if (current) {
             return current;
           }
+          // 3. Fallback to null
           return null;
         });
         setError("");
