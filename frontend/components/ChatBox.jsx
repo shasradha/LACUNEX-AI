@@ -393,10 +393,24 @@ export default function ChatBox({
           activeConvId = created.id;
           skipReload.current = created.id;
           setConversationId(created.id);
+          // Initial sidebar refresh to show workspace creation
           onConversationCreated?.({ selectConversationId: created.id });
         } catch (err) {
           console.error("Failed to create conversation for flow output:", err);
         }
+      }
+
+      // Generate messages
+      const msgsToAppend = [];
+      const userMsgId = createMessageId();
+      
+      if (initial_input) {
+        msgsToAppend.push({
+          id: userMsgId,
+          role: "user",
+          content: initial_input,
+          mode: "normal",
+        });
       }
 
       const botMsg = {
@@ -406,8 +420,10 @@ export default function ChatBox({
         mode: "normal",
         model_name: "Flow Engine"
       };
+      msgsToAppend.push(botMsg);
 
-      setMessages(prev => [...prev, botMsg]);
+      // Instantly render BOTH user question and flow output
+      setMessages(prev => [...prev, ...msgsToAppend]);
 
       // Save to database in background
       if (activeConvId) {
@@ -415,7 +431,6 @@ export default function ChatBox({
           const { saveMessage } = await import("@/lib/api");
           const { encryptMessage } = await import("@/lib/crypto");
           
-          // First save the flow input as a user message if possible
           if (initial_input) {
              const encUser = await encryptMessage(initial_input);
              await saveMessage({
@@ -427,7 +442,6 @@ export default function ChatBox({
              });
           }
 
-          // Then save the actual flow output
           const encBot = await encryptMessage(botMsg.content);
           await saveMessage({
             conversation_id: activeConvId,
@@ -437,6 +451,9 @@ export default function ChatBox({
             mode: "normal",
             model_name: "Flow Engine"
           });
+          
+          // Refresh sidebar again so the "0 msg" correctly becomes "2 msg"
+          onConversationCreated?.();
         } catch (err) {
           console.error("Failed to save flow output to server:", err);
         }
