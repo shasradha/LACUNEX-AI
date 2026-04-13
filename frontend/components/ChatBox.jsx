@@ -414,11 +414,25 @@ export default function ChatBox({
         try {
           const { saveMessage } = await import("@/lib/api");
           const { encryptMessage } = await import("@/lib/crypto");
+          
+          // First save the flow input as a user message if possible
+          if (initial_input) {
+             const encUser = await encryptMessage(initial_input);
+             await saveMessage({
+               conversation_id: activeConvId,
+               role: "user",
+               encrypted_content: encUser.encrypted_content,
+               iv: encUser.iv,
+               mode: "normal"
+             });
+          }
+
+          // Then save the actual flow output
           const encBot = await encryptMessage(botMsg.content);
           await saveMessage({
             conversation_id: activeConvId,
             role: "assistant",
-            encrypted_content: encBot.encrypted,
+            encrypted_content: encBot.encrypted_content,
             iv: encBot.iv,
             mode: "normal",
             model_name: "Flow Engine"
