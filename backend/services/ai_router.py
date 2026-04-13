@@ -429,6 +429,12 @@ class AIRouter:
         return any(k in s for k in ["429", "resource_exhausted", "rate_limit", "quota", "too many", "capacity"])
 
     @staticmethod
+    def _is_invalid_key(exc: Exception) -> bool:
+        """Detect invalid/revoked API keys (400 Bad Request, API_KEY_INVALID)."""
+        s = str(exc).lower()
+        return any(k in s for k in ["api key not valid", "api_key_invalid", "invalid api key", "invalid_argument"])
+
+    @staticmethod
     def _is_invalid_model(exc: Exception) -> bool:
         s = str(exc).lower()
         return any(k in s for k in ["404", "not found", "does not exist", "not a valid model", "no endpoints"])
@@ -593,7 +599,9 @@ class AIRouter:
                 return
             except Exception as exc:
                 print(f"[AIRouter] Gemini key-{key_idx} failed: {exc}")
-                if self._is_rate_limit(exc):
+                if self._is_invalid_key(exc):
+                    self.gemini_rotator.mark_invalid(key_idx)
+                elif self._is_rate_limit(exc):
                     self.gemini_rotator.mark_limited(key_idx)
 
         # ── Phase 4: SambaNova (3 keys) ────────────────────────────────
@@ -683,7 +691,9 @@ class AIRouter:
                 return
             except Exception as exc:
                 print(f"[AIRouter] Gemini key-{key_idx} failed: {exc}")
-                if self._is_rate_limit(exc):
+                if self._is_invalid_key(exc):
+                    self.gemini_rotator.mark_invalid(key_idx)
+                elif self._is_rate_limit(exc):
                     self.gemini_rotator.mark_limited(key_idx)
 
         # All Gemini keys exhausted → fall back to the full provider chain

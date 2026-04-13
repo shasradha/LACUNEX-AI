@@ -91,14 +91,26 @@ function LacunexNode({ data, selected }) {
           }}>
             {data.status === 'running' && '⏳ Running...'}
             {data.status === 'done' && '✅ Done'}
-            {data.status === 'error' && '❌ Error'}
+            {data.status === 'error' && '❌ Failed'}
           </div>
         )}
         
         {data.output && (
-          <div style={{ marginTop: '10px', background: '#0a0a18', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', maxHeight: '100px', overflowY: 'auto', border: '1px solid #222244' }}>
-            <div style={{ color: '#888', marginBottom: '4px' }}>Result:</div>
-            {data.output}
+          <div style={{ 
+            marginTop: '10px', 
+            background: data.output.startsWith('[ERROR]') ? '#1a0a0a' : '#0a0a18', 
+            padding: '6px', 
+            borderRadius: '4px', 
+            fontSize: '0.75rem', 
+            maxHeight: '100px', 
+            overflowY: 'auto', 
+            border: data.output.startsWith('[ERROR]') ? '1px solid #7f1d1d' : '1px solid #222244',
+            color: data.output.startsWith('[ERROR]') ? '#f87171' : '#e2e8f0'
+          }}>
+            <div style={{ color: data.output.startsWith('[ERROR]') ? '#f87171' : '#888', marginBottom: '4px', fontWeight: 'bold' }}>
+              {data.output.startsWith('[ERROR]') ? '⚠️ Error:' : 'Result:'}
+            </div>
+            {data.output.startsWith('[ERROR]') ? data.output.replace('[ERROR] ', '') : data.output}
           </div>
         )}
       </div>
@@ -249,45 +261,71 @@ export default function FlowCanvas() {
     setGlobalError("");
     setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: null, output: null } })));
 
+    // Hard timeout: abort after 120 seconds
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
     try {
       // Find initial input
       const startNodes = nodes.filter(n => n.data.type === 'text_input');
       let initial_input = "Start";
       if (startNodes.length > 0) initial_input = startNodes[0].data.text || "";
 
-      // We handle the topological sort in the backend to save frontend state complexity.
-      // But we need to fake real-time updates. Since backend `/flow/execute` runs as one request right now,
-      // we'll just show "running" on all nodes, then "done" when the payload comes back.
-      // A more robust flow engine would use WebSockets.
-      
+      if (!initial_input.trim()) {
+        setGlobalError("Please enter text in the Topic Input node before running.");
+        return;
+      }
+
       setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'running' } })));
 
       const res = await fetch(`${API_BASE}/api/flow/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodes, edges, initial_input })
+        body: JSON.stringify({ nodes, edges, initial_input }),
+        signal: controller.signal
       });
 
-      if (!res.ok) throw new Error("Flow execution failed on the server.");
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "Unknown server error");
+        throw new Error(`Server error (${res.status}): ${errText.substring(0, 200)}`);
+      }
+
       const data = await res.json();
       const resultsMap = data.results || {};
+      const nodeStatuses = data.node_statuses || {};
+      const nodeErrors = data.node_errors || {};
+      const pipelineError = data.pipeline_error || false;
 
-      setNodes(nds => nds.map(n => ({
-        ...n,
-        data: {
-          ...n.data,
-          status: 'done',
-          output: resultsMap[n.id] ? (typeof resultsMap[n.id] === 'string' ? resultsMap[n.id].substring(0, 150) + "..." : "Success") : ''
-        }
-      })));
+      // Update each node with its individual status from the backend
+      setNodes(nds => nds.map(n => {
+        const status = nodeStatuses[n.id] || (resultsMap[n.id] ? 'done' : null);
+        const output = resultsMap[n.id]
+          ? (typeof resultsMap[n.id] === 'string'
+            ? (resultsMap[n.id].startsWith('[ERROR]')
+              ? resultsMap[n.id]
+              : resultsMap[n.id].substring(0, 150) + "...")
+            : "Success")
+          : '';
+        return { ...n, data: { ...n.data, status, output } };
+      }));
 
-      if (resultsMap.final_output) {
+      // Show pipeline-level error if any node failed
+      if (pipelineError) {
+        const failedNodes = Object.entries(nodeErrors);
+        const errorSummary = failedNodes.map(([id, msg]) => msg).join('; ');
+        setGlobalError(`Pipeline partially failed: ${errorSummary}`);
+      }
+
+      // Only dispatch "Show in Chat" if we have REAL content (not an error message)
+      if (resultsMap.final_output && !resultsMap.final_output.startsWith('[ERROR]') && !pipelineError) {
         window.dispatchEvent(new CustomEvent('lacunex_flow_output', {
           detail: { text: resultsMap.final_output, initial_input }
         }));
       }
 
-      if (resultsMap.should_download && resultsMap.pdf_content) {
+      if (resultsMap.should_download && resultsMap.pdf_content && !resultsMap.pdf_content.startsWith('[ERROR]')) {
         try {
           const exportRes = await fetch(`${API_BASE}/api/export`, {
             method: "POST",
@@ -308,7 +346,6 @@ export default function FlowCanvas() {
           window.URL.revokeObjectURL(url);
         } catch (exportErr) {
           console.error("PDF Export failed, falling back to markdown:", exportErr);
-          // Fallback to text file
           const blob = new Blob([resultsMap.pdf_content], { type: 'text/markdown' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
@@ -318,7 +355,12 @@ export default function FlowCanvas() {
       }
 
     } catch (e) {
-      setGlobalError(e.message);
+      clearTimeout(timeoutId);
+      if (e.name === 'AbortError') {
+        setGlobalError("Pipeline timed out after 2 minutes. AI providers may be at capacity — please try again shortly.");
+      } else {
+        setGlobalError(e.message);
+      }
       setNodes(nds => nds.map(n => n.data.status === 'running' ? { ...n, data: { ...n.data, status: 'error' } } : n));
     } finally {
       setIsRunning(false);

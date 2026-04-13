@@ -406,7 +406,8 @@ export default function ChatBox({
 
       if (activeConvId) {
         try {
-          const { saveMessage, encryptMessage } = await import("@/lib/api");
+          const { saveMessage } = await import("@/lib/api");
+          const { encryptMessage } = await import("@/lib/crypto");
           const encBot = await encryptMessage(botMsg.content);
           await saveMessage({
             conversation_id: activeConvId,
