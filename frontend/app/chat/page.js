@@ -71,6 +71,7 @@ export default function ChatPage() {
   const [error, setError] = useState("");
   const [resetToken, setResetToken] = useState(0);
   const [viewMode, setViewMode] = useState("chat"); // "chat" | "flow"
+  const [pendingFlowOutput, setPendingFlowOutput] = useState(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) {
@@ -167,7 +168,12 @@ export default function ChatPage() {
   );
 
   useEffect(() => {
-    const handleFlowEvent = () => setViewMode("chat");
+    const handleFlowEvent = (e) => {
+      // Capture the output FIRST, then switch view
+      // ChatBox will read this from props when it mounts — no race condition
+      setPendingFlowOutput(e.detail);
+      setViewMode("chat");
+    };
     window.addEventListener("lacunex_flow_output", handleFlowEvent);
     return () => window.removeEventListener("lacunex_flow_output", handleFlowEvent);
   }, []);
@@ -256,6 +262,8 @@ export default function ChatPage() {
               onRequireLogin={handleAuthExpired}
               resetToken={resetToken}
               setConversationId={setActiveId}
+              pendingFlowOutput={pendingFlowOutput}
+              onFlowOutputConsumed={() => setPendingFlowOutput(null)}
             />
           </section>
         )}

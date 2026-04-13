@@ -144,6 +144,8 @@ export default function ChatBox({
   onRequireLogin,
   resetToken,
   setConversationId,
+  pendingFlowOutput,
+  onFlowOutputConsumed,
 }) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -375,16 +377,19 @@ export default function ChatBox({
     return () => { active = false; };
   }, [conversationId, onRequireLogin]);
 
+  // ── Process pending flow output passed via props (no race condition) ──
   useEffect(() => {
-    const handleFlowOutput = async (e) => {
-      const { text, initial_input } = e.detail;
-      
+    if (!pendingFlowOutput) return;
+
+    const processFlowOutput = async () => {
+      const { text, initial_input } = pendingFlowOutput;
+
       // Determine what conversation to save to
       let activeConvId = conversationId;
       if (!activeConvId) {
         try {
           const { createConversation } = await import("@/lib/api");
-          const created = await createConversation(`Flow: ${initial_input.substring(0, 30)}...`);
+          const created = await createConversation(`Flow: ${(initial_input || 'Pipeline').substring(0, 30)}...`);
           activeConvId = created.id;
           skipReload.current = created.id;
           setConversationId(created.id);
@@ -404,6 +409,7 @@ export default function ChatBox({
 
       setMessages(prev => [...prev, botMsg]);
 
+      // Save to database in background
       if (activeConvId) {
         try {
           const { saveMessage } = await import("@/lib/api");
@@ -421,11 +427,13 @@ export default function ChatBox({
           console.error("Failed to save flow output to server:", err);
         }
       }
+
+      // Signal consumed so page.js clears the state
+      onFlowOutputConsumed?.();
     };
-    
-    window.addEventListener("lacunex_flow_output", handleFlowOutput);
-    return () => window.removeEventListener("lacunex_flow_output", handleFlowOutput);
-  }, [conversationId, setConversationId, onConversationCreated]);
+
+    processFlowOutput();
+  }, [pendingFlowOutput]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Stop Handler ───────────────────────────── */
   const handleStop = useCallback(() => {
