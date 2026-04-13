@@ -166,6 +166,12 @@ export default function ChatPage() {
     [activeId, handleAuthExpired, loadConversations]
   );
 
+  useEffect(() => {
+    const handleFlowEvent = () => setViewMode("chat");
+    window.addEventListener("lacunex_flow_output", handleFlowEvent);
+    return () => window.removeEventListener("lacunex_flow_output", handleFlowEvent);
+  }, []);
+
   const handleRename = useCallback(
     async (id, newTitle) => {
       try {

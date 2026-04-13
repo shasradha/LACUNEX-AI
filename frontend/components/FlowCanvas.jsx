@@ -281,6 +281,12 @@ export default function FlowCanvas() {
         }
       })));
 
+      if (resultsMap.final_output) {
+        window.dispatchEvent(new CustomEvent('lacunex_flow_output', {
+          detail: { text: resultsMap.final_output, initial_input }
+        }));
+      }
+
       if (resultsMap.should_download && resultsMap.pdf_content) {
         try {
           const exportRes = await fetch(`${API_BASE}/api/export`, {

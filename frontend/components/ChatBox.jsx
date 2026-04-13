@@ -375,6 +375,57 @@ export default function ChatBox({
     return () => { active = false; };
   }, [conversationId, onRequireLogin]);
 
+  useEffect(() => {
+    const handleFlowOutput = async (e) => {
+      const { text, initial_input } = e.detail;
+      
+      // Determine what conversation to save to
+      let activeConvId = conversationId;
+      if (!activeConvId) {
+        try {
+          const { createConversation } = await import("@/lib/api");
+          const created = await createConversation(`Flow: ${initial_input.substring(0, 30)}...`);
+          activeConvId = created.id;
+          skipReload.current = created.id;
+          setConversationId(created.id);
+          onConversationCreated?.({ selectConversationId: created.id });
+        } catch (err) {
+          console.error("Failed to create conversation for flow output:", err);
+        }
+      }
+
+      const botMsg = {
+        id: createMessageId(),
+        role: "assistant",
+        content: `⚡ **LACUNEX Flow Execution Complete**\n\n${text}`,
+        mode: "normal",
+        model_name: "Flow Engine"
+      };
+
+      setMessages(prev => [...prev, botMsg]);
+
+      if (activeConvId) {
+        try {
+          const { saveMessage, encryptMessage } = await import("@/lib/api");
+          const encBot = await encryptMessage(botMsg.content);
+          await saveMessage({
+            conversation_id: activeConvId,
+            role: "assistant",
+            encrypted_content: encBot.encrypted,
+            iv: encBot.iv,
+            mode: "normal",
+            model_name: "Flow Engine"
+          });
+        } catch (err) {
+          console.error("Failed to save flow output to server:", err);
+        }
+      }
+    };
+    
+    window.addEventListener("lacunex_flow_output", handleFlowOutput);
+    return () => window.removeEventListener("lacunex_flow_output", handleFlowOutput);
+  }, [conversationId, setConversationId, onConversationCreated]);
+
   /* ── Stop Handler ───────────────────────────── */
   const handleStop = useCallback(() => {
     if (stopRef.current) {
