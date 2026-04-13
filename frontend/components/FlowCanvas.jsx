@@ -30,7 +30,7 @@ function useReactFlow() {
 }
 
 // ---------------------------------------------------------
-// Universal Custom Node: LacunexNode
+// Universal Custom Node: LacunexNode (Premium v4)
 // ---------------------------------------------------------
 function LacunexNode({ data, selected }) {
   const Handle = ReactFlowModule?.Handle;
@@ -39,83 +39,174 @@ function LacunexNode({ data, selected }) {
   if (!Handle || !Position) return <div className="flow-node">...</div>;
 
   return (
-    <div className={`flow-node ${data.category} ${selected ? 'selected' : ''}`} style={{
-      background: '#111128',
-      border: `1px solid ${selected ? '#00e5ff' : '#222244'}`,
-      borderRadius: '8px',
-      padding: '12px',
-      width: '260px',
-      fontFamily: '"Space Grotesk", "Inter", sans-serif',
-      boxShadow: selected ? '0 0 15px rgba(0, 229, 255, 0.2)' : 'none',
-      color: '#fff',
-      transition: 'all 0.2s ease'
+    <div className={`glass-panel flow-node-v4 ${data.category} ${selected ? 'selected' : ''}`} style={{
+      borderRadius: 'var(--radius-lg)',
+      padding: '1px', // Border wrapper for gradient effect if needed
+      width: '280px',
+      fontFamily: 'var(--font-inter), sans-serif',
+      boxShadow: selected ? 'var(--shadow-glow), 0 0 20px var(--accent-secondary-soft)' : 'var(--shadow-md)',
+      color: 'var(--text-primary)',
+      transition: 'all 0.3s var(--ease-out-expo)',
+      position: 'relative',
+      overflow: 'hidden',
+      border: selected ? '1px solid var(--accent-secondary)' : '1px solid var(--glass-border)'
     }}>
-      <Handle type="target" position={Position.Left} style={{ background: '#00e5ff', width: '8px', height: '8px' }} />
+      <Handle type="target" position={Position.Left} style={{ 
+        background: 'var(--accent-secondary)', 
+        width: '10px', 
+        height: '10px',
+        border: '2px solid var(--bg-surface)',
+        left: '-5px'
+      }} />
       
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #222244', paddingBottom: '8px', marginBottom: '10px' }}>
-        <div style={{ fontSize: '1.2rem' }}>{data.icon}</div>
-        <div style={{ fontWeight: '600', fontSize: '0.9rem', color: data.category === 'input' ? '#4ade80' : data.category === 'action' ? '#00e5ff' : '#c084fc' }}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '10px', 
+        background: 'rgba(255,255,255,0.03)',
+        padding: '10px 12px',
+        borderBottom: '1px solid var(--glass-border)'
+      }}>
+        <div style={{ fontSize: '1.25rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>{data.icon}</div>
+        <div style={{ 
+          fontWeight: '700', 
+          fontSize: '0.85rem', 
+          letterSpacing: '0.02em',
+          textTransform: 'uppercase',
+          color: data.category === 'input' ? 'var(--success)' : data.category === 'action' ? 'var(--accent-secondary)' : 'var(--accent-primary)' 
+        }}>
           {data.label}
         </div>
       </div>
       
-      <div className="node-content">
+      <div className="node-content" style={{ padding: '12px' }}>
         {data.type === 'text_input' && (
           <textarea
             value={data.text || ''}
             onChange={e => data.onChange && data.onChange(data.id, e.target.value)}
-            placeholder="Enter your prompt..."
+            placeholder="Type your prompt here..."
             rows={3}
-            style={{ width: '100%', background: '#0a0a18', border: '1px solid #333', color: '#fff', padding: '8px', borderRadius: '4px', fontSize: '0.8rem', resize: 'vertical' }}
+            className="glass-panel"
+            style={{ 
+              width: '100%', 
+              background: 'rgba(0,0,0,0.2)', 
+              border: '1px solid var(--glass-border)', 
+              color: 'var(--text-primary)', 
+              padding: '10px', 
+              borderRadius: 'var(--radius-md)', 
+              fontSize: '0.8rem', 
+              resize: 'none',
+              outline: 'none',
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--accent-secondary)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--glass-border)'}
           />
         )}
         
         {data.type === 'translate' && (
-          <select
-            value={data.language || 'Hindi'}
-            onChange={e => data.onLanguageChange && data.onLanguageChange(data.id, e.target.value)}
-            style={{ width: '100%', background: '#0a0a18', border: '1px solid #333', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '0.8rem' }}
-          >
-            <option>Hindi</option>
-            <option>Bengali</option>
-            <option>Tamil</option>
-            <option>Telugu</option>
-            <option>French</option>
-            <option>Spanish</option>
-          </select>
+          <div style={{ position: 'relative' }}>
+             <select
+                value={data.language || 'Hindi'}
+                onChange={e => data.onLanguageChange && data.onLanguageChange(data.id, e.target.value)}
+                className="glass-panel"
+                style={{ 
+                  width: '100%', 
+                  background: 'rgba(0,0,0,0.2)', 
+                  border: '1px solid var(--glass-border)', 
+                  color: 'var(--text-primary)', 
+                  padding: '8px 10px', 
+                  borderRadius: 'var(--radius-md)', 
+                  fontSize: '0.8rem',
+                  appearance: 'none',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                <option>Hindi</option>
+                <option>Bengali</option>
+                <option>Tamil</option>
+                <option>Telugu</option>
+                <option>French</option>
+                <option>Spanish</option>
+              </select>
+              <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>▼</div>
+          </div>
         )}
         
         {data.status && (
-          <div style={{ marginTop: '10px', fontSize: '0.75rem', fontWeight: 'bold', 
-            color: data.status === 'running' ? '#facc15' : data.status === 'done' ? '#4ade80' : '#f87171' 
+          <div style={{ 
+            marginTop: '12px', 
+            fontSize: '0.7rem', 
+            fontWeight: '800', 
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: data.status === 'running' ? 'var(--warning)' : data.status === 'done' ? 'var(--success)' : 'var(--danger)' 
           }}>
-            {data.status === 'running' && '⏳ Running...'}
-            {data.status === 'done' && '✅ Done'}
-            {data.status === 'error' && '❌ Failed'}
+            <span style={{ 
+              width: '6px', 
+              height: '6px', 
+              borderRadius: '50%', 
+              background: 'currentColor',
+              boxShadow: '0 0 8px currentColor',
+              animation: data.status === 'running' ? 'pulse 1s infinite' : 'none'
+            }} />
+            {data.status === 'running' && 'Processing...'}
+            {data.status === 'done' && 'Complete'}
+            {data.status === 'error' && 'Execution Failed'}
           </div>
         )}
         
         {data.output && (
-          <div style={{ 
-            marginTop: '10px', 
-            background: data.output.startsWith('[ERROR]') ? '#1a0a0a' : '#0a0a18', 
-            padding: '6px', 
-            borderRadius: '4px', 
+          <div className="glass-panel" style={{ 
+            marginTop: '12px', 
+            background: data.output.startsWith('[ERROR]') ? 'rgba(239, 68, 68, 0.05)' : 'rgba(0,0,0,0.15)', 
+            padding: '10px', 
+            borderRadius: 'var(--radius-md)', 
             fontSize: '0.75rem', 
-            maxHeight: '100px', 
+            maxHeight: '120px', 
             overflowY: 'auto', 
-            border: data.output.startsWith('[ERROR]') ? '1px solid #7f1d1d' : '1px solid #222244',
-            color: data.output.startsWith('[ERROR]') ? '#f87171' : '#e2e8f0'
+            border: data.output.startsWith('[ERROR]') ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--glass-border)',
+            color: data.output.startsWith('[ERROR]') ? 'var(--danger)' : 'var(--text-secondary)',
+            lineHeight: '1.4'
           }}>
-            <div style={{ color: data.output.startsWith('[ERROR]') ? '#f87171' : '#888', marginBottom: '4px', fontWeight: 'bold' }}>
-              {data.output.startsWith('[ERROR]') ? '⚠️ Error:' : 'Result:'}
+            <div style={{ 
+              color: data.output.startsWith('[ERROR]') ? 'var(--danger)' : 'var(--accent-secondary)', 
+              marginBottom: '6px', 
+              fontWeight: '700',
+              fontSize: '0.65rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}>
+              {data.output.startsWith('[ERROR]') ? 'System Diagnostic:' : 'Live Output:'}
             </div>
             {data.output.startsWith('[ERROR]') ? data.output.replace('[ERROR] ', '') : data.output}
           </div>
         )}
       </div>
 
-      <Handle type="source" position={Position.Right} style={{ background: '#00e5ff', width: '8px', height: '8px' }} />
+      <Handle type="source" position={Position.Right} style={{ 
+        background: 'var(--accent-secondary)', 
+        width: '10px', 
+        height: '10px',
+        border: '2px solid var(--bg-surface)',
+        right: '-5px'
+      }} />
+      
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes pulse {
+          0% { opacity: 0.5; transform: scale(0.9); }
+          50% { opacity: 1; transform: scale(1.1); }
+          100% { opacity: 0.5; transform: scale(0.9); }
+        }
+        .flow-node-v4:hover {
+           border-color: var(--accent-secondary) !important;
+           transform: translateY(-2px);
+           box-shadow: var(--shadow-lg), 0 10px 30px rgba(0,0,0,0.2) !important;
+        }
+      `}} />
     </div>
   );
 }
@@ -200,7 +291,16 @@ export default function FlowCanvas() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [globalError, setGlobalError] = useState("");
+  const [globalError, setGlobalError] = useState(null);
+  const [showHelp, setShowHelp] = useState(false);
+
+  // Auto-show help for first-time users (if no nodes)
+  useEffect(() => {
+    if (loaded && nodes.length === 0) {
+      const timer = setTimeout(() => setShowHelp(true), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [loaded, nodes.length === 0]); 
 
   const handleTextChange = useCallback((id, newText) => {
     setNodes((nds) =>
@@ -402,50 +502,193 @@ export default function FlowCanvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        defaultEdgeOptions={{
+           animated: true,
+           className: 'lacunex-edge-animated'
+        }}
         fitView
       >
-        <Background gap={20} size={2} color="#222244" />
-        <MiniMap nodeColor="#00e5ff" maskColor="rgba(0,0,0,0.8)" style={{ background: '#111128', border: '1px solid #333' }} />
-        <Controls style={{ fill: '#00e5ff' }} />
+        <Background gap={24} size={1} color="rgba(168, 85, 247, 0.1)" />
+        <MiniMap 
+          nodeColor={(n) => {
+            if (n.data.category === 'input') return '#4ade80';
+            if (n.data.category === 'action') return '#00d4ff';
+            return '#a855f7';
+          }} 
+          maskColor="rgba(5, 10, 20, 0.7)" 
+          className="glass-panel"
+          style={{ background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)' }} 
+        />
+        <Controls className="glass-panel" style={{ fill: 'var(--accent-secondary)' }} />
         
-        <Panel position="top-left" style={{ display: 'flex', gap: '10px', marginTop: '10px', marginLeft: '10px' }}>
+        <Panel position="top-left" style={{ display: 'flex', gap: '12px', marginTop: '12px', marginLeft: '12px' }}>
           <select 
             onChange={(e) => loadTemplate(e.target.value)}
-            style={{ background: '#111128', color: '#fff', border: '1px solid #00e5ff', padding: '10px', borderRadius: '8px', cursor: 'pointer', outline: 'none' }}
+            className="glass-panel"
+            style={{ 
+              color: 'var(--text-primary)', 
+              padding: '10px 16px', 
+              borderRadius: 'var(--radius-lg)', 
+              cursor: 'pointer', 
+              outline: 'none',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              border: '1px solid var(--accent-secondary)'
+            }}
           >
-            <option value="">✨ Load a Workflow Template...</option>
+            <option value="">✨ Load Workflow Template...</option>
             {TEMPLATES.map(t => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
+
+          <button
+            onClick={() => setShowHelp(true)}
+            className="glass-panel"
+            style={{
+              padding: '10px 16px',
+              borderRadius: 'var(--radius-lg)',
+              color: 'var(--accent-secondary)',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              border: '1px solid var(--glass-border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span style={{ fontSize: '1.1rem' }}>❓</span> Help
+          </button>
         </Panel>
 
-        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', marginTop: '10px', marginRight: '10px' }}>
+        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end', marginTop: '12px', marginRight: '12px' }}>
           <button 
             onClick={executeFlow} 
             disabled={isRunning || nodes.length === 0}
+            className={isRunning || nodes.length === 0 ? "" : "animate-glow"}
             style={{ 
-              background: isRunning || nodes.length === 0 ? '#333' : 'linear-gradient(90deg, #00e5ff, #3b82f6)', 
-              color: isRunning || nodes.length === 0 ? '#888' : '#fff', 
-              fontWeight: 'bold', 
+              background: isRunning || nodes.length === 0 ? 'var(--bg-elevated)' : 'var(--gradient-brand)', 
+              color: isRunning || nodes.length === 0 ? 'var(--text-tertiary)' : '#fff', 
+              fontWeight: '800', 
               border: 'none', 
-              padding: '12px 24px', 
-              borderRadius: '8px', 
+              padding: '14px 28px', 
+              borderRadius: 'var(--radius-xl)', 
               cursor: isRunning || nodes.length === 0 ? 'not-allowed' : 'pointer',
-              boxShadow: isRunning || nodes.length === 0 ? 'none' : '0 4px 15px rgba(0, 229, 255, 0.4)',
-              transition: 'all 0.3s'
+              boxShadow: isRunning || nodes.length === 0 ? 'none' : 'var(--shadow-lg)',
+              transition: 'all 0.3s var(--ease-spring)',
+              fontSize: '0.9rem',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase'
             }}
           >
-            {isRunning ? '⏳ Executing Pipeline...' : '▶ Run Data Workflow'}
+            {isRunning ? '⏳ Processing Ecosystem...' : '▶ Launch Neural Flow'}
           </button>
           
           {globalError && (
-            <div style={{ background: '#450a0a', color: '#f87171', padding: '12px', borderRadius: '8px', border: '1px solid #7f1d1d', maxWidth: '300px' }}>
-              <strong>Error:</strong> {globalError}
+            <div className="glass-panel" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', padding: '14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--danger)', maxWidth: '320px', fontSize: '0.85rem' }}>
+              <div style={{ fontWeight: '800', marginBottom: '4px' }}>ECOSYSTEM ERROR</div>
+              {globalError}
             </div>
           )}
         </Panel>
+
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes edge-flow {
+            from { stroke-dashoffset: 24; }
+            to { stroke-dashoffset: 0; }
+          }
+          .lacunex-edge-animated {
+            stroke: #00d4ff !important;
+            stroke-width: 3 !important;
+            stroke-dasharray: 8, 8 !important;
+            animation: edge-flow 1s linear infinite !important;
+            filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.8)) !important;
+          }
+          .animate-glow {
+            animation: glow-pulse 2s infinite;
+          }
+          @keyframes glow-pulse {
+            0% { box-shadow: 0 0 5px rgba(168, 85, 247, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.7); }
+            100% { box-shadow: 0 0 5px rgba(168, 85, 247, 0.4); }
+          }
+        `}} />
       </RF>
+
+      {/* Help Overlay */}
+      {showHelp && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(5, 10, 20, 0.85)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div className="glass-panel-strong" style={{
+            maxWidth: '500px',
+            padding: '40px',
+            borderRadius: 'var(--radius-2xl)',
+            position: 'relative',
+            textAlign: 'center'
+          }}>
+            <button 
+              onClick={() => setShowHelp(false)}
+              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '1.5rem' }}
+            >
+              ×
+            </button>
+            <div className="brand-badge brand-badge-lg" style={{ marginBottom: '24px' }}>?</div>
+            <h2 className="heading-lg" style={{ marginBottom: '12px' }}>How to use Flow</h2>
+            <p className="text-muted" style={{ marginBottom: '32px' }}>Master the LACUNEX parallel processing engine in seconds.</p>
+            
+            <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>1</div>
+                <div>
+                  <h4 style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Construct</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Pick a template or build from scratch by dragging nodes from the left panel.</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent-secondary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>2</div>
+                <div>
+                  <h4 style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Connect</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Drag lines between nodes to define the data flow direction.</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--success)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>3</div>
+                <div>
+                  <h4 style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Execute</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Click 'Launch Neural Flow' to run the entire pipeline at once.</p>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowHelp(false)}
+              className="glass-panel"
+              style={{ 
+                marginTop: '40px', 
+                width: '100%', 
+                padding: '14px', 
+                borderRadius: 'var(--radius-lg)', 
+                background: 'var(--gradient-brand)', 
+                color: '#fff', 
+                fontWeight: '700',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Got it, let's build!
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Empty State Overlay */}
       {nodes.length === 0 && (

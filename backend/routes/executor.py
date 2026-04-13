@@ -5,24 +5,31 @@ from typing import Optional, List
 
 router = APIRouter()
 
-PISTON_URL = "https://emkc.org/api/v2/piston"
+# Judge0 Public Instance (as fallback/primary since Piston is dead)
+JUDGE0_URL = "https://ce.judge0.com"
 
-LANGUAGE_VERSIONS = {
-    "python": "3.10.0",
-    "javascript": "18.15.0",
-    "typescript": "5.0.3",
-    "c": "10.2.0",
-    "cpp": "10.2.0",
-    "java": "15.0.2",
-    "rust": "1.68.2",
-    "go": "1.16.2",
-    "csharp": "6.12.0",
-    "kotlin": "1.8.20",
-    "php": "8.2.3",
-    "ruby": "3.0.1",
-    "bash": "5.2.0",
-    "r": "4.1.1",
-    "swift": "5.3.3",
+# Judge0 Language IDs
+JUDGE0_LANG_MAP = {
+    "python": 100,      # Python 3.12.5
+    "python3": 100,
+    "javascript": 102,  # Node.js 22.08.0
+    "js": 102,
+    "typescript": 101, # TypeScript 5.6.2
+    "ts": 101,
+    "c": 103,           # GCC 14.1.0
+    "cpp": 105,         # G++ 14.1.0
+    "c++": 105,
+    "csharp": 51,       # Mono 6.6.0.161
+    "java": 91,         # Java 17.0.6
+    "rust": 108,        # Rust 1.85.0
+    "go": 107,          # Go 1.23.5
+    "kotlin": 111,      # Kotlin 2.1.10
+    "php": 98,          # PHP 8.3.11
+    "ruby": 72,         # Ruby 2.7.0
+    "bash": 46,         # Bash 5.0.0
+    "r": 99,            # R 4.4.1
+    "swift": 83,        # Swift 5.2.3
+    "sql": 82,          # SQLite 3.27.2
 }
 
 class ExecuteRequest(BaseModel):
@@ -33,54 +40,64 @@ class ExecuteRequest(BaseModel):
 
 @router.post("/execute")
 async def execute_code(req: ExecuteRequest):
-    lang = req.language.lower().strip()
-    version = LANGUAGE_VERSIONS.get(lang)
+    lang_key = req.language.lower().strip()
+    lang_id = JUDGE0_LANG_MAP.get(lang_key)
     
-    if not version:
+    if not lang_id:
         return {
             "stdout": "",
-            "stderr": f"Language '{lang}' not supported. Supported: {list(LANGUAGE_VERSIONS.keys())}",
+            "stderr": f"Language '{lang_key}' not supported by execution engine.",
             "exit_code": 1,
             "execution_time": 0
         }
     
-    # Map language aliases
-    piston_lang = {
-        "cpp": "c++",
-        "csharp": "csharp",
-        "js": "javascript",
-        "ts": "typescript",
-    }.get(lang, lang)
-    
+    # Judge0 Payload
     payload = {
-        "language": piston_lang,
-        "version": version,
-        "files": [{"name": f"main.{lang}", "content": req.code}],
+        "source_code": req.code,
+        "language_id": lang_id,
         "stdin": req.stdin or "",
-        "args": req.args or [],
-        "compile_timeout": 15000,
-        "run_timeout": 10000,
+        "command_line_arguments": " ".join(req.args) if req.args else "",
     }
     
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(f"{PISTON_URL}/execute", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
+            # wait=true ensures synchronous execution
+            resp = await client.post(
+                f"{JUDGE0_URL}/submissions?base64_encoded=false&wait=true", 
+                json=payload
+            )
             
-            run = data.get("run", {})
-            compile_info = data.get("compile", {})
-            
-            return {
-                "stdout": run.get("stdout", ""),
-                "stderr": run.get("stderr", "") or compile_info.get("stderr", ""),
-                "compile_output": compile_info.get("output", ""),
-                "exit_code": run.get("code", 0),
-                "execution_time": run.get("wall_time", 0),
-                "language": lang,
-                "signal": run.get("signal")
-            }
-    except httpx.TimeoutException:
-        return {"stdout": "", "stderr": "Execution timed out (10s limit)", "exit_code": 124}
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                status = data.get("status", {})
+                
+                stdout = data.get("stdout") or ""
+                stderr = data.get("stderr") or ""
+                compile_output = data.get("compile_output") or ""
+                
+                # Judge0 status IDs: 3 is Accepted, others are errors
+                exit_code = 0 if status.get("id") == 3 else 1
+                
+                return {
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "compile_output": compile_output,
+                    "exit_code": exit_code,
+                    "execution_time": data.get("time") or 0,
+                    "language": lang_key,
+                    "status_description": status.get("description")
+                }
+            else:
+                return {
+                    "stdout": "",
+                    "stderr": f"Compiler API Error: HTTP {resp.status_code} - {resp.text[:200]}",
+                    "exit_code": 1
+                }
+                
     except Exception as e:
-        return {"stdout": "", "stderr": f"Execution error: {str(e)}", "exit_code": 1}
+        return {
+            "stdout": "",
+            "stderr": f"Execution request failed: {str(e)}",
+            "exit_code": 1
+        }
+
