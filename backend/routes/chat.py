@@ -244,6 +244,7 @@ async def chat(
 
     # ── SSE Generator ─────────────────────────────────────────────────────────
     async def event_stream():
+        nonlocal image_results
         full_response = ""
 
         mode_event = {
