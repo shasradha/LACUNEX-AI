@@ -665,21 +665,97 @@ export default function FlowCanvas() {
     } : undefined,
   };
 
+  const onDragOver = useCallback((event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (event) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData('application/reactflow/type');
+      const label = event.dataTransfer.getData('application/reactflow/label');
+      const icon = event.dataTransfer.getData('application/reactflow/icon');
+      const category = event.dataTransfer.getData('application/reactflow/category');
+
+      if (!type) {
+        return;
+      }
+
+      // Simple absolute coordinate placement based on canvas
+      const wrapperElement = document.querySelector('.flow-canvas-wrapper');
+      let position = { x: 100, y: 100 };
+      if (wrapperElement) {
+        const reactFlowBounds = wrapperElement.getBoundingClientRect();
+        // Fallback for zoom/pan (approximate):
+        position = {
+          x: event.clientX - reactFlowBounds.left - 100,
+          y: event.clientY - reactFlowBounds.top - 50,
+        };
+      }
+      
+      let initialText = '';
+      if(type === 'text_input') initialText = 'New input';
+
+      const newNode = {
+        id: `node_dnd_${Date.now()}`,
+        type: 'lacunexNode',
+        position,
+        data: { 
+          id: `node_dnd_${Date.now()}`, 
+          type, 
+          label, 
+          icon, 
+          category, 
+          text: initialText,
+          onChange: handleTextChange, 
+          onLanguageChange: handleLangChange 
+        },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [handleTextChange, handleLangChange]
+  );
+
+  const onDragStart = (event, node) => {
+    event.dataTransfer.setData('application/reactflow/type', node.type);
+    event.dataTransfer.setData('application/reactflow/label', node.label);
+    event.dataTransfer.setData('application/reactflow/icon', node.icon);
+    event.dataTransfer.setData('application/reactflow/category', node.category);
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const DRAGGABLE_NODES = [
+    { type: 'text_input', label: 'Topic Input', icon: '📝', category: 'input' },
+    { type: 'generate_notes', label: 'Generate Notes', icon: '🧠', category: 'action' },
+    { type: 'quiz_generator', label: 'Quiz Generator', icon: '❓', category: 'action' },
+    { type: 'web_search', label: 'Web Search', icon: '🔍', category: 'action' },
+    { type: 'summarize', label: 'Summarize', icon: '📋', category: 'action' },
+    { type: 'translate', label: 'Translate', icon: '🌐', category: 'action' },
+    { type: 'write_code', label: 'Write Code', icon: '💻', category: 'action' },
+    { type: 'download_pdf', label: 'Download PDF', icon: '📥', category: 'output' },
+    { type: 'show_in_chat', label: 'Show in Chat', icon: '💬', category: 'output' }
+  ];
+
   return (
-      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '700px', background: '#06060f', position: 'relative' }}>
+      <div className="flow-canvas-wrapper" style={{ width: '100%', height: '100%', minHeight: '700px', background: '#0a0a0f', position: 'relative' }}>
       <RF
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
-        connectionLineStyle={{ stroke: '#00d4ff', strokeWidth: 2 }}
+        connectionLineStyle={{ stroke: '#00d4ff', strokeWidth: 3 }}
         connectionLineType="smoothstep"
         fitView
       >
-        <Background gap={24} size={1} color="rgba(0, 212, 255, 0.08)" />
+        <Background variant="lines" gap={40} size={1} color="rgba(255, 255, 255, 0.05)" />
         <MiniMap 
           nodeColor={(n) => {
             if (n.data.category === 'input') return '#00d4ff';
@@ -693,6 +769,7 @@ export default function FlowCanvas() {
         
         <Panel position="top-left" style={{ display: 'flex', gap: '12px', marginTop: '12px', marginLeft: '12px' }}>
           <TemplateDropdown onSelect={loadTemplate} />
+
 
           <button
             onClick={() => setShowHelp(true)}
@@ -716,6 +793,54 @@ export default function FlowCanvas() {
           >
             <span style={{ fontSize: '1.1rem' }}>❓</span> Help
           </button>
+        </Panel>
+
+        <Panel position="left" style={{ 
+          display: 'flex', flexDirection: 'column', gap: '10px', 
+          marginTop: '70px', marginLeft: '12px', padding: '16px',
+          background: 'rgba(10, 12, 20, 0.85)', backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+          maxWidth: '220px',
+        }}>
+          <div style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+            Node Library
+          </div>
+          <div style={{ color: '#64748b', fontSize: '0.7rem', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '8px' }}>
+            Drag elements to construct your pipeline.
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '500px', overflowY: 'auto', paddingRight: '4px' }}>
+            {DRAGGABLE_NODES.map((node, i) => {
+              const categoryColor = node.category === 'input' ? '#00d4ff' : node.category === 'action' ? '#7c3aed' : '#16a34a';
+              return (
+                <div
+                  key={i}
+                  className="dndnode"
+                  onDragStart={(event) => onDragStart(event, node)}
+                  draggable
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '10px 12px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: `1px solid rgba(255,255,255,0.05)`,
+                    borderLeft: `3px solid ${categoryColor}`,
+                    borderRadius: '8px',
+                    color: '#e2e8f0',
+                    cursor: 'grab',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>{node.icon}</span>
+                  {node.label}
+                </div>
+              );
+            })}
+          </div>
         </Panel>
 
         <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end', marginTop: '12px', marginRight: '12px' }}>
@@ -801,7 +926,7 @@ export default function FlowCanvas() {
           }
           /* Dark background for flow */
           .react-flow__background {
-            background-color: #06060f !important;
+            background-color: #0d0f14 !important;
           }
           /* Connection line */
           .react-flow__connection-line {
