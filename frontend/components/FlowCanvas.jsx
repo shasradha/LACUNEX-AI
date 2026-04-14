@@ -42,53 +42,56 @@ function LacunexNode({ data, selected }) {
 
   return (
     <div className={`flow-node-v5 ${data.category || ''} ${selected ? 'selected' : ''}`} style={{
-      background: 'rgba(10, 10, 46, 0.85)',
-      backdropFilter: 'blur(20px)',
-      border: selected ? `2px solid ${categoryColor}` : '1px solid rgba(0, 212, 255, 0.25)',
-      borderTop: `3px solid ${categoryColor}`,
-      borderRadius: '12px',
+      background: 'linear-gradient(180deg, rgba(20, 24, 39, 0.95) 0%, rgba(10, 12, 20, 0.98) 100%)',
+      backdropFilter: 'blur(24px)',
+      border: selected ? `2px solid ${categoryColor}` : '1px solid rgba(255, 255, 255, 0.12)',
+      borderTop: `4px solid ${categoryColor}`,
+      borderRadius: '16px',
       padding: '0',
-      width: '280px',
+      width: '320px',
       color: '#fff',
       boxShadow: selected 
-        ? `0 0 0 2px rgba(0,212,255,0.3), 0 8px 32px rgba(0,0,0,0.5)` 
-        : '0 4px 24px rgba(0,0,0,0.4)',
-      transition: 'all 0.2s ease',
+        ? `0 0 0 2px rgba(0,212,255,0.2), 0 20px 60px rgba(0,0,0,0.8)` 
+        : '0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
+      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
       position: 'relative',
       overflow: 'hidden',
       fontFamily: 'var(--font-inter, Inter, sans-serif)',
     }}>
       <Handle type="target" position={Position.Left} className="flow-handle" style={{ 
-        background: '#00d4ff',
-        width: '14px', 
-        height: '14px',
-        border: '2px solid white',
+        background: categoryColor,
+        width: '18px', 
+        height: '18px',
+        border: '3px solid #1a1b26',
         borderRadius: '50%',
-        left: '-7px',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        left: '-9px',
+        boxShadow: `0 0 12px ${categoryColor}`,
+        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        zIndex: 10,
       }} />
       
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
-        gap: '10px', 
-        background: 'rgba(255,255,255,0.03)',
-        padding: '10px 12px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)'
+        gap: '12px', 
+        background: 'rgba(0,0,0,0.3)',
+        padding: '14px 16px',
+        borderBottom: '1px solid rgba(255,255,255,0.08)'
       }}>
-        <div style={{ fontSize: '1.25rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>{data.icon}</div>
+        <div style={{ fontSize: '1.4rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>{data.icon}</div>
         <div style={{ 
-          fontWeight: '700', 
-          fontSize: '0.85rem', 
-          letterSpacing: '0.02em',
+          fontWeight: '800', 
+          fontSize: '0.9rem', 
+          letterSpacing: '0.04em',
           textTransform: 'uppercase',
-          color: categoryColor
+          color: '#ffffff',
+          textShadow: `0 0 10px ${categoryColor}`
         }}>
           {data.label}
         </div>
       </div>
       
-      <div className="node-content" style={{ padding: '12px' }}>
+      <div className="node-content" style={{ padding: '16px' }}>
         {data.type === 'text_input' && (
           <textarea
             value={data.text || ''}
@@ -169,22 +172,22 @@ function LacunexNode({ data, selected }) {
         
         {data.output && (
           <div style={{ 
-            marginTop: '12px', 
-            background: data.output.startsWith('[ERROR]') ? 'rgba(239, 68, 68, 0.05)' : 'rgba(0,0,0,0.15)', 
-            padding: '10px', 
-            borderRadius: '6px', 
-            fontSize: '0.75rem', 
-            maxHeight: '120px', 
+            marginTop: '16px', 
+            background: data.output.startsWith('[ERROR]') ? 'rgba(239, 68, 68, 0.08)' : 'rgba(0,0,0,0.4)', 
+            padding: '12px', 
+            borderRadius: '8px', 
+            fontSize: '0.8rem', 
+            maxHeight: '140px', 
             overflowY: 'auto', 
-            border: data.output.startsWith('[ERROR]') ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(255,255,255,0.06)',
-            color: data.output.startsWith('[ERROR]') ? '#ef4444' : '#94a3b8',
-            lineHeight: '1.4'
+            border: data.output.startsWith('[ERROR]') ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+            color: data.output.startsWith('[ERROR]') ? '#f87171' : '#cbd5e1',
+            lineHeight: '1.5'
           }}>
             <div style={{ 
-              color: data.output.startsWith('[ERROR]') ? '#ef4444' : '#00d4ff', 
-              marginBottom: '6px', 
-              fontWeight: '700',
-              fontSize: '0.65rem',
+              color: data.output.startsWith('[ERROR]') ? '#fca5a5' : '#00d4ff', 
+              marginBottom: '8px', 
+              fontWeight: '800',
+              fontSize: '0.7rem',
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}>
@@ -196,13 +199,15 @@ function LacunexNode({ data, selected }) {
       </div>
 
       <Handle type="source" position={Position.Right} className="flow-handle" style={{ 
-        background: '#00d4ff',
-        width: '14px', 
-        height: '14px',
-        border: '2px solid white',
+        background: categoryColor,
+        width: '18px', 
+        height: '18px',
+        border: '3px solid #1a1b26',
         borderRadius: '50%',
-        right: '-7px',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        right: '-9px',
+        boxShadow: `0 0 12px ${categoryColor}`,
+        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        zIndex: 10,
       }} />
     </div>
   );
@@ -752,21 +757,24 @@ export default function FlowCanvas() {
           }
           .react-flow__edge-path {
             stroke: #00d4ff !important;
-            stroke-width: 2 !important;
+            stroke-width: 3 !important;
           }
           /* Handle hover effects */
           .react-flow__handle {
-            width: 14px !important;
-            height: 14px !important;
+            width: 18px !important;
+            height: 18px !important;
             background: #00d4ff !important;
-            border: 2px solid white !important;
+            border: 3px solid #1a1b26 !important;
             border-radius: 50% !important;
-            transition: transform 0.2s, box-shadow 0.2s !important;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            z-index: 10 !important;
           }
           .react-flow__handle:hover {
-            transform: scale(1.5) !important;
-            box-shadow: 0 0 12px #00d4ff !important;
+            transform: scale(1.4) !important;
+            box-shadow: 0 0 16px #00d4ff !important;
             cursor: crosshair !important;
+            background: #ffffff !important;
+            border-color: #00d4ff !important;
           }
           /* Node hover */
           .flow-node-v5:hover {

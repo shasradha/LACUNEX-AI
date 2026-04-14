@@ -38,6 +38,16 @@ class ExecuteRequest(BaseModel):
     stdin: Optional[str] = ""
     args: Optional[List[str]] = []
 
+import base64
+
+def decode_b64(val: str) -> str:
+    if not val:
+        return ""
+    try:
+        return base64.b64decode(val).decode("utf-8")
+    except Exception:
+        return val
+
 @router.post("/execute")
 async def execute_code(req: ExecuteRequest):
     lang_key = req.language.lower().strip()
@@ -51,19 +61,19 @@ async def execute_code(req: ExecuteRequest):
             "execution_time": 0
         }
     
-    # Judge0 Payload
+    # Judge0 Payload (Base64 Encoded)
     payload = {
-        "source_code": req.code,
+        "source_code": base64.b64encode(req.code.encode('utf-8')).decode('utf-8'),
         "language_id": lang_id,
-        "stdin": req.stdin or "",
+        "stdin": base64.b64encode((req.stdin or "").encode('utf-8')).decode('utf-8') if req.stdin else "",
         "command_line_arguments": " ".join(req.args) if req.args else "",
     }
     
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            # wait=true ensures synchronous execution
+            # wait=true ensures synchronous execution, base64_encoded=true handles UTF8
             resp = await client.post(
-                f"{JUDGE0_URL}/submissions?base64_encoded=false&wait=true", 
+                f"{JUDGE0_URL}/submissions?base64_encoded=true&wait=true", 
                 json=payload
             )
             
@@ -71,9 +81,9 @@ async def execute_code(req: ExecuteRequest):
                 data = resp.json()
                 status = data.get("status", {})
                 
-                stdout = data.get("stdout") or ""
-                stderr = data.get("stderr") or ""
-                compile_output = data.get("compile_output") or ""
+                stdout = decode_b64(data.get("stdout"))
+                stderr = decode_b64(data.get("stderr"))
+                compile_output = decode_b64(data.get("compile_output"))
                 
                 # Judge0 status IDs: 3 is Accepted, others are errors
                 exit_code = 0 if status.get("id") == 3 else 1
@@ -100,4 +110,5 @@ async def execute_code(req: ExecuteRequest):
             "stderr": f"Execution request failed: {str(e)}",
             "exit_code": 1
         }
+
 
