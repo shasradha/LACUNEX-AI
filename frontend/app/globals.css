@@ -5775,3 +5775,366 @@ textarea { resize: none; }
 .flow-btn.secondary:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Code Block Wrapper — Copy Button Styling (v5.1)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.code-block-wrapper {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 0.75rem 0;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: #1e1e2e;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.code-lang-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary, #64748b);
+}
+
+.code-block-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.code-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.code-copy-btn:hover {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.3);
+  color: #00d4ff;
+}
+
+.code-block-wrapper .code-content {
+  margin: 0;
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  background: transparent;
+}
+
+.code-block-wrapper .code-content code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.825rem;
+}
+
+/* Code Terminal styles */
+.code-terminal {
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 0.75rem 0;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: #1a1a2e;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #252540;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.terminal-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.terminal-lang {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.terminal-controls {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: rgba(40, 200, 64, 0.15);
+  border: 1px solid rgba(40, 200, 64, 0.3);
+  color: #28c840;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.run-btn:hover:not(:disabled) {
+  background: rgba(40, 200, 64, 0.25);
+  box-shadow: 0 0 8px rgba(40, 200, 64, 0.3);
+}
+
+.run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.run-btn.running {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #a855f7;
+}
+
+.terminal-controls button:not(.run-btn) {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.terminal-controls button:not(.run-btn):hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pulse-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a855f7;
+  box-shadow: 0 0 8px #a855f7;
+  animation: pulse-glow 1s ease infinite;
+  margin-right: 4px;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KaTeX Math Rendering Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0;
+}
+
+.katex {
+  font-size: 1.05em;
+}
+
+.markdown-body .katex-display {
+  margin: 1rem 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE (v5.1)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Mobile Base (< 768px) ─────────────────── */
+@media (max-width: 768px) {
+
+  /* Sidebar — hide by default, slide in when open */
+  .sidebar-wrap {
+    position: fixed !important;
+    left: -280px;
+    top: 0;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    width: 260px !important;
+    min-width: 260px !important;
+  }
+  .sidebar-wrap:not(.sidebar-collapsed) {
+    left: 0;
+  }
+  .sidebar-collapsed {
+    left: -280px !important;
+    width: 260px !important;
+    min-width: 260px !important;
+  }
+
+  /* Mobile overlay behind sidebar */
+  .sidebar-mobile-overlay {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    z-index: 999 !important;
+  }
+
+  /* Main chat area — full width */
+  .chat-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Chat input — mobile optimized */
+  .chat-input-area {
+    padding: 8px !important;
+    gap: 6px !important;
+  }
+  .chat-input-wrap textarea {
+    font-size: 16px !important; /* prevents iOS zoom */
+    min-height: 44px !important; /* touch target */
+  }
+
+  /* Message bubbles — better spacing */
+  .msg-bubble {
+    max-width: 95% !important;
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+  }
+
+  /* Code blocks — scroll on mobile */
+  .code-block-wrapper {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+  }
+  .code-block-wrapper pre,
+  .code-terminal pre {
+    font-size: 12px !important;
+    white-space: pre !important;
+  }
+
+  /* Document preview — full screen on mobile */
+  .doc-preview-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    z-index: 100 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Artifact panel — full screen on mobile */
+  .artifact-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  /* Suggestion chips — wrap */
+  .msg-refinement-buttons {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .refinement-btn {
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+  }
+
+  /* Model selector — smaller */
+  .model-selector-wrap {
+    font-size: 12px !important;
+    max-width: 120px !important;
+  }
+
+  /* Image slider — 2 cols on mobile */
+  .masonry-grid,
+  .image-slider-grid {
+    columns: 2 !important;
+  }
+
+  /* Top bar buttons — icon only */
+  .topbar-btn .btn-label,
+  .topbar .user-info-label {
+    display: none !important;
+  }
+
+  /* Brand tagline — hide on mobile */
+  .brand-tagline {
+    display: none !important;
+  }
+
+  /* Export menu — smaller */
+  .export-dropdown {
+    right: 0 !important;
+    left: auto !important;
+    min-width: 160px !important;
+  }
+
+  /* Thinking block — full width */
+  .thinking-block {
+    max-width: 100% !important;
+  }
+
+  /* Login grid — single column on mobile */
+  .login-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .login-hero {
+    display: none !important;
+  }
+}
+
+/* ── Small mobile (< 480px) ─────────────────── */
+@media (max-width: 480px) {
+  .masonry-grid,
+  .image-slider-grid {
+    columns: 1 !important;
+  }
+  .msg-bubble {
+    max-width: 100% !important;
+  }
+  .chat-input-wrap textarea {
+    font-size: 15px !important;
+  }
+  .msg-sender {
+    font-size: 0.7rem !important;
+  }
+  .msg-mode-badge {
+    display: none !important;
+  }
+  .topbar {
+    padding: 0.25rem 0.5rem !important;
+  }
+  .brand-name {
+    font-size: 0.85rem !important;
+  }
+}

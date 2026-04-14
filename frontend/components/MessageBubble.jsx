@@ -219,6 +219,14 @@ const getSuggestionChips = (userMsg, aiResp) => {
   return []; // no chips if no category matched
 };
 
+/* ── Helper: Is this language executable? ─── */
+const RUNNABLE_LANGS = new Set([
+  "python", "py", "python3", "javascript", "js", "typescript", "ts",
+  "java", "c", "cpp", "c++", "csharp", "cs", "go", "golang",
+  "rust", "rs", "php", "ruby", "rb", "swift", "kotlin", "kt",
+  "bash", "sh", "perl", "lua", "dart", "scala", "r", "haskell", "elixir", "sql",
+]);
+
 const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
   const markdownRef = useRef(null);
   const currentUser = useMemo(() => getUser(), []);
@@ -298,23 +306,23 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
     }
   };
 
-  const RUNNABLE_LANGS = new Set([
-    "python", "py", "python3", "javascript", "js", "typescript", "ts",
-    "java", "c", "cpp", "c++", "csharp", "cs", "go", "golang",
-    "rust", "rs", "php", "ruby", "rb", "swift", "kotlin", "kt",
-    "bash", "sh", "perl", "lua", "dart", "scala", "r", "haskell", "elixir", "sql",
-  ]);
-
-  // Render KaTeX Math
+  // Render KaTeX Math — enhanced with more delimiters
   useEffect(() => {
-    if (markdownRef.current && window.renderMathInElement) {
-      window.renderMathInElement(markdownRef.current, {
-        delimiters: [
-          { left: "$$", right: "$$", display: true },
-          { left: "$", right: "$", display: false },
-        ],
-        throwOnError: false,
-      });
+    if (markdownRef.current && typeof window !== 'undefined' && window.renderMathInElement) {
+      try {
+        window.renderMathInElement(markdownRef.current, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false },
+            { left: "\\(", right: "\\)", display: false },
+            { left: "\\[", right: "\\]", display: true },
+          ],
+          throwOnError: false,
+          errorColor: '#ff6b6b',
+        });
+      } catch (e) {
+        // KaTeX may not be loaded yet, ignore
+      }
     }
   }, [cleanContent]);
 
@@ -354,36 +362,38 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
 
   const markdownComponents = useMemo(() => ({
     code({ inline, className, children, ...props }) {
-      const code = String(children).replace(/\n$/, "");
+      const codeStr = String(children).replace(/\n$/, "");
       const lang = className?.replace("language-", "") || "code";
       const isRunnable = RUNNABLE_LANGS.has(lang.toLowerCase());
-      const codeKey = code.slice(0, 100);
+      const codeKey = codeStr.slice(0, 100);
       const output = codeOutputs[codeKey];
 
       if (!inline) {
+        // Runnable code → full CodeTerminal
         if (isRunnable) {
-          return <CodeTerminal code={code} lang={lang} />;
+          return <CodeTerminal code={codeStr} language={lang} />;
         }
         
+        // Non-runnable code → code block with copy button
         return (
-          <div className="code-block">
-            <div className="code-header">
-              <span>{lang}</span>
-              <div style={{ display: "flex", gap: "0.25rem" }}>
+          <div className="code-block-wrapper">
+            <div className="code-block-header">
+              <span className="code-lang-label">{lang || 'code'}</span>
+              <div className="code-block-actions">
                 <button
                   type="button"
                   onClick={() =>
-                    copyText(code, () => {
-                      setCopiedCodeBlock(code);
-                      setTimeout(() => setCopiedCodeBlock(""), 1800);
+                    copyText(codeStr, () => {
+                      setCopiedCodeBlock(codeStr);
+                      setTimeout(() => setCopiedCodeBlock(""), 2000);
                     })
                   }
                   className="code-copy-btn"
                 >
-                  {copiedCodeBlock === code ? (
-                    <><IconCheck /> Copied</>
+                  {copiedCodeBlock === codeStr ? (
+                    <>✅ Copied!</>
                   ) : (
-                    <><IconCopy /> Copy</>
+                    <>📋 Copy</>
                   )}
                 </button>
               </div>

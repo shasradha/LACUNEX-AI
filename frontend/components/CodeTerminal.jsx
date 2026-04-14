@@ -1,10 +1,49 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 
-const CodeTerminal = ({ code, language, onCodeChange }) => {
+/**
+ * Extracts code from fenced code blocks (```lang\ncode\n```)
+ * If no fence is found, treat entire content as code.
+ */
+const extractCode = (rawContent) => {
+  if (!rawContent) return { language: 'python', code: '' };
+  const fenceMatch = rawContent.match(/```(\w+)?\n([\s\S]*?)```/);
+  if (fenceMatch) {
+    return {
+      language: fenceMatch[1] || 'python',
+      code: fenceMatch[2].trim()
+    };
+  }
+  // If no fence, treat entire content as code
+  return { language: 'python', code: rawContent.trim() };
+};
+
+/**
+ * Detects if code needs stdin (input from user)
+ */
+const needsStdin = (code, lang) => {
+  const patterns = {
+    python: /input\s*\(/,
+    python3: /input\s*\(/,
+    py: /input\s*\(/,
+    java: /Scanner|nextLine|nextInt|BufferedReader/,
+    cpp: /cin\s*>>/,
+    'c++': /cin\s*>>/,
+    c: /scanf\s*\(/,
+    javascript: /readline|prompt\s*\(/,
+    js: /readline|prompt\s*\(/,
+    ruby: /gets/,
+    go: /fmt\.Scan/,
+    rust: /std::io::stdin/,
+  };
+  const pattern = patterns[lang?.toLowerCase()];
+  return pattern ? pattern.test(code) : false;
+};
+
+const CodeTerminal = ({ code: rawCode, language, onCodeChange }) => {
   const [output, setOutput] = useState('');
   const [stderr, setStderr] = useState('');
   const [stdin, setStdin] = useState('');
@@ -13,9 +52,12 @@ const CodeTerminal = ({ code, language, onCodeChange }) => {
   const [execTime, setExecTime] = useState(null);
   const [history, setHistory] = useState([]);
 
+  // Extract actual code from fenced blocks
+  const { language: extractedLang, code } = useMemo(() => extractCode(rawCode), [rawCode]);
+
   // Auto-detect language from code block fence:
   const detectLanguage = (codeText, hint) => {
-    if (hint) {
+    if (hint && hint !== 'code') {
       let hl = hint.toLowerCase();
       if (hl === 'lang') return 'python'; // fallback if poorly passed
       return hl;
@@ -29,7 +71,8 @@ const CodeTerminal = ({ code, language, onCodeChange }) => {
     return 'python'; // default
   };
 
-  const detectedLanguage = detectLanguage(code, language);
+  const detectedLanguage = detectLanguage(code, language || extractedLang);
+  const showStdin = needsStdin(code, detectedLanguage);
 
   // Ctrl+Enter keyboard shortcut
   useEffect(() => {
@@ -50,9 +93,9 @@ const CodeTerminal = ({ code, language, onCodeChange }) => {
     setStderr('');
     setExitCode(null);
 
-    // Provide some feedback immediately
     try {
       const { executeCode } = await import('../lib/api');
+      // Send only the extracted code, NOT the full message content
       const data = await executeCode(code, detectedLanguage, stdin);
       console.log("[CodeTerminal] execute response", data);
       
@@ -112,18 +155,20 @@ const CodeTerminal = ({ code, language, onCodeChange }) => {
         </SyntaxHighlighter>
       </div>
 
-      {/* stdin input */}
-      <div className="stdin-section" style={{ padding: '0.8rem', background: '#1e1e1e', borderTop: '1px solid #333' }}>
-        <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem' }}>📥 Input (stdin):</label>
-        <textarea
-          value={stdin}
-          onChange={e => setStdin(e.target.value)}
-          placeholder="Program input (if needed)..."
-          rows={2}
-          className="stdin-input"
-          style={{ width: '100%', background: '#252526', color: '#fff', border: '1px solid #444', borderRadius: '4px', padding: '0.5rem', fontFamily: 'monospace' }}
-        />
-      </div>
+      {/* stdin input — only show when code actually needs it */}
+      {showStdin && (
+        <div className="stdin-section" style={{ padding: '0.8rem', background: '#1e1e1e', borderTop: '1px solid #333' }}>
+          <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem' }}>📥 Input (stdin):</label>
+          <textarea
+            value={stdin}
+            onChange={e => setStdin(e.target.value)}
+            placeholder="Program input (if needed)..."
+            rows={2}
+            className="stdin-input"
+            style={{ width: '100%', background: '#252526', color: '#fff', border: '1px solid #444', borderRadius: '4px', padding: '0.5rem', fontFamily: 'monospace' }}
+          />
+        </div>
+      )}
 
       {/* Output */}
       <div className="terminal-output-area" style={{ padding: '0.8rem', background: '#0d0d0d', minHeight: '120px', fontFamily: 'monospace', fontSize: '0.85rem' }}>
