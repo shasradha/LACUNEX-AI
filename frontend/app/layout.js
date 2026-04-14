@@ -1,4 +1,5 @@
 import { Inter, Space_Grotesk } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import "./globals.css";
 
@@ -44,6 +45,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable}`}>
         {children}
+        <Analytics />
       </body>
     </html>
   );
