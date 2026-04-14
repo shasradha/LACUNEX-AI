@@ -395,7 +395,8 @@ export default function FlowCanvas() {
       const timer = setTimeout(() => setShowHelp(true), 1200);
       return () => clearTimeout(timer);
     }
-  }, [loaded, nodes.length === 0, isMobile]); 
+  }, [loaded, nodes.length, isMobile]); 
+
 
   const handleTextChange = useCallback((id, newText) => {
     setNodes((nds) =>
@@ -453,6 +454,60 @@ export default function FlowCanvas() {
     if (!mod) return;
     setEdges((eds) => mod.addEdge({ ...params, animated: true, style: { stroke: '#00d4ff', strokeWidth: 2 } }, eds));
   }, [mod]);
+
+  const onDragOver = useCallback((event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (event) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData('application/reactflow/type');
+      const label = event.dataTransfer.getData('application/reactflow/label');
+      const icon = event.dataTransfer.getData('application/reactflow/icon');
+      const category = event.dataTransfer.getData('application/reactflow/category');
+
+      if (!type) {
+        return;
+      }
+
+      // Simple absolute coordinate placement based on canvas
+      const wrapperElement = document.querySelector('.flow-canvas-wrapper');
+      let position = { x: 100, y: 100 };
+      if (wrapperElement) {
+        const reactFlowBounds = wrapperElement.getBoundingClientRect();
+        // Fallback for zoom/pan (approximate):
+        position = {
+          x: event.clientX - reactFlowBounds.left - 100,
+          y: event.clientY - reactFlowBounds.top - 50,
+        };
+      }
+      
+      let initialText = '';
+      if(type === 'text_input') initialText = 'New input';
+
+      const newNode = {
+        id: `node_dnd_${Date.now()}`,
+        type: 'lacunexNode',
+        position,
+        data: { 
+          id: `node_dnd_${Date.now()}`, 
+          type, 
+          label, 
+          icon, 
+          category, 
+          text: initialText,
+          onChange: handleTextChange, 
+          onLanguageChange: handleLangChange 
+        },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [handleTextChange, handleLangChange]
+  );
 
   const executeFlow = async () => {
     if (isRunning) return;
@@ -664,60 +719,6 @@ export default function FlowCanvas() {
       height: 20,
     } : undefined,
   };
-
-  const onDragOver = useCallback((event) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (event) => {
-      event.preventDefault();
-
-      const type = event.dataTransfer.getData('application/reactflow/type');
-      const label = event.dataTransfer.getData('application/reactflow/label');
-      const icon = event.dataTransfer.getData('application/reactflow/icon');
-      const category = event.dataTransfer.getData('application/reactflow/category');
-
-      if (!type) {
-        return;
-      }
-
-      // Simple absolute coordinate placement based on canvas
-      const wrapperElement = document.querySelector('.flow-canvas-wrapper');
-      let position = { x: 100, y: 100 };
-      if (wrapperElement) {
-        const reactFlowBounds = wrapperElement.getBoundingClientRect();
-        // Fallback for zoom/pan (approximate):
-        position = {
-          x: event.clientX - reactFlowBounds.left - 100,
-          y: event.clientY - reactFlowBounds.top - 50,
-        };
-      }
-      
-      let initialText = '';
-      if(type === 'text_input') initialText = 'New input';
-
-      const newNode = {
-        id: `node_dnd_${Date.now()}`,
-        type: 'lacunexNode',
-        position,
-        data: { 
-          id: `node_dnd_${Date.now()}`, 
-          type, 
-          label, 
-          icon, 
-          category, 
-          text: initialText,
-          onChange: handleTextChange, 
-          onLanguageChange: handleLangChange 
-        },
-      };
-
-      setNodes((nds) => nds.concat(newNode));
-    },
-    [handleTextChange, handleLangChange]
-  );
 
   const onDragStart = (event, node) => {
     event.dataTransfer.setData('application/reactflow/type', node.type);
@@ -985,7 +986,7 @@ export default function FlowCanvas() {
                 <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#16a34a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>3</div>
                 <div>
                   <h4 style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Execute</h4>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Click 'Launch Neural Flow' to run the entire pipeline at once.</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Click &apos;Launch Neural Flow&apos; to run the entire pipeline at once.</p>
                 </div>
               </div>
             </div>
@@ -1006,7 +1007,7 @@ export default function FlowCanvas() {
                 fontSize: '0.9rem',
               }}
             >
-              Got it, let's build!
+              Got it, let&apos;s build!
             </button>
           </div>
         </div>
