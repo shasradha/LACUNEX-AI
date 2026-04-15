@@ -816,7 +816,7 @@ export default function FlowCanvas() {
           style={{ background: 'rgba(10,10,46,0.8)', border: '1px solid rgba(0,212,255,0.15)', borderRadius: '8px' }} 
         />
         
-        <Panel position="top-left" style={{ display: 'flex', gap: '12px', marginTop: '12px', marginLeft: '12px' }}>
+        <Panel position="top-left" style={{ display: 'flex', gap: '12px', marginTop: '12px', marginLeft: '12px', zIndex: 100 }}>
           <TemplateDropdown onSelect={loadTemplate} />
 
           <button
