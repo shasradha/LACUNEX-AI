@@ -73,13 +73,13 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
     }
   }, [code, language, stdin, loading])
 
-  // AI Fix — sends prompt to chat but explicitly prevents document generation
   const handleAiFix = useCallback(() => {
     const errorText = result?.stderr || result?.compile_output || ''
     if (!errorText || !chatContext?.sendMessage) return
-    const prompt = `IMPORTANT: Do NOT generate a document. Just provide a quick code fix in a code block.\n\nFix this ${language.name} error. Return ONLY the corrected code:\n\n\`\`\`${language.monaco}\n${code}\n\`\`\`\n\nError: ${errorText.substring(0, 500)}`
+    const prompt = `Fix this ${language.name} code error. Reply with ONLY the corrected code in a single code block. Do NOT generate any document, outline, or structured response. Keep it short.\n\n\`\`\`${language.monaco}\n${code}\n\`\`\`\n\nError:\n\`\`\`\n${errorText.substring(0, 400)}\n\`\`\``
     chatContext.sendMessage(prompt)
-  }, [code, language, result, chatContext])
+    if (onClose) onClose()
+  }, [code, language, result, chatContext, onClose])
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code)

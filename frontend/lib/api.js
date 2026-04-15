@@ -191,18 +191,11 @@ export async function deleteConversation(id) {
 }
 
 export async function executeCode(code, language, stdin = "") {
-  const res = await fetch(`${API_BASE_URL}/api/execute`, {
+  return request("/api/execute", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code, language, stdin }),
+    body: { code, language, stdin },
+    auth: false, // Code execution is public for the studio
   });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "Execution failed");
-    throw new Error(`Code execution failed: ${errText.substring(0, 200)}`);
-  }
-
-  return res.json();
 }
 
 export async function generateImage(prompt) {

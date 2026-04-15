@@ -132,9 +132,14 @@ async def execute_code(req: ExecuteRequest, request: Request):
         "language_id": lang_id,
         "stdin": base64.b64encode((req.stdin or "").encode('utf-8')).decode('utf-8') if req.stdin else "",
         "command_line_arguments": " ".join(req.args) if req.args else "",
-        "cpu_time_limit": "5",
-        "memory_limit": "256000",
-        "wall_time_limit": "10",
+        "cpu_time_limit": "10",
+        "memory_limit": "512000",
+        "wall_time_limit": "30",
+        "max_file_size": "1048576", # 1MB limit for output/file creation
+        "stack_size_limit": "128000",
+        "max_processes_and_or_threads": "200",
+        "enable_per_process_and_thread_memory_limit": False,
+        "enable_per_process_and_thread_time_limit": False,
     }
 
     # Try each Judge0 host with fallback
@@ -156,7 +161,12 @@ async def execute_code(req: ExecuteRequest, request: Request):
                 )
 
                 if resp.status_code in (200, 201):
-                    data = resp.json()
+                    try:
+                        data = resp.json()
+                    except Exception:
+                        last_error = f"Malformed JSON response from {host}"
+                        continue
+                        
                     status = data.get("status", {})
 
                     stdout = decode_b64(data.get("stdout"))

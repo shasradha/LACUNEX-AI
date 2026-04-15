@@ -914,7 +914,7 @@ export default function ChatBox({
 
   const chatContextForStudio = useMemo(() => ({
     sendMessage: (msg) => {
-      // Keep studio open — fix runs in background chat
+      setCodeStudioOpen(false);
       handleSend(msg);
     },
   }), [handleSend]);
