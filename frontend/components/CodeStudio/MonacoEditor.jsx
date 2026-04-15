@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, memo, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
 
 const EDITOR_OPTIONS = {
@@ -30,6 +30,54 @@ const EDITOR_OPTIONS = {
   renderWhitespace: 'none',
   contextmenu: true,
   mouseWheelZoom: true,
+}
+
+// One Dark Theme
+const ONE_DARK = {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [
+    { token: 'comment', foreground: '5c6370', fontStyle: 'italic' },
+    { token: 'keyword', foreground: 'c678dd' },
+    { token: 'string', foreground: '98c379' },
+    { token: 'number', foreground: 'd19a66' },
+    { token: 'type', foreground: 'e5c07b' },
+    { token: 'function', foreground: '61afef' },
+    { token: 'variable', foreground: 'abb2bf' },
+    { token: 'operator', foreground: '56b6c2' },
+  ],
+  colors: {
+    'editor.background': '#282c34',
+    'editor.foreground': '#abb2bf',
+    'editor.lineHighlightBackground': '#2c313a',
+    'editor.selectionBackground': '#3e4451',
+    'editorCursor.foreground': '#528bff',
+    'editorLineNumber.foreground': '#4b5263',
+  },
+}
+
+// Dracula Theme
+const DRACULA = {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [
+    { token: 'comment', foreground: '6272a4', fontStyle: 'italic' },
+    { token: 'keyword', foreground: 'ff79c6' },
+    { token: 'string', foreground: 'f1fa8c' },
+    { token: 'number', foreground: 'bd93f9' },
+    { token: 'type', foreground: '8be9fd' },
+    { token: 'function', foreground: '50fa7b' },
+    { token: 'variable', foreground: 'f8f8f2' },
+    { token: 'operator', foreground: 'ffb86c' },
+  ],
+  colors: {
+    'editor.background': '#282a36',
+    'editor.foreground': '#f8f8f2',
+    'editor.lineHighlightBackground': '#44475a',
+    'editor.selectionBackground': '#44475a',
+    'editorCursor.foreground': '#f8f8f0',
+    'editorLineNumber.foreground': '#6272a4',
+  },
 }
 
 // GitHub Dark Dimmed theme
@@ -76,13 +124,19 @@ const GITHUB_DARK = {
   },
 }
 
-export default function MonacoEditorPanel({ code, language, onChange, onRun, height = '100%' }) {
+export default memo(function MonacoEditorPanel({ code, language, onChange, onRun, theme = 'github-dark', height = '100%' }) {
   const editorRef = useRef(null)
+  const monacoRef = useRef(null)
 
   const handleMount = useCallback((editor, monaco) => {
     editorRef.current = editor
+    monacoRef.current = monaco
+
     monaco.editor.defineTheme('github-dark', GITHUB_DARK)
-    monaco.editor.setTheme('github-dark')
+    monaco.editor.defineTheme('one-dark', ONE_DARK)
+    monaco.editor.defineTheme('dracula', DRACULA)
+
+    monaco.editor.setTheme(theme)
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRun?.())
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, (e) => {
@@ -90,7 +144,13 @@ export default function MonacoEditorPanel({ code, language, onChange, onRun, hei
     })
 
     editor.focus()
-  }, [onRun])
+  }, [onRun, theme])
+
+  useEffect(() => {
+    if (monacoRef.current) {
+      monacoRef.current.editor.setTheme(theme)
+    }
+  }, [theme])
 
   return (
     <div style={{ height, width: '100%' }}>

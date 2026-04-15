@@ -29,6 +29,9 @@ const IconSidebar = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="
 const IconColumns = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
 const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3fb950" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 const IconInput = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+const IconReset = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+const IconTheme = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+const IconHelp = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 
 export default function CodeStudio({ initialCode = '', initialLanguage = null, onClose, chatContext = null }) {
   const startLang = initialLanguage || LANGUAGES[0]
@@ -42,6 +45,9 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
   const [showStdin, setShowStdin] = useState(false)
   const [copied, setCopied] = useState(false)
   const [history, setHistory] = useState([])
+  const [theme, setTheme] = useState('github-dark')
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
 
   const handleLanguageChange = useCallback((lang) => {
     const prev = language.template
@@ -142,6 +148,23 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
 
         <div className="cs-toolbar-divider" />
         <LanguageSelector languages={LANGUAGES} selected={language} onChange={handleLanguageChange} />
+        
+        <button className="cs-tool-btn" onClick={() => { if(confirmReset) { setCode(language.template); setConfirmReset(false) } else { setConfirmReset(true); setTimeout(() => setConfirmReset(false), 3000) } }} title="Reset to template">
+          <IconReset />
+          <span style={{ color: confirmReset ? '#f47067' : 'inherit', fontSize: confirmReset ? 11 : 'inherit' }}>{confirmReset ? 'Sure?' : 'Reset'}</span>
+        </button>
+
+        <div className="cs-toolbar-divider" />
+        
+        <div className="cs-theme-select">
+          <IconTheme />
+          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+            <option value="github-dark">GitHub Dark</option>
+            <option value="one-dark">One Dark</option>
+            <option value="dracula">Dracula</option>
+          </select>
+        </div>
+
         <div className="cs-toolbar-divider" />
 
         <SnippetManager code={code} language={language} onLoad={(c, l) => { setLanguage(getLanguageByMonaco(l)); setCode(c) }} />
@@ -159,6 +182,7 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
           {copied ? <IconCheck /> : <IconCopy />}
         </button>
         <button className="cs-tool-btn" onClick={handleDownload} title="Download"><IconDownload /></button>
+        <button className="cs-tool-btn" onClick={() => setShowShortcuts(true)} title="Shortcuts"><IconHelp /></button>
 
         <div className="cs-toolbar-divider" />
         <div className="cs-layout-group">
@@ -176,7 +200,7 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
       <div className={`cs-main cs-layout-${layout}`}>
         {layout !== 'output' && (
           <div className="cs-editor-pane">
-            <MonacoEditorPanel code={code} language={language.monaco} onChange={setCode} onRun={handleRun} height="100%" />
+            <MonacoEditorPanel code={code} language={language.monaco} theme={theme} onChange={setCode} onRun={handleRun} height="100%" />
             {showStdin && (
               <div className="cs-stdin">
                 <div className="cs-stdin-header">
@@ -205,15 +229,25 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
         )}
       </div>
 
-      {/* Status bar */}
-      <div className="cs-statusbar">
-        <span>{language.name}</span>
-        <span>UTF-8</span>
-        <span>Spaces: 4</span>
-        {result?.time && <span>{result.time}s</span>}
-        <span className="cs-statusbar-spacer" />
-        <span className="cs-powered">LACUNEX</span>
-      </div>
+      {/* Shortcuts Overlay */}
+      {showShortcuts && (
+        <div className="cs-modal-overlay" onClick={() => setShowShortcuts(false)}>
+          <div className="cs-modal glass-panel-strong" onClick={e => e.stopPropagation()}>
+            <div className="cs-modal-header">
+              <h3 className="heading-sm">Keyboard Shortcuts</h3>
+              <button onClick={() => setShowShortcuts(false)}><IconX /></button>
+            </div>
+            <div className="cs-shortcuts-grid">
+              <div className="cs-shortcut-item"><span>Run Code</span> <kbd>Ctrl</kbd>+<kbd>Enter</kbd></div>
+              <div className="cs-shortcut-item"><span>Format</span> <kbd>Ctrl</kbd>+<kbd>S</kbd></div>
+              <div className="cs-shortcut-item"><span>Fullscreen</span> <kbd>F11</kbd></div>
+              <div className="cs-shortcut-item"><span>Copy Code</span> <kbd>Ctrl</kbd>+<kbd>C</kbd></div>
+              <div className="cs-shortcut-item"><span>Find</span> <kbd>Ctrl</kbd>+<kbd>F</kbd></div>
+              <div className="cs-shortcut-item"><span>Zoom</span> <kbd>Ctrl</kbd>+<kbd>+</kbd></div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

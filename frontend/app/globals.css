@@ -6890,3 +6890,132 @@ textarea { resize: none; }
 .cs-root ::-webkit-scrollbar-track { background: transparent; }
 .cs-root ::-webkit-scrollbar-thumb { background: #484f5833; border-radius: 4px; }
 .cs-root ::-webkit-scrollbar-thumb:hover { background: #484f5866; }
+
+/* ── Premium Code Studio Additions ───────────────── */
+
+.cs-theme-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 0 8px;
+  height: 28px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.cs-theme-select:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+}
+
+.cs-theme-select select {
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  border: none;
+  padding-right: 4px;
+}
+
+.cs-theme-select select option {
+  background: #161b22;
+  color: #c9d1d9;
+}
+
+.cs-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.cs-modal {
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  border-radius: 16px;
+  animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cs-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.cs-modal-header h3 {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.cs-modal-header button {
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.cs-modal-header button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.cs-shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.cs-shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cs-shortcut-item kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 11px;
+  color: #c9d1d9;
+  box-shadow: 0 2px 0 #0d1117;
+  margin: 0 2px;
+}
+
+.cs-tool-btn.warning {
+  color: #f47067 !important;
+  border-color: rgba(244, 112, 103, 0.3) !important;
+  background: rgba(244, 112, 103, 0.05) !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
