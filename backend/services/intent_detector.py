@@ -78,6 +78,7 @@ HINDI_WORDS = {
     'kay', 'karo', 'bana', 'banao', 'dikhao',
     'likhna', 'chahiye', 'wala', 'se', 'ho', 'mein',
     'samajh', 'padhai', 'padhao', 'ghar', 'kaam',
+    'bhasha', 'bol', 'kahiye', 'hindi', 'hindlish',
 }
 
 BENGALI_WORDS = {
@@ -90,6 +91,7 @@ BENGALI_WORDS = {
     'shikhao', 'likho', 'banaao', 'dekhaao', 'tor', 'tomar',
     'amar', 'amader', 'tomader', 'dada', 'acho', 'banao',
     'korbo', 'jani', 'bujhi', 'parbo', 'holo', 'hoye',
+    'bangla', 'banglish', 'bujechi', 'parchi', 'bolchis',
 }
 
 TELUGU_WORDS = {
@@ -241,6 +243,13 @@ CASUAL_PATTERNS = {
         'are you ai', 'are you human', 'who made you',
         'who created you', 'who built you', 'what is lacunex',
         'tum kaun ho', 'apna parichay do',
+    ],
+    'language_confusion': [
+        'i dont understand', 'i do not understand', 'can you speak in',
+        'speak in', 'talk in', 'ki bolchis', 'matha mundu', 'bujhte parchi na',
+        'translate this to', 'hindi me bolo', 'samajh nahi aa raha',
+        'kya bol raha hai', 'bangla bolo', 'banglay', 'speak hindi',
+        'speak bengali', 'dont get it', 'language', 'bhasha',
     ],
 }
 
@@ -526,8 +535,12 @@ def detect_intent(message: str) -> Intent:
 
     # ── Step 13: Primary intent ────────────────────────────
     if is_casual:
-        primary = 'casual_chat'
-        sub_intent = casual_type or 'general'
+        if casual_type == 'language_confusion':
+            primary = 'language_confusion'
+            sub_intent = 'language_preference'
+        else:
+            primary = 'casual_chat'
+            sub_intent = casual_type or 'general'
     elif is_academic and is_document:
         primary = 'academic_notes'
         sub_intent = f'board_{detected_board}' if detected_board \
@@ -621,9 +634,16 @@ def get_system_prompt_injection(intent: Intent) -> str:
     """
     injections = []
 
-    if intent.is_casual and intent.sub_intent == 'greeting':
+    if intent.primary == 'language_confusion':
         injections.append(
-            "The user is greeting you. Respond warmly and briefly. "
+            "CRITICAL: The user has expressed confusion about the language ("
+            "e.g., 'i don't understand', 'ki bolchis', 'what language is this'). "
+            "You MUST apologize and ask them directly: 'Which language would you prefer to speak? (English, Hindi, Bengali, etc.)' "
+            "Do NOT proceed with complex explanations until they confirm their language preference."
+        )
+    elif intent.primary == 'casual_chat' and intent.sub_intent == 'greeting':
+        injections.append(
+            "The user is just chatting or saying hello. "
             "Be friendly and ask how you can help. "
             "Do NOT search the web. Do NOT generate a document."
         )

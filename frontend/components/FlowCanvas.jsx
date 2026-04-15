@@ -73,22 +73,42 @@ function LacunexNode({ data, selected }) {
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
-        gap: '12px', 
+        justifyContent: 'space-between',
         background: 'rgba(0,0,0,0.3)',
         padding: '14px 16px',
         borderBottom: '1px solid rgba(255,255,255,0.08)'
       }}>
-        <div style={{ fontSize: '1.4rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>{data.icon}</div>
-        <div style={{ 
-          fontWeight: '800', 
-          fontSize: '0.9rem', 
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          color: '#ffffff',
-          textShadow: `0 0 10px ${categoryColor}`
-        }}>
-          {data.label}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '1.4rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>{data.icon}</div>
+          <div style={{ 
+            fontWeight: '800', 
+            fontSize: '0.9rem', 
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            color: '#ffffff',
+            textShadow: `0 0 10px ${categoryColor}`
+          }}>
+            {data.label}
+          </div>
         </div>
+        {data.onDelete && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); data.onDelete(data.id); }}
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'var(--text-tertiary)', 
+              cursor: 'pointer', 
+              fontSize: '1.2rem', 
+              lineHeight: 1,
+              padding: '0 4px',
+              transition: 'color 0.2s' 
+            }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#ef4444'}
+            onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
+            title="Delete Node"
+          >×</button>
+        )}
       </div>
       
       <div className="node-content" style={{ padding: '16px' }}>
@@ -209,6 +229,37 @@ function LacunexNode({ data, selected }) {
         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         zIndex: 10,
       }} />
+
+      {selected && (
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (data.onDelete) data.onDelete(data.id);
+          }}
+          style={{
+            position: 'absolute',
+            top: '-12px',
+            right: '-12px',
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            background: '#ef4444',
+            color: 'white',
+            border: '2px solid #10121a',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.5)',
+            zIndex: 20
+          }}
+          title="Delete Node"
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }
@@ -410,6 +461,18 @@ export default function FlowCanvas() {
     );
   }, []);
 
+  const handleDeleteNode = useCallback((id) => {
+    setNodes((nds) => nds.filter((n) => n.id !== id));
+    // Also clean up any edges connected to this node
+    setEdges((eds) => eds.filter(e => e.source !== id && e.target !== id));
+  }, []);
+
+  const handleClearDisconnectedEdges = useCallback(() => {
+    // Remove edges that do not connect to valid source/target nodes
+    const nodeIds = new Set(nodes.map(n => n.id));
+    setEdges((eds) => eds.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target)));
+  }, [nodes]);
+
   const loadTemplate = (templateId) => {
     const tmpl = TEMPLATES.find(t => t.id === templateId);
     if (!tmpl) return;
@@ -420,7 +483,8 @@ export default function FlowCanvas() {
       data: {
         ...n.data,
         onChange: handleTextChange,
-        onLanguageChange: handleLangChange
+        onLanguageChange: handleLangChange,
+        onDelete: handleDeleteNode
       }
     }));
     
@@ -500,13 +564,14 @@ export default function FlowCanvas() {
           category, 
           text: initialText,
           onChange: handleTextChange, 
-          onLanguageChange: handleLangChange 
+          onLanguageChange: handleLangChange,
+          onDelete: handleDeleteNode
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [handleTextChange, handleLangChange]
+    [handleTextChange, handleLangChange, handleDeleteNode, nodes]
   );
 
   const executeFlow = async () => {
@@ -754,6 +819,7 @@ export default function FlowCanvas() {
         defaultEdgeOptions={defaultEdgeOptions}
         connectionLineStyle={{ stroke: '#00d4ff', strokeWidth: 3 }}
         connectionLineType="smoothstep"
+        deleteKeyCode={['Backspace', 'Delete']}
         fitView
       >
         <Background variant="lines" gap={40} size={1} color="rgba(255, 255, 255, 0.05)" />
@@ -770,7 +836,6 @@ export default function FlowCanvas() {
         
         <Panel position="top-left" style={{ display: 'flex', gap: '12px', marginTop: '12px', marginLeft: '12px' }}>
           <TemplateDropdown onSelect={loadTemplate} />
-
 
           <button
             onClick={() => setShowHelp(true)}
@@ -793,6 +858,30 @@ export default function FlowCanvas() {
             onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0,212,255,0.06)'; }}
           >
             <span style={{ fontSize: '1.1rem' }}>❓</span> Help
+          </button>
+          
+          <button
+            onClick={handleClearDisconnectedEdges}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              color: '#f87171',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(239, 68, 68, 0.05)',
+              fontSize: '0.85rem',
+              fontFamily: 'inherit',
+              transition: 'all 0.2s',
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'; }}
+            title="Remove disconnected connections"
+          >
+            <span style={{ fontSize: '1.1rem' }}>🧹</span> Clean Edges
           </button>
         </Panel>
 
