@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 
 import ImageUpload from "./ImageUpload";
 import MessageBubble from "./MessageBubble";
@@ -10,6 +11,13 @@ import ModelSelector from "./ModelSelector";
 import SearchToggle from "./SearchToggle";
 import ThinkToggle from "./ThinkToggle";
 import TypingIndicator from "./TypingIndicator";
+import { LANGUAGES, getLanguageByMonaco } from "@/lib/languages";
+
+// Dynamic import Code Studio (Monaco needs client-side only)
+const CodeStudio = dynamic(
+  () => import('./CodeStudio/CodeStudio'),
+  { ssr: false }
+);
 import {
   AuthError,
   analyzeImage,
@@ -175,6 +183,8 @@ export default function ChatBox({
   const [docTheme, setDocTheme] = useState("professional");
   const [docGenerating, setDocGenerating] = useState(false);
   const [intentInfo, setIntentInfo] = useState(null); // v3 intent badge data
+  const [codeStudioOpen, setCodeStudioOpen] = useState(false);
+  const [codeStudioData, setCodeStudioData] = useState({ code: '', language: null });
   const exportMenuRef = useRef(null);
 
   const textareaRef = useRef(null);
@@ -897,6 +907,19 @@ export default function ChatBox({
     setActiveArtifact(code);
   }, []);
 
+  // ── Code Studio ──────────────────────────────
+  const handleOpenCodeStudio = useCallback((code, language) => {
+    setCodeStudioData({ code, language });
+    setCodeStudioOpen(true);
+  }, []);
+
+  const chatContextForStudio = useMemo(() => ({
+    sendMessage: (msg) => {
+      setCodeStudioOpen(false);
+      handleSend(msg);
+    },
+  }), []);
+
   /* ── Render ─────────────────────────────────── */
   return (
     <div className={`chat-container ${activeArtifact ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}>
@@ -1007,7 +1030,7 @@ export default function ChatBox({
                 </div>
               )}
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} onSendFollowUp={handleSend} />
+                <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} onSendFollowUp={handleSend} onOpenCodeStudio={handleOpenCodeStudio} />
               ))}
               {isBusy && searchStatus && (
                 <div className="search-status-indicator">
@@ -1142,6 +1165,18 @@ export default function ChatBox({
         </div>
       </div>
       
+      {/* Code Studio Full-Screen Panel */}
+      {codeStudioOpen && (
+        <div className="code-studio-overlay">
+          <CodeStudio
+            initialCode={codeStudioData.code}
+            initialLanguage={codeStudioData.language}
+            onClose={() => setCodeStudioOpen(false)}
+            chatContext={chatContextForStudio}
+          />
+        </div>
+      )}
+
       {/* Interactive Artifact Split Screen */}
       {activeArtifact && (
         <ArtifactViewer code={activeArtifact} onClose={() => setActiveArtifact(null)} />

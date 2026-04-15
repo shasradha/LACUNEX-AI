@@ -9,6 +9,7 @@ import { executeCode } from "@/lib/api";
 import ImageSlider from "./ImageSlider";
 import QuizWidget from "./QuizWidget";
 import CodeTerminal from "./CodeTerminal";
+import { LANGUAGES, getLanguageByMonaco } from "@/lib/languages";
 
 /* ── Inline icons ─────────────────────────────── */
 function IconBot() {
@@ -227,7 +228,7 @@ const RUNNABLE_LANGS = new Set([
   "bash", "sh", "perl", "lua", "dart", "scala", "r", "haskell", "elixir", "sql",
 ]);
 
-const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
+const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp, onOpenCodeStudio }) => {
   const markdownRef = useRef(null);
   const currentUser = useMemo(() => getUser(), []);
   const isUser = message.role === "user";
@@ -554,6 +555,26 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp }) => {
               {cleanContent}
             </ReactMarkdown>
           </div>
+
+          {/* Open in Code Studio button — for AI messages with code blocks */}
+          {!isUser && cleanContent.includes('```') && onOpenCodeStudio && (
+            (() => {
+              const match = cleanContent.match(/```(\w+)?\n([\s\S]*?)```/);
+              if (match) {
+                const lang = getLanguageByMonaco(match[1]);
+                const extractedCode = match[2].trim();
+                return (
+                  <button
+                    className="open-studio-btn"
+                    onClick={() => onOpenCodeStudio(extractedCode, lang)}
+                  >
+                    ⚡ Open in Code Studio
+                  </button>
+                );
+              }
+              return null;
+            })()
+          )}
 
           {/* Refinement Buttons (v4.0) */}
           {!isUser && message.content && message.role !== 'system' && onSendFollowUp && (
