@@ -6745,6 +6745,123 @@ textarea { resize: none; }
   transform: translateY(-1px);
 }
 
+/* ── Snippet Manager ───────────────────────── */
+.snippet-manager {
+  position: relative;
+}
+.snippet-modal {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  background: var(--glass-strong);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--accent-primary-soft);
+  border-radius: 12px;
+  padding: 16px;
+  z-index: 1000;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: studioFadeIn 0.2s ease;
+}
+.snippet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.snippet-header h3 {
+  font-size: 14px;
+  margin: 0;
+  color: var(--accent-primary);
+}
+.snippet-header button {
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+}
+.snippet-save-row {
+  display: flex;
+  gap: 8px;
+}
+.snippet-save-row input {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: white;
+  font-size: 12px;
+}
+.snippet-save-row button {
+  background: var(--accent-primary);
+  color: white;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.snippet-list {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.snippet-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  transition: all 0.2s;
+}
+.snippet-item:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--accent-primary-soft);
+}
+.snippet-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.s-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.s-meta {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+.snippet-actions {
+  display: flex;
+  gap: 6px;
+}
+.snippet-actions button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+.snippet-actions button.delete {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+.empty-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 20px 0;
+}
+
 /* ── Mobile responsive for Code Studio ──────── */
 @media (max-width: 768px) {
   .code-studio-overlay {

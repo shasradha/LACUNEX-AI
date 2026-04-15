@@ -3,7 +3,10 @@ import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import TerminalOutput from './TerminalOutput'
 import LanguageSelector from './LanguageSelector'
-import { LANGUAGES } from '@/lib/languages'
+import StudioToolbar from './StudioToolbar'
+import SnippetManager from './SnippetManager'
+import { LANGUAGES, getLanguageByMonaco } from '@/lib/languages'
+import useCodeExecution from '@/hooks/useCodeExecution'
 
 // Dynamic import Monaco (SSR breaks it)
 const MonacoEditorPanel = dynamic(
@@ -21,12 +24,11 @@ export default function CodeStudio({
   const [code, setCode] = useState(initialCode || startLang.template)
   const [language, setLanguage] = useState(startLang)
   const [stdin, setStdin] = useState('')
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [runHistory, setRunHistory] = useState([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [layout, setLayout] = useState('split') // 'split' | 'editor' | 'output'
   const [showStdin, setShowStdin] = useState(false)
+
+  const { run, result, loading, history } = useCodeExecution()
 
   // When language changes, load template if code is empty/template
   const handleLanguageChange = (lang) => {
@@ -37,53 +39,22 @@ export default function CodeStudio({
     }
   }
 
-  // Run code via backend proxy
-  const runCode = useCallback(async () => {
-    if (!code.trim()) return
-    setLoading(true)
-    setResult(null)
+  const handleSnippetLoad = (loadedCode, monacoLang) => {
+    const lang = getLanguageByMonaco(monacoLang)
+    setLanguage(lang)
+    setCode(loadedCode)
+  }
 
-    const startTime = Date.now()
-    try {
-      const { executeCode } = await import('@/lib/api')
-      const data = await executeCode(code, language.monaco, stdin)
-
-      // Map the existing executor response to our expected format
-      const statusId = data.exit_code === 0 ? 3 : (data.compile_output ? 6 : 11)
-      setResult({
-        stdout: data.stdout || '',
-        stderr: data.stderr || '',
-        compile_output: data.compile_output || '',
-        message: '',
-        status: { id: statusId, description: data.status_description || (data.exit_code === 0 ? 'Accepted' : 'Error') },
-        time: data.execution_time || null,
-        memory: null,
-        exit_code: data.exit_code,
-      })
-      // Add to run history
-      setRunHistory(h => [...h.slice(-19), {
-        id: Date.now(),
-        time: new Date().toLocaleTimeString(),
-        language: language.name,
-        status: statusId,
-        duration: Date.now() - startTime,
-      }])
-    } catch (err) {
-      setResult({
-        stderr: `Network error: ${err.message}`,
-        status: { id: 13, description: 'Network Error' }
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [code, language, stdin])
+  // Run code via hook
+  const handleRun = useCallback(() => {
+    run(code, language.monaco, stdin, language.name)
+  }, [code, language, stdin, run])
 
   // AI Fix Errors — sends code + error to chat
   const handleAiFix = useCallback(() => {
     const errorText = result?.stderr || result?.compile_output || ''
     const prompt = `Fix this ${language.name} code error:\n\n\`\`\`${language.monaco}\n${code}\n\`\`\`\n\nError:\n\`\`\`\n${errorText}\n\`\`\`\n\nFix the bug and return the corrected code.`
 
-    // Send to LACUNEX chat
     if (chatContext?.sendMessage) {
       chatContext.sendMessage(prompt)
     }
@@ -130,7 +101,7 @@ export default function CodeStudio({
     setShowStdin(pattern ? pattern.test(code) : false)
   }, [code, language])
 
-  // F11 fullscreen toggle
+  // Key handlers
   useEffect(() => {
     const handler = (e) => {
       if (e.key === 'F11') {
@@ -144,58 +115,22 @@ export default function CodeStudio({
 
   return (
     <div className={`code-studio ${isFullscreen ? 'fullscreen' : ''}`}>
-      {/* Top Toolbar */}
-      <div className="studio-topbar">
-        <div className="studio-title">
-          <span className="studio-icon">⚡</span>
-          <span>LACUNEX Code Studio</span>
-        </div>
-
-        <LanguageSelector
-          languages={LANGUAGES}
-          selected={language}
-          onChange={handleLanguageChange}
-        />
-
-        <div className="studio-controls">
-          {/* Layout toggles */}
-          <div className="layout-toggle">
-            <button
-              className={layout === 'editor' ? 'active' : ''}
-              onClick={() => setLayout('editor')}
-              title="Editor only"
-            >⬜</button>
-            <button
-              className={layout === 'split' ? 'active' : ''}
-              onClick={() => setLayout('split')}
-              title="Split view"
-            >⬛</button>
-            <button
-              className={layout === 'output' ? 'active' : ''}
-              onClick={() => setLayout('output')}
-              title="Output only"
-            >▦</button>
-          </div>
-
-          <button
-            className="fullscreen-btn"
-            onClick={() => setIsFullscreen(f => !f)}
-            title="Toggle fullscreen (F11)"
-          >
-            {isFullscreen ? '⊡' : '⊞'}
-          </button>
-
-          {onClose && (
-            <button className="close-btn" onClick={onClose}>✕</button>
-          )}
-        </div>
-      </div>
+      <StudioToolbar
+        language={language}
+        languages={LANGUAGES}
+        onLanguageChange={handleLanguageChange}
+        layout={layout}
+        onLayoutChange={setLayout}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+        onClose={onClose}
+      />
 
       {/* Action bar */}
       <div className="studio-actionbar">
         <button
           className="run-btn primary"
-          onClick={runCode}
+          onClick={handleRun}
           disabled={loading}
           title="Run (Ctrl+Enter)"
         >
@@ -205,6 +140,18 @@ export default function CodeStudio({
             <>▶ Run</>
           )}
         </button>
+
+        <LanguageSelector
+          languages={LANGUAGES}
+          selected={language}
+          onChange={handleLanguageChange}
+        />
+
+        <SnippetManager
+          code={code}
+          language={language}
+          onLoad={handleSnippetLoad}
+        />
 
         {result?.stderr || result?.compile_output ? (
           <button className="action-btn ai-fix" onClick={handleAiFix}>
@@ -238,11 +185,11 @@ export default function CodeStudio({
               code={code}
               language={language.monaco}
               onChange={setCode}
-              onRun={runCode}
+              onRun={handleRun}
               height="100%"
             />
 
-            {/* stdin section — only shown when needed */}
+            {/* stdin section */}
             {showStdin && (
               <div className="stdin-panel">
                 <div className="stdin-header">
@@ -253,7 +200,7 @@ export default function CodeStudio({
                   className="stdin-textarea"
                   value={stdin}
                   onChange={e => setStdin(e.target.value)}
-                  placeholder="Enter input for your program (one value per line)..."
+                  placeholder="Enter input for your program..."
                   rows={3}
                 />
               </div>
@@ -261,10 +208,7 @@ export default function CodeStudio({
           </div>
         )}
 
-        {/* Divider for split layout */}
-        {layout === 'split' && (
-          <div className="studio-divider"/>
-        )}
+        {layout === 'split' && <div className="studio-divider"/>}
 
         {/* Output panel */}
         {layout !== 'editor' && (
@@ -276,14 +220,14 @@ export default function CodeStudio({
             />
 
             {/* Run history */}
-            {runHistory.length > 0 && (
+            {history.length > 0 && (
               <div className="run-history">
                 <span className="history-label">Recent runs:</span>
-                {runHistory.slice(-5).reverse().map(r => (
+                {history.slice(0, 5).map(r => (
                   <span
                     key={r.id}
                     className={`history-item ${r.status === 3 ? 'ok' : 'fail'}`}
-                    title={`${r.language} · ${r.duration}ms`}
+                    title={`${r.language} · ${r.duration}s`}
                   >
                     {r.status === 3 ? '✅' : '❌'} {r.time}
                   </span>
