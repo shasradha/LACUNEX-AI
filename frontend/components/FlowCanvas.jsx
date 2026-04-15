@@ -362,6 +362,8 @@ function TemplateDropdown({ onSelect }) {
           fontSize: '0.85rem',
           transition: 'all 0.2s',
           fontFamily: 'inherit',
+          height: '38px',
+          boxSizing: 'border-box'
         }}
         onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0,212,255,0.2)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(0,212,255,0.3)'; }}
         onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0,212,255,0.1)'; e.currentTarget.style.boxShadow = 'none'; }}
@@ -443,8 +445,10 @@ export default function FlowCanvas() {
   // Auto-show help for first-time users (if no nodes)
   useEffect(() => {
     if (loaded && nodes.length === 0 && !isMobile) {
-      const timer = setTimeout(() => setShowHelp(true), 1200);
-      return () => clearTimeout(timer);
+      if (!localStorage.getItem('lacunex_flow_help_seen')) {
+        const timer = setTimeout(() => setShowHelp(true), 1200);
+        return () => clearTimeout(timer);
+      }
     }
   }, [loaded, nodes.length, isMobile]); 
 
@@ -468,10 +472,9 @@ export default function FlowCanvas() {
   }, []);
 
   const handleClearDisconnectedEdges = useCallback(() => {
-    // Remove edges that do not connect to valid source/target nodes
-    const nodeIds = new Set(nodes.map(n => n.id));
-    setEdges((eds) => eds.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target)));
-  }, [nodes]);
+    // Completely wipes all edges so user can start fresh
+    setEdges([]);
+  }, []);
 
   const loadTemplate = (templateId) => {
     const tmpl = TEMPLATES.find(t => t.id === templateId);
@@ -853,6 +856,8 @@ export default function FlowCanvas() {
               fontSize: '0.85rem',
               fontFamily: 'inherit',
               transition: 'all 0.2s',
+              height: '38px',
+              boxSizing: 'border-box'
             }}
             onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0,212,255,0.15)'; }}
             onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0,212,255,0.06)'; }}
@@ -876,6 +881,8 @@ export default function FlowCanvas() {
               fontSize: '0.85rem',
               fontFamily: 'inherit',
               transition: 'all 0.2s',
+              height: '38px',
+              boxSizing: 'border-box'
             }}
             onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; }}
             onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'; }}
@@ -1081,7 +1088,7 @@ export default function FlowCanvas() {
             </div>
 
             <button 
-              onClick={() => setShowHelp(false)}
+              onClick={() => { setShowHelp(false); localStorage.setItem('lacunex_flow_help_seen', 'true'); }}
               style={{ 
                 marginTop: '40px', 
                 width: '100%', 

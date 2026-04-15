@@ -6111,6 +6111,10 @@ textarea { resize: none; }
   .login-hero {
     display: none !important;
   }
+  
+  .hide-on-mobile {
+    display: none !important;
+  }
 }
 
 /* ── Small mobile (< 480px) ─────────────────── */

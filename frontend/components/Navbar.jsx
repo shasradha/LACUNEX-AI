@@ -96,7 +96,7 @@ export default function Navbar({ conversationCount, onToggleSidebar, viewMode, o
           <button 
             type="button" 
             onClick={onToggleFlow}
-            className={`btn ${viewMode === 'flow' ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn ${viewMode === 'flow' ? 'btn-primary' : 'btn-ghost'} hide-on-mobile`}
             style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem" }}
           >
             {viewMode === 'flow' ? 'Close Flow Canvas' : '🌟 LACUNEX Flow'}
