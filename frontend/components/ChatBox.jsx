@@ -11,7 +11,6 @@ import ModelSelector from "./ModelSelector";
 import SearchToggle from "./SearchToggle";
 import ThinkToggle from "./ThinkToggle";
 import TypingIndicator from "./TypingIndicator";
-import { LANGUAGES, getLanguageByMonaco } from "@/lib/languages";
 
 // Dynamic import Code Studio (Monaco needs client-side only)
 const CodeStudio = dynamic(
@@ -915,10 +914,10 @@ export default function ChatBox({
 
   const chatContextForStudio = useMemo(() => ({
     sendMessage: (msg) => {
-      setCodeStudioOpen(false);
+      // Keep studio open — fix runs in background chat
       handleSend(msg);
     },
-  }), []);
+  }), [handleSend]);
 
   /* ── Render ─────────────────────────────────── */
   return (

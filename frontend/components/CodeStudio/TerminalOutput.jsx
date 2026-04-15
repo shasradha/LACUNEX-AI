@@ -1,27 +1,18 @@
 'use client'
 import { useRef, useEffect, useState } from 'react'
 
-const STATUS_MAP = {
-  3: { label: 'Accepted', color: '#00c951', icon: '✅' },
-  4: { label: 'Wrong Answer', color: '#ff6b6b', icon: '❌' },
-  5: { label: 'Time Limit Exceeded', color: '#ff9900', icon: '⏱️' },
-  6: { label: 'Compilation Error', color: '#ff6b6b', icon: '🔴' },
-  7: { label: 'Runtime Error', color: '#ff6b6b', icon: '💥' },
-  11: { label: 'Runtime Error', color: '#ff6b6b', icon: '💥' },
-}
+// SVG Icons
+const IconCopy = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3fb950" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+const IconWand = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 4-1 1m4.5-1.5L17 5m3 3-1 1"/><path d="m21 3-9 9"/><path d="M3.5 20.5 12 12"/></svg>
+const IconTerminal = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
 
-export default function TerminalOutput({
-  result,
-  loading,
-  onAiFix,
-}) {
+export default function TerminalOutput({ result, loading, onAiFix }) {
   const termRef = useRef(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    if (termRef.current) {
-      termRef.current.scrollTop = termRef.current.scrollHeight
-    }
+    if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight
   }, [result, loading])
 
   const copyOutput = () => {
@@ -31,31 +22,27 @@ export default function TerminalOutput({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const status = result?.status
-  const statusInfo = STATUS_MAP[status?.id] || { label: status?.description, color: '#888', icon: '•' }
-  const hasError = result && (result.stderr || result.compile_output || (status?.id && status.id !== 3))
+  const hasError = result && (result.stderr || result.compile_output || (result.status?.id && result.status.id !== 3))
+  const isSuccess = result?.status?.id === 3
 
   return (
-    <div className="terminal-panel">
-      {/* Terminal Header */}
-      <div className="terminal-header">
-        <div className="terminal-dots">
-          <span className="dot" style={{ background: '#ff5f57' }}/>
-          <span className="dot" style={{ background: '#febc2e' }}/>
-          <span className="dot" style={{ background: '#28c840' }}/>
+    <div className="cs-terminal">
+      <div className="cs-terminal-header">
+        <div className="cs-terminal-title">
+          <IconTerminal />
+          <span>Terminal</span>
         </div>
-        <span className="terminal-title">
-          🖥️ Output Terminal
-        </span>
-        <div className="terminal-actions">
+        <div className="cs-terminal-actions">
           {result && (
             <>
-              <button className="term-btn" onClick={copyOutput}>
-                {copied ? '✅ Copied' : '📋 Copy'}
+              <button className="cs-term-btn" onClick={copyOutput} title="Copy output">
+                {copied ? <IconCheck /> : <IconCopy />}
+                <span>{copied ? 'Copied' : 'Copy'}</span>
               </button>
               {hasError && onAiFix && (
-                <button className="term-btn ai-fix" onClick={onAiFix}>
-                  🤖 AI Fix
+                <button className="cs-term-btn cs-term-btn-fix" onClick={onAiFix} title="Fix with AI">
+                  <IconWand />
+                  <span>AI Fix</span>
                 </button>
               )}
             </>
@@ -63,79 +50,51 @@ export default function TerminalOutput({
         </div>
       </div>
 
-      {/* Status bar */}
+      {/* Status badge */}
       {result?.status && (
-        <div
-          className="status-bar"
-          style={{ borderColor: statusInfo.color }}
-        >
-          <span style={{ color: statusInfo.color }}>
-            {statusInfo.icon} {statusInfo.label}
-          </span>
-          <div className="status-meta">
-            {result.time && (
-              <span>⚡ {result.time}s</span>
-            )}
-            {result.memory && (
-              <span>💾 {(result.memory / 1000).toFixed(1)}MB</span>
-            )}
+        <div className={`cs-status-bar ${isSuccess ? 'success' : 'error'}`}>
+          <span className="cs-status-dot" />
+          <span>{isSuccess ? 'Accepted' : (result.status.description || 'Error')}</span>
+          <div className="cs-status-meta">
+            {result.time && <span>{result.time}s</span>}
+            {result.memory && <span>{(result.memory / 1024).toFixed(1)} MB</span>}
           </div>
         </div>
       )}
 
-      {/* Output content */}
-      <div className="terminal-body" ref={termRef}>
+      <div className="cs-terminal-body" ref={termRef}>
         {loading && (
-          <div className="terminal-loading">
-            <div className="loading-bar">
-              <div className="loading-progress"/>
-            </div>
-            <span>Executing on secure sandbox...</span>
+          <div className="cs-terminal-loading">
+            <div className="cs-loading-bar"><div className="cs-loading-fill" /></div>
+            <span>Executing...</span>
           </div>
         )}
 
         {!loading && !result && (
-          <div className="terminal-empty">
-            <span className="terminal-cursor">█</span>
-            <span className="terminal-hint">
-              Press ▶ Run or Ctrl+Enter to execute
-            </span>
+          <div className="cs-terminal-empty">
+            <span className="cs-cursor-blink">_</span>
+            <span>Press Run or Ctrl+Enter to execute</span>
           </div>
         )}
 
         {result?.compile_output && (
-          <div className="output-section">
-            <div className="output-label error">🔴 Compilation Error</div>
-            <pre className="output-text error-text">
-              {result.compile_output}
-            </pre>
+          <div className="cs-output-block">
+            <div className="cs-output-tag error">COMPILE ERROR</div>
+            <pre className="cs-output-pre error">{result.compile_output}</pre>
           </div>
         )}
 
         {result?.stdout && (
-          <div className="output-section">
-            <div className="output-label success">📤 Output</div>
-            <pre className="output-text success-text">
-              {result.stdout}
-            </pre>
+          <div className="cs-output-block">
+            <div className="cs-output-tag success">OUTPUT</div>
+            <pre className="cs-output-pre success">{result.stdout}</pre>
           </div>
         )}
 
         {result?.stderr && (
-          <div className="output-section">
-            <div className="output-label error">⚠️ Error</div>
-            <pre className="output-text error-text">
-              {result.stderr}
-            </pre>
-          </div>
-        )}
-
-        {result?.message && (
-          <div className="output-section">
-            <div className="output-label warning">ℹ️ Message</div>
-            <pre className="output-text warning-text">
-              {result.message}
-            </pre>
+          <div className="cs-output-block">
+            <div className="cs-output-tag error">STDERR</div>
+            <pre className="cs-output-pre error">{result.stderr}</pre>
           </div>
         )}
       </div>
