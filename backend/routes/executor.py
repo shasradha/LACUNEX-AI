@@ -127,6 +127,7 @@ async def execute_code(req: ExecuteRequest, request: Request):
         }
 
     # Judge0 Payload (Base64 Encoded for safety)
+    # Note: Limits are tuned for public instance (ce.judge0.com) stability
     payload = {
         "source_code": base64.b64encode(actual_code.encode('utf-8')).decode('utf-8'),
         "language_id": lang_id,
@@ -134,17 +135,35 @@ async def execute_code(req: ExecuteRequest, request: Request):
         "command_line_arguments": " ".join(req.args) if req.args else "",
         "cpu_time_limit": "10",
         "memory_limit": "512000",
-        "wall_time_limit": "30",
-        "max_file_size": "1048576", # 1MB limit for output/file creation
+        "wall_time_limit": "15",
+        "max_file_size": "131072", # 128KB - higher values often rejected by public instance
         "stack_size_limit": "128000",
-        "max_processes_and_or_threads": "200",
+        "max_processes_and_or_threads": "100",
         "enable_per_process_and_thread_memory_limit": False,
         "enable_per_process_and_thread_time_limit": False,
     }
 
     # Try each Judge0 host with fallback
     last_error = None
+    
+    # FILTER HOSTS: Only use paywalled mirrors if a key is provided
+    # This prevents confusing "401 Unauthorized" errors for users who want the free engine
+    active_hosts = []
     for host in JUDGE0_HOSTS:
+        if "rapidapi" in host:
+            if RAPID_API_KEY:
+                active_hosts.append(host)
+        else:
+            active_hosts.append(host)
+
+    if not active_hosts:
+        return {
+            "stdout": "",
+            "stderr": "No execution engines available. Please set JUDGE0_RAPID_API_KEY for a backup mirror.",
+            "exit_code": 1
+        }
+
+    for host in active_hosts:
         try:
             headers = {"Content-Type": "application/json"}
 
@@ -191,7 +210,10 @@ async def execute_code(req: ExecuteRequest, request: Request):
                         "token": data.get("token"),
                     }
                 else:
-                    last_error = f"HTTP {resp.status_code} from {host}"
+                    if resp.status_code == 429:
+                        last_error = "The engine is currently busy (Rate Limit). Please wait a few seconds."
+                    else:
+                        last_error = f"HTTP {resp.status_code} from {host}"
                     continue
 
         except Exception as e:

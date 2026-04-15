@@ -93,8 +93,17 @@ export default function TerminalOutput({ result, loading, onAiFix }) {
 
         {result?.stderr && (
           <div className="cs-output-block">
-            <div className="cs-output-tag error">STDERR</div>
-            <pre className="cs-output-pre error">{result.stderr}</pre>
+            <div className={`cs-output-tag ${result.stderr.toLowerCase().includes('wait a few seconds') ? 'warning' : 'error'}`}>
+              {result.stderr.toLowerCase().includes('wait a few seconds') ? 'BUSY' : 'STDERR'}
+            </div>
+            <pre className={`cs-output-pre ${result.stderr.toLowerCase().includes('wait a few seconds') ? 'warning' : 'error'}`}>
+              {result.stderr}
+              {result.stderr.includes('JUDGE0_RAPID_API_KEY') && (
+                <div className="cs-error-tip">
+                  Tip: Get a free key at rapidapi.com/judge0/api/judge0-ce
+                </div>
+              )}
+            </pre>
           </div>
         )}
       </div>
