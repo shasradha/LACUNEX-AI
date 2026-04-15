@@ -60,14 +60,17 @@ function LacunexNode({ data, selected }) {
     }}>
       <Handle type="target" position={Position.Left} className="flow-handle" style={{ 
         background: categoryColor,
-        width: '18px', 
-        height: '18px',
-        border: '3px solid #1a1b26',
+        width: '26px', 
+        height: '26px',
+        border: '4px solid #1a1b26',
         borderRadius: '50%',
-        left: '-9px',
-        boxShadow: `0 0 12px ${categoryColor}`,
+        left: '-13px',
+        boxShadow: `0 0 16px ${categoryColor}`,
         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         zIndex: 10,
+        cursor: 'crosshair',
+        minWidth: '26px',
+        minHeight: '26px'
       }} />
       
       <div style={{ 
@@ -220,46 +223,19 @@ function LacunexNode({ data, selected }) {
 
       <Handle type="source" position={Position.Right} className="flow-handle" style={{ 
         background: categoryColor,
-        width: '18px', 
-        height: '18px',
-        border: '3px solid #1a1b26',
+        width: '26px', 
+        height: '26px',
+        border: '4px solid #1a1b26',
         borderRadius: '50%',
-        right: '-9px',
-        boxShadow: `0 0 12px ${categoryColor}`,
+        right: '-13px',
+        boxShadow: `0 0 16px ${categoryColor}`,
         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         zIndex: 10,
+        cursor: 'crosshair',
+        minWidth: '26px',
+        minHeight: '26px'
       }} />
 
-      {selected && (
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (data.onDelete) data.onDelete(data.id);
-          }}
-          style={{
-            position: 'absolute',
-            top: '-12px',
-            right: '-12px',
-            width: '28px',
-            height: '28px',
-            borderRadius: '50%',
-            background: '#ef4444',
-            color: 'white',
-            border: '2px solid #10121a',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.5)',
-            zIndex: 20
-          }}
-          title="Delete Node"
-        >
-          ×
-        </button>
-      )}
     </div>
   );
 }
@@ -823,6 +799,7 @@ export default function FlowCanvas() {
         connectionLineStyle={{ stroke: '#00d4ff', strokeWidth: 3 }}
         connectionLineType="smoothstep"
         deleteKeyCode={['Backspace', 'Delete']}
+        proOptions={{ hideAttribution: true }}
         fitView
       >
         <Background variant="lines" gap={40} size={1} color="rgba(255, 255, 255, 0.05)" />
@@ -835,7 +812,6 @@ export default function FlowCanvas() {
           maskColor="rgba(5, 10, 20, 0.7)" 
           style={{ background: 'rgba(10,10,46,0.8)', border: '1px solid rgba(0,212,255,0.15)', borderRadius: '8px' }} 
         />
-        <Controls style={{ fill: '#00d4ff' }} />
         
         <Panel position="top-left" style={{ display: 'flex', gap: '12px', marginTop: '12px', marginLeft: '12px' }}>
           <TemplateDropdown onSelect={loadTemplate} />
