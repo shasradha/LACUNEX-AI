@@ -1,6 +1,6 @@
 export const LANGUAGES = [
   {
-    id: 71,  // Judge0 language ID
+    id: 100,  // v1.13.1 Python 3.12.5
     name: 'Python',
     monaco: 'python',
     icon: '🐍',
@@ -14,7 +14,7 @@ if __name__ == "__main__":
 `,
   },
   {
-    id: 63,
+    id: 102,  // v1.13.1 Node.js 22.08.0
     name: 'JavaScript',
     monaco: 'javascript',
     icon: '🟨',
@@ -28,7 +28,7 @@ main();
 `,
   },
   {
-    id: 54,
+    id: 105,  // v1.13.1 G++ 14.1.0
     name: 'C++',
     monaco: 'cpp',
     icon: '⚡',
@@ -43,7 +43,7 @@ int main() {
 `,
   },
   {
-    id: 62,
+    id: 91,   // v1.13.1 Java 17.0.6
     name: 'Java',
     monaco: 'java',
     icon: '☕',
@@ -56,7 +56,7 @@ int main() {
 `,
   },
   {
-    id: 50,
+    id: 103,  // v1.13.1 GCC 14.1.0
     name: 'C',
     monaco: 'c',
     icon: '🔵',
@@ -70,7 +70,7 @@ int main() {
 `,
   },
   {
-    id: 73,
+    id: 108,  // v1.13.1 Rust 1.85.0
     name: 'Rust',
     monaco: 'rust',
     icon: '🦀',
@@ -81,7 +81,7 @@ int main() {
 `,
   },
   {
-    id: 60,
+    id: 107,  // v1.13.1 Go 1.23.5
     name: 'Go',
     monaco: 'go',
     icon: '🐹',
@@ -96,7 +96,7 @@ func main() {
 `,
   },
   {
-    id: 68,
+    id: 98,   // v1.13.1 PHP 8.3.11
     name: 'PHP',
     monaco: 'php',
     icon: '🐘',
@@ -107,7 +107,7 @@ echo "Hello from LACUNEX!\\n";
 `,
   },
   {
-    id: 72,
+    id: 72,   // v1.13.1 Ruby 2.7.0
     name: 'Ruby',
     monaco: 'ruby',
     icon: '💎',
@@ -116,7 +116,7 @@ echo "Hello from LACUNEX!\\n";
 `,
   },
   {
-    id: 74,
+    id: 101,  // v1.13.1 TypeScript 5.6.2
     name: 'TypeScript',
     monaco: 'typescript',
     icon: '🔷',

@@ -75,7 +75,8 @@ JUDGE0_LANG_MAP = {
 }
 
 # All valid Judge0 language IDs for direct ID submission
-VALID_LANGUAGE_IDS = set(range(45, 112))
+# Covers both legacy (45-90) and v1.13.1 (91-112+) standards
+VALID_LANGUAGE_IDS = set(range(45, 120))
 
 
 class ExecuteRequest(BaseModel):
@@ -172,49 +173,70 @@ async def execute_code(req: ExecuteRequest, request: Request):
                 headers["X-RapidAPI-Host"] = "judge0-ce.p.rapidapi.com"
                 headers["X-RapidAPI-Key"] = RAPID_API_KEY
 
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    f"{host}/submissions?base64_encoded=true&wait=true",
-                    json=payload,
-                    headers=headers,
-                )
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                        f"{host}/submissions?base64_encoded=true&wait=true",
+                        json=payload,
+                        headers=headers,
+                    )
 
-                if resp.status_code in (200, 201):
-                    try:
-                        data = resp.json()
-                    except Exception:
-                        last_error = f"Malformed JSON response from {host}"
-                        continue
-                        
-                    status = data.get("status", {})
+                    # STRATEGY: If public instance rejects our optimized limits with 422,
+                    # retry with a "Minimal Payload" (only code and language) for maximum compatibility.
+                    if resp.status_code == 422:
+                        minimal_payload = {
+                            "source_code": payload["source_code"],
+                            "language_id": payload["language_id"],
+                            "stdin": payload.get("stdin", ""),
+                        }
+                        resp = await client.post(
+                            f"{host}/submissions?base64_encoded=true&wait=true",
+                            json=minimal_payload,
+                            headers=headers,
+                        )
 
-                    stdout = decode_b64(data.get("stdout"))
-                    stderr = decode_b64(data.get("stderr"))
-                    compile_output = decode_b64(data.get("compile_output"))
+                    if resp.status_code in (200, 201):
+                        try:
+                            data = resp.json()
+                        except Exception:
+                            last_error = f"Malformed JSON response from {host}"
+                            continue
+                            
+                        status = data.get("status", {})
 
-                    # Judge0 status IDs: 3 is Accepted, others are errors
-                    exit_code = 0 if status.get("id") == 3 else 1
+                        stdout = decode_b64(data.get("stdout"))
+                        stderr = decode_b64(data.get("stderr"))
+                        compile_output = decode_b64(data.get("compile_output"))
 
-                    return {
-                        "stdout": stdout,
-                        "stderr": stderr,
-                        "compile_output": compile_output,
-                        "exit_code": exit_code,
-                        "execution_time": data.get("time") or 0,
-                        "language": req.language,
-                        "status_description": status.get("description"),
-                        # Extended fields for Code Studio
-                        "time": data.get("time"),
-                        "memory": data.get("memory"),
-                        "status": status,
-                        "token": data.get("token"),
-                    }
-                else:
-                    if resp.status_code == 429:
-                        last_error = "The engine is currently busy (Rate Limit). Please wait a few seconds."
+                        # Judge0 status IDs: 3 is Accepted, others are errors
+                        exit_code = 0 if status.get("id") == 3 else 1
+
+                        return {
+                            "stdout": stdout,
+                            "stderr": stderr,
+                            "compile_output": compile_output,
+                            "exit_code": exit_code,
+                            "execution_time": data.get("time") or 0,
+                            "language": req.language,
+                            "status_description": status.get("description"),
+                            # Extended fields for Code Studio
+                            "time": data.get("time"),
+                            "memory": data.get("memory"),
+                            "status": status,
+                            "token": data.get("token"),
+                        }
                     else:
-                        last_error = f"HTTP {resp.status_code} from {host}"
-                    continue
+                        if resp.status_code == 429:
+                            last_error = "The engine is currently busy (Rate Limit). Please wait a few seconds."
+                        elif resp.status_code == 422:
+                            # If even the minimal payload fails, get the error detail
+                            try:
+                                err_data = resp.json()
+                                last_error = f"Configuration error: {err_data}"
+                            except:
+                                last_error = "Engine rejected the request (422). Please verify language/settings."
+                        else:
+                            last_error = f"HTTP {resp.status_code} from {host}"
+                        continue
 
         except Exception as e:
             last_error = str(e)
