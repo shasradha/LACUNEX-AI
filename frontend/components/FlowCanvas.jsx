@@ -616,10 +616,13 @@ export default function FlowCanvas() {
         setGlobalError(`Pipeline partially failed: ${errorSummary}`);
       }
 
+      // Extract final output either explicitly from Show in Chat node, or take the last node's output
+      const finalOutput = resultsMap.final_output || data.final;
+
       // Only dispatch "Show in Chat" if we have REAL content (not an error message)
-      if (resultsMap.final_output && !resultsMap.final_output.startsWith('[ERROR]') && !pipelineError) {
+      if (finalOutput && !finalOutput.startsWith('[ERROR]') && !pipelineError) {
         window.dispatchEvent(new CustomEvent('lacunex_flow_output', {
-          detail: { text: resultsMap.final_output, initial_input }
+          detail: { text: finalOutput, initial_input }
         }));
       }
 
