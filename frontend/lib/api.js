@@ -460,3 +460,17 @@ export async function getSuggestions(messageContent) {
   const data = await response.json();
   return data.suggestions || [];
 }
+
+export async function generateAutoTitle(messageContent) {
+  const response = await fetch(`${API_BASE_URL}/api/chat/title`, {
+    method: "POST",
+    headers: buildHeaders(),
+    body: JSON.stringify({ message: messageContent }),
+  });
+
+  if (!response.ok) {
+    return "New Workspace";
+  }
+  const data = await response.json();
+  return data.title || "New Workspace";
+}

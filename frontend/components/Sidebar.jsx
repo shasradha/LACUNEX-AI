@@ -641,7 +641,9 @@ export default function Sidebar({
         >
           <div
             className="sb-context-item"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               setEditingId(contextMenu.id);
               setEditValue(contextMenu.title);
               setContextMenu(null);
@@ -654,7 +656,9 @@ export default function Sidebar({
           </div>
           <div
             className="sb-context-item"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               toggleStar(contextMenu.id);
               setContextMenu(null);
             }}
@@ -665,7 +669,9 @@ export default function Sidebar({
           <div className="sb-context-divider" />
           <div
             className="sb-context-item sb-context-danger"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               onDelete(contextMenu.id);
               setContextMenu(null);
             }}

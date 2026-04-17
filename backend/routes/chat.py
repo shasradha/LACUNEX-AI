@@ -427,3 +427,39 @@ async def get_suggestions(request: SuggestionRequest):
     except Exception as e:
         print(f"[Suggestions Error]: {e}")
         return {"suggestions": []}
+
+class TitleGenRequest(BaseModel):
+    message: str
+
+@router.post("/title")
+async def generate_title(request: TitleGenRequest):
+    """
+    Analyzes the first message of a chat and generates a 3-4 word title.
+    """
+    from groq import AsyncGroq
+    try:
+        groq_key = os.getenv("GROQ_API_KEYS", "").split(",")[0].strip() or os.getenv("GROQ_API_KEY")
+        if not groq_key: return {"title": "New Workspace"}
+        
+        client = AsyncGroq(api_key=groq_key)
+        
+        prompt = (
+            "You are an AI that generates a very short (3-5 words), natural sounding title "
+            "for a chat conversation based on the user's first message. "
+            "Do NOT include punctuation, quotes, or markdown. "
+            "Just output the plain text title. "
+            f"User message: {request.message[:500]}"
+        )
+        
+        res = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=15,
+        )
+        
+        title = res.choices[0].message.content.strip().replace('"', '').replace("'", "")
+        return {"title": title}
+    except Exception as e:
+        print(f"[Title Gen Error]: {e}")
+        return {"title": "New Workspace"}

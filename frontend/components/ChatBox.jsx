@@ -29,6 +29,7 @@ import {
   saveMessage,
   streamChat,
   getSuggestions,
+  generateAutoTitle,
 } from "@/lib/api";
 import { decryptMessage, encryptMessage } from "@/lib/crypto";
 
@@ -97,13 +98,6 @@ function createMessageId() {
     return crypto.randomUUID();
   }
   return `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function buildTitle(text, hasImage) {
-  const cleaned = (text || "").replace(/^\/(imagine|generate)\s+/i, "").trim();
-  if (cleaned.length > 42) return `${cleaned.slice(0, 42)}...`;
-  if (cleaned) return cleaned;
-  return hasImage ? "Image analysis" : "New workspace";
 }
 
 function updateMsg(messages, id, updater) {
@@ -561,7 +555,7 @@ export default function ChatBox({
     try {
       // Background conversation creation — DO NOT AWAIT, instantly proceed to stream!
       if (!localConvId) {
-        createConvPromise = createConversation(buildTitle(rawPrompt, Boolean(imageFile))).then(created => {
+        createConvPromise = createConversation("New workspace").then(created => {
           localConvId = created.id;
           skipReload.current = created.id;
           setConversationId(created.id);
@@ -785,6 +779,17 @@ export default function ChatBox({
               const finalId = await createConvPromise;
               if (finalId) {
                 await persistSafely(finalId, [userMsg, finalMsg], data);
+                
+                // AUTO-TITLE GENERATION (If this was the first ever prompt)
+                if (!conversationId || history.length === 0) {
+                  generateAutoTitle(rawPrompt).then(async (newTitle) => {
+                    if (newTitle) {
+                      const { updateConversationTitle } = await import("@/lib/api");
+                      await updateConversationTitle(finalId, newTitle);
+                      onConversationCreated?.(); // Refresh sidebar safely to show new name instead of 'New workspace'
+                    }
+                  }).catch(e => console.error("Auto Title Error:", e));
+                }
               }
             } catch (err) {
               console.error("Final persistence failed:", err);
