@@ -912,6 +912,15 @@ export default function ChatBox({
     setCodeStudioOpen(true);
   }, []);
 
+  useEffect(() => {
+    const handleOpenStudioEvent = () => {
+      setCodeStudioData({ code: "", language: null });
+      setCodeStudioOpen(true);
+    };
+    window.addEventListener("lacunex_open_codestudio", handleOpenStudioEvent);
+    return () => window.removeEventListener("lacunex_open_codestudio", handleOpenStudioEvent);
+  }, []);
+
   const chatContextForStudio = useMemo(() => ({
     sendMessage: (msg) => {
       setCodeStudioOpen(false);

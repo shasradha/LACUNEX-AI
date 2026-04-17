@@ -178,8 +178,15 @@ export default function ChatPage() {
       setPendingFlowOutput(e.detail);
       setViewMode("chat");
     };
+    const handleOpenFlowEvent = () => {
+      setViewMode("flow");
+    };
     window.addEventListener("lacunex_flow_output", handleFlowEvent);
-    return () => window.removeEventListener("lacunex_flow_output", handleFlowEvent);
+    window.addEventListener("lacunex_open_flow", handleOpenFlowEvent);
+    return () => {
+      window.removeEventListener("lacunex_flow_output", handleFlowEvent);
+      window.removeEventListener("lacunex_open_flow", handleOpenFlowEvent);
+    };
   }, []);
 
   const handleRename = useCallback(

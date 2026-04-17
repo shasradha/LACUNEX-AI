@@ -135,10 +135,23 @@ export default function ArtifactViewer({ code, onClose }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const downloadMenuRef = useRef(null);
 
-  // Local editable code state
   const [localFiles, setLocalFiles] = useState({});
   const [debouncedFiles, setDebouncedFiles] = useState({});
   const editorRef = useRef(null);
+
+  // Smart file-type extraction logic to detect if HTML preview is needed
+  const isHtmlProject = useMemo(() => {
+    if (typeof code === "object" && code.isMultiFile) {
+      return Object.keys(code.files).some(n => detectLanguage(n) === "html");
+    }
+    return typeof code === "string" && code.toLowerCase().includes("<html");
+  }, [code]);
+
+  const [view, setView] = useState(isHtmlProject ? "preview" : "code");
+
+  useEffect(() => {
+    setView(isHtmlProject ? "preview" : "code");
+  }, [isHtmlProject]);
 
   // Normalize code into a files object (init once or when external code completely changes)
   useEffect(() => {
@@ -286,7 +299,7 @@ export default function ArtifactViewer({ code, onClose }) {
             <IconDownload /> <span>Download</span> <IconChevronDown />
           </button>
           {showDownloadMenu && (
-            <div className="artifact-download-menu">
+            <div className="artifact-download-menu" style={{ zIndex: 99999 }}>
               <button onClick={handleDownloadAll} className="artifact-download-item">
                 <span className="artifact-dl-icon">.{activeFile.split('.').pop()}</span>
                 <div>
@@ -328,7 +341,22 @@ export default function ArtifactViewer({ code, onClose }) {
 
       {/* ── File Explorer (Only in Code view) ──── */}
       {view === "code" && fileNames.length > 1 && (
-        <div className="artifact-file-explorer">
+        <div 
+          className="artifact-file-explorer" 
+          style={{ 
+            display: 'flex', 
+            overflowX: 'auto', 
+            whiteSpace: 'nowrap', 
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            paddingBottom: '2px'
+          }}
+          onWheel={(e) => {
+            if (e.currentTarget) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+        >
           {fileNames.map(name => (
             <button
               key={name}

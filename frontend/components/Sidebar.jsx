@@ -374,36 +374,34 @@ export default function Sidebar({
             </div>
           )}
 
-          {/* ── Navigation Tabs ── */}
+          {/* ── Main App Navigation (Claude-Style) ── */}
           {!collapsed && (
-            <div className="sb-nav-tabs">
+            <div className="sb-main-nav">
               <button
-                className={`sb-nav-tab ${activeTab === 'chats' ? 'active' : ''}`}
+                className={`sb-nav-btn ${activeTab === 'chats' ? 'active' : ''}`}
                 onClick={() => setActiveTab('chats')}
               >
-                <IconChat />
+                <div className="sb-nav-btn-icon"><IconChat /></div>
                 <span>Chats</span>
               </button>
               <button
-                className={`sb-nav-tab ${activeTab === 'code-studio' ? 'active' : ''}`}
+                className={`sb-nav-btn ${activeTab === 'code-studio' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('code-studio');
-                  // Dispatch event to open Code Studio
                   window.dispatchEvent(new CustomEvent('lacunex_open_codestudio'));
                 }}
               >
-                <IconCode />
-                <span>Code Studio</span>
+                <div className="sb-nav-btn-icon" style={{color: '#a855f7'}}><IconCode /></div>
+                <span>Online-Code-Studio</span>
               </button>
               <button
-                className={`sb-nav-tab ${activeTab === 'flow' ? 'active' : ''}`}
+                className={`sb-nav-btn ${activeTab === 'flow' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('flow');
-                  // Dispatch event to toggle flow view
                   window.dispatchEvent(new CustomEvent('lacunex_open_flow'));
                 }}
               >
-                <IconFlow />
+                <div className="sb-nav-btn-icon" style={{color: '#06b6d4'}}><IconFlow /></div>
                 <span>Lacunex Flow</span>
               </button>
             </div>
