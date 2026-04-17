@@ -392,7 +392,7 @@ export default function Sidebar({
                 }}
               >
                 <div className="sb-nav-btn-icon" style={{color: '#a855f7'}}><IconCode /></div>
-                <span>Online-Code-Studio</span>
+                <span>Code Studio</span>
               </button>
               <button
                 className={`sb-nav-btn ${activeTab === 'flow' ? 'active' : ''}`}

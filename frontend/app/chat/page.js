@@ -181,11 +181,16 @@ export default function ChatPage() {
     const handleOpenFlowEvent = () => {
       setViewMode("flow");
     };
+    const handleOpenStudioEvent = () => {
+      setViewMode("chat");
+    };
     window.addEventListener("lacunex_flow_output", handleFlowEvent);
     window.addEventListener("lacunex_open_flow", handleOpenFlowEvent);
+    window.addEventListener("lacunex_open_codestudio", handleOpenStudioEvent);
     return () => {
       window.removeEventListener("lacunex_flow_output", handleFlowEvent);
       window.removeEventListener("lacunex_open_flow", handleOpenFlowEvent);
+      window.removeEventListener("lacunex_open_codestudio", handleOpenStudioEvent);
     };
   }, []);
 
@@ -238,12 +243,14 @@ export default function ChatPage() {
           collapsed={sidebarCollapsed}
           onDelete={handleDelete}
           onNew={() => {
+            setViewMode("chat");
             handleNew();
             if (typeof window !== "undefined" && window.innerWidth <= 768) {
               setSidebarCollapsed(true);
             }
           }}
           onSelect={(id) => {
+            setViewMode("chat");
             setActiveId(id);
             if (typeof window !== "undefined" && window.innerWidth <= 768) {
               setSidebarCollapsed(true);
