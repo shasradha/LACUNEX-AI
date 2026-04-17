@@ -128,7 +128,7 @@ function downloadFile(content, filename) {
 
 /* ── Component ───────────────────────────────────── */
 export default function ArtifactViewer({ code, onClose }) {
-  const [view, setView] = useState("preview"); // 'preview' | 'code'
+
   const [activeFile, setActiveFile] = useState("");
   const [copied, setCopied] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
