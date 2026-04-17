@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LACUNEX AI â€” Premium Design System
@@ -6893,7 +6893,11 @@ textarea { resize: none; }
 
 /* ── Premium Code Studio Additions ───────────────── */
 
-.cs-theme-select {
+.cs-theme-selector {
+  position: relative;
+}
+
+.cs-theme-trigger {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6904,27 +6908,52 @@ textarea { resize: none; }
   height: 28px;
   color: var(--text-secondary);
   transition: all 0.2s;
+  cursor: pointer;
 }
 
-.cs-theme-select:hover {
+.cs-theme-trigger:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--glass-border-hover);
 }
 
-.cs-theme-select select {
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  border: none;
-  padding-right: 4px;
+.cs-theme-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: #1e1e1e;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 140px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.cs-theme-select select option {
-  background: #161b22;
-  color: #c9d1d9;
+.cs-theme-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cs-theme-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.cs-theme-option.active {
+  color: #58a6ff;
+  background: rgba(88, 166, 255, 0.1);
 }
 
 .cs-modal-overlay {
