@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { getUser } from "@/lib/auth";
 
 /* ── Inline SVG icons (Claude-style elegant strokes) ── */
 function IconPlus() {
@@ -199,24 +200,8 @@ export default function Sidebar({
     [filtered, starredIds]
   );
 
-  // Get user info from localStorage (set during login)
-  const [userName, setUserName] = useState('User');
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('lacunex_username');
-      if (stored) setUserName(stored);
-      else {
-        const token = localStorage.getItem('token');
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            if (payload.sub) setUserName(payload.sub);
-            else if (payload.username) setUserName(payload.username);
-          } catch {}
-        }
-      }
-    } catch {}
-  }, []);
+  const user = getUser();
+  const userName = user?.name || "User";
 
   const userInitials = userName.slice(0, 2).toUpperCase();
 

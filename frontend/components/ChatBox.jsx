@@ -183,6 +183,7 @@ export default function ChatBox({
   const [docGenerating, setDocGenerating] = useState(false);
   const [intentInfo, setIntentInfo] = useState(null); // v3 intent badge data
   const [codeStudioOpen, setCodeStudioOpen] = useState(false);
+  const [codeStudioMinimized, setCodeStudioMinimized] = useState(false);
   const [codeStudioData, setCodeStudioData] = useState({ code: '', language: null });
   const exportMenuRef = useRef(null);
 
@@ -910,12 +911,14 @@ export default function ChatBox({
   const handleOpenCodeStudio = useCallback((code, language) => {
     setCodeStudioData({ code, language });
     setCodeStudioOpen(true);
+    setCodeStudioMinimized(false);
   }, []);
 
   useEffect(() => {
     const handleOpenStudioEvent = () => {
       setCodeStudioData({ code: "", language: null });
       setCodeStudioOpen(true);
+      setCodeStudioMinimized(false);
     };
     window.addEventListener("lacunex_open_codestudio", handleOpenStudioEvent);
     return () => window.removeEventListener("lacunex_open_codestudio", handleOpenStudioEvent);
@@ -930,7 +933,7 @@ export default function ChatBox({
 
   /* ── Render ─────────────────────────────────── */
   return (
-    <div className={`chat-container ${activeArtifact ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}>
+    <div className={`chat-container ${activeArtifact || (codeStudioOpen && codeStudioMinimized) ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}>
       <div className="chat-panel">
         {/* Header */}
         <div className="chat-header">
@@ -1173,13 +1176,15 @@ export default function ChatBox({
         </div>
       </div>
       
-      {/* Code Studio Full-Screen Panel */}
+      {/* Code Studio Panel */}
       {codeStudioOpen && (
-        <div className="code-studio-overlay">
+        <div className={codeStudioMinimized ? "artifact-viewer-panel animate-enter" : "code-studio-overlay"}>
           <CodeStudio
             initialCode={codeStudioData.code}
             initialLanguage={codeStudioData.language}
             onClose={() => setCodeStudioOpen(false)}
+            onMinimize={() => setCodeStudioMinimized(p => !p)}
+            isMinimized={codeStudioMinimized}
             chatContext={chatContextForStudio}
           />
         </div>

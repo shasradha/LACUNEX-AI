@@ -154,7 +154,7 @@ function HtmlLivePreview({ code }) {
   )
 }
 
-export default function CodeStudio({ initialCode = '', initialLanguage = null, onClose, chatContext = null }) {
+export default function CodeStudio({ initialCode = '', initialLanguage = null, onClose, onMinimize, isMinimized = false, chatContext = null }) {
   const startLang = initialLanguage || LANGUAGES[0]
   const [code, setCode] = useState(initialCode || startLang.template)
   const [language, setLanguage] = useState(startLang)
@@ -259,9 +259,16 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
           {isHtml && <span className="cs-preview-live-dot" title="Live Preview Active">● LIVE</span>}
         </div>
         <div className="cs-titlebar-right">
-          <button className="cs-titlebar-btn" onClick={() => setIsFullscreen(f => !f)} title="Toggle fullscreen">
-            {isFullscreen ? <IconMinimize /> : <IconMaximize />}
-          </button>
+          {onMinimize && (
+            <button className="cs-titlebar-btn" onClick={onMinimize} title={isMinimized ? "Expand to fullscreen" : "Minimize to split screen"}>
+              {isMinimized ? <IconMaximize /> : <IconColumns />}
+            </button>
+          )}
+          {!isMinimized && (
+            <button className="cs-titlebar-btn" onClick={() => setIsFullscreen(f => !f)} title="Toggle strict fullscreen">
+              {isFullscreen ? <IconMinimize /> : <IconMaximize />}
+            </button>
+          )}
           {onClose && <button className="cs-titlebar-btn cs-close-btn" onClick={onClose} title="Close"><IconX /></button>}
         </div>
       </div>
