@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 
-/* ── Inline icons ─────────────────────────────── */
+/* ── Inline SVG icons (Claude-style elegant strokes) ── */
 function IconPlus() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -13,7 +13,7 @@ function IconPlus() {
 
 function IconSearch() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
     </svg>
   );
@@ -21,7 +21,7 @@ function IconSearch() {
 
 function IconChat() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/>
     </svg>
   );
@@ -29,7 +29,7 @@ function IconChat() {
 
 function IconClock() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
   );
@@ -37,30 +37,99 @@ function IconClock() {
 
 function IconTrash() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+    </svg>
+  );
+}
+
+function IconStar() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+  );
+}
+
+function IconStarFilled() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+  );
+}
+
+function IconCode() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+    </svg>
+  );
+}
+
+function IconFlow() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+    </svg>
+  );
+}
+
+function IconChevron() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  );
+}
+
+function IconUser() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  );
+}
+
+function IconHide() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
+    </svg>
+  );
+}
+
+function IconMoreH() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
     </svg>
   );
 }
 
 function formatAge(value) {
   if (!value) return "Just now";
-  
-  // Ensure "Z" is appended if it's a naive UTC timestamp from backend
   let valStr = String(value);
   if (!valStr.endsWith('Z') && !valStr.includes('+')) {
     valStr += 'Z';
   }
-
   const date = new Date(valStr);
   const diffMin = Math.round((Date.now() - date.getTime()) / 60000);
-  
   if (diffMin < 1) return "Just now";
   if (diffMin < 60) return `${diffMin} min`;
   if (diffMin < 1440) return `${Math.floor(diffMin / 60)} hr`;
   if (diffMin < 2880) return "Yesterday";
-  
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/* ── Starred workspaces localStorage helpers ── */
+function getStarredIds() {
+  try {
+    return JSON.parse(localStorage.getItem('lacunex_starred') || '[]');
+  } catch { return []; }
+}
+function setStarredIds(ids) {
+  localStorage.setItem('lacunex_starred', JSON.stringify(ids));
 }
 
 export default function Sidebar({
@@ -78,10 +147,19 @@ export default function Sidebar({
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
+  const [starredIds, setStarredIdsState] = useState([]);
+  const [starredExpanded, setStarredExpanded] = useState(true);
+  const [recentsExpanded, setRecentsExpanded] = useState(true);
+  const [activeTab, setActiveTab] = useState('chats'); // 'chats' | 'code-studio' | 'flow'
 
-  // Force re-render every minute so the relative times (e.g. "Just now" -> "1 min") automatically update
+  // Load starred IDs from localStorage
   useEffect(() => {
-    const interval = setInterval(() => setTick((t) => t + 1), 30000); // 30s
+    setStarredIdsState(getStarredIds());
+  }, []);
+
+  // Force re-render every 30s for relative times
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -94,207 +172,420 @@ export default function Sidebar({
     return () => window.removeEventListener("click", handleClickOutside);
   }, [contextMenu]);
 
+  const toggleStar = useCallback((id, e) => {
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    setStarredIdsState(prev => {
+      const next = prev.includes(id)
+        ? prev.filter(s => s !== id)
+        : [...prev, id];
+      setStarredIds(next);
+      return next;
+    });
+  }, []);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return conversations;
     return conversations.filter((c) => c.title.toLowerCase().includes(q));
   }, [conversations, query]);
 
-  return (
-    <>
-      {!collapsed && (
-        <div className="sidebar-mobile-overlay" onClick={onToggle} aria-hidden="true" />
-      )}
-      <aside className={`sidebar-wrap ${collapsed ? "sidebar-collapsed" : ""}`}>
-        <div className="sidebar-inner" onContextMenu={e => e.preventDefault()}>
-        <div className="sidebar-actions">
-          <button type="button" onClick={onNew} className="btn btn-primary sidebar-new-btn">
-            <IconPlus />
-            {!collapsed && <span>New workspace</span>}
-          </button>
-          {!collapsed && (
-            <button type="button" onClick={onToggle} className="btn btn-ghost" style={{ fontSize: "0.75rem", padding: "0.4rem 0.6rem" }}>
-              Hide
-            </button>
-          )}
+  const starredConvos = useMemo(() =>
+    filtered.filter(c => starredIds.includes(c.id)),
+    [filtered, starredIds]
+  );
+
+  const recentConvos = useMemo(() =>
+    filtered.filter(c => !starredIds.includes(c.id)),
+    [filtered, starredIds]
+  );
+
+  // Get user info from localStorage (set during login)
+  const [userName, setUserName] = useState('User');
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('lacunex_username');
+      if (stored) setUserName(stored);
+      else {
+        const token = localStorage.getItem('token');
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (payload.sub) setUserName(payload.sub);
+            else if (payload.username) setUserName(payload.username);
+          } catch {}
+        }
+      }
+    } catch {}
+  }, []);
+
+  const userInitials = userName.slice(0, 2).toUpperCase();
+
+  /* ── Render a workspace item ── */
+  const renderWorkspaceItem = (conversation, isStarred) => {
+    const active = conversation.id === activeId;
+    return (
+      <div
+        key={conversation.id}
+        role="button"
+        tabIndex={0}
+        className={`sb-ws-item ${active ? "sb-ws-item-active" : ""}`}
+        onClick={() => onSelect(conversation.id)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            id: conversation.id,
+            title: conversation.title,
+            starred: starredIds.includes(conversation.id)
+          });
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect(conversation.id);
+          }
+        }}
+        title={collapsed ? conversation.title : undefined}
+      >
+        <div className="sb-ws-icon">
+          <IconChat />
         </div>
 
         {!collapsed && (
-          <div className="sidebar-search field-shell">
-            <span className="input-icon"><IconSearch /></span>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search workspaces"
-              className="input-field input-with-icon"
-              style={{ fontSize: "0.75rem", padding: "0.5rem 0.625rem 0.5rem 2.25rem" }}
-            />
-          </div>
-        )}
-
-        <div className="sidebar-list">
-          {filtered.length === 0 ? (
-            <div className="sidebar-empty">
-              <IconChat />
-              {!collapsed && <span>No workspaces yet</span>}
-            </div>
-          ) : (
-            filtered.map((conversation) => {
-              const active = conversation.id === activeId;
-              return (
-                <div
-                  key={conversation.id}
-                  role="button"
-                  tabIndex={0}
-                  className={`ws-item ${active ? "ws-item-active" : ""}`}
-                  onClick={() => onSelect(conversation.id)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
+          <>
+            <div className="sb-ws-content">
+              <div className="sb-ws-title">
+                <span
+                  onDoubleClick={(e) => {
                     e.stopPropagation();
-                    setContextMenu({
-                      x: e.clientX,
-                      y: e.clientY,
-                      id: conversation.id,
-                      title: conversation.title
-                    });
+                    setEditingId(conversation.id);
+                    setEditValue(conversation.title);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onSelect(conversation.id);
-                    }
-                  }}
-                  title={collapsed ? conversation.title : undefined}
+                  style={{ display: editingId === conversation.id ? 'none' : 'block' }}
                 >
-                  <div className="ws-icon">
-                    <IconChat />
-                  </div>
+                  {conversation.title}
+                </span>
+                {editingId === conversation.id && (
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onBlur={() => {
+                      if (editValue.trim() && editValue !== conversation.title && onRename) {
+                        onRename(conversation.id, editValue.trim());
+                      }
+                      setEditingId(null);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        if (editValue.trim() && editValue !== conversation.title && onRename) {
+                          onRename(conversation.id, editValue.trim());
+                        }
+                        setEditingId(null);
+                      }
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    className="sb-rename-input"
+                    onClick={e => e.stopPropagation()}
+                  />
+                )}
+              </div>
+              <div className="sb-ws-meta">
+                <span className="sb-ws-meta-item">
+                  <IconClock />
+                  {formatAge(conversation.updated_at)}
+                </span>
+                <span>{conversation.message_count || 0} msg</span>
+              </div>
+            </div>
 
-                  {!collapsed && (
-                    <>
-                      <div className="ws-content">
-                        <div className="ws-title">
-                          <span
-                            onDoubleClick={(e) => {
-                              e.stopPropagation();
-                              setEditingId(conversation.id);
-                              setEditValue(conversation.title);
-                            }}
-                            style={{ display: editingId === conversation.id ? 'none' : 'block' }}
-                          >
-                            {conversation.title}
-                          </span>
-                          {editingId === conversation.id && (
-                            <input
-                              autoFocus
-                              value={editValue}
-                              onChange={e => setEditValue(e.target.value)}
-                              onBlur={() => {
-                                if (editValue.trim() && editValue !== conversation.title && onRename) {
-                                  onRename(conversation.id, editValue.trim());
-                                }
-                                setEditingId(null);
-                              }}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                  if (editValue.trim() && editValue !== conversation.title && onRename) {
-                                    onRename(conversation.id, editValue.trim());
-                                  }
-                                  setEditingId(null);
-                                }
-                                if (e.key === 'Escape') setEditingId(null);
-                              }}
-                              className="workspace-rename-input"
-                              style={{ width: '100%', background: 'transparent', border: '1px solid var(--border)', color: 'inherit', padding: '2px 4px', borderRadius: '4px' }}
-                              onClick={e => e.stopPropagation()}
-                            />
-                          )}
-                          {!editingId && (
-                            <button
-                              className="ws-edit-icon"
-                              style={{ opacity: 0, padding: '0 4px', fontSize: '0.8rem', background: 'none', border: 'none', cursor: 'pointer', display: 'none' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingId(conversation.id);
-                                setEditValue(conversation.title);
-                              }}
-                              title="Rename workspace"
-                            >
-                              ✏️
-                            </button>
-                          )}
-                        </div>
-                        <div className="ws-meta">
-                          <span className="ws-meta-item">
-                            <IconClock />
-                            {formatAge(conversation.updated_at)}
-                          </span>
-                          <span>{conversation.message_count || 0} msg</span>
-                        </div>
-                      </div>
+            <div className="sb-ws-actions">
+              <button
+                type="button"
+                className={`sb-ws-star-btn ${isStarred ? 'starred' : ''}`}
+                onClick={(e) => toggleStar(conversation.id, e)}
+                aria-label={isStarred ? "Unstar" : "Star"}
+              >
+                {isStarred ? <IconStarFilled /> : <IconStar />}
+              </button>
+              <button
+                type="button"
+                className="sb-ws-delete-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(conversation.id);
+                }}
+                aria-label={`Delete ${conversation.title}`}
+              >
+                <IconTrash />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
-                      <button
-                        type="button"
-                        className="ws-delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(conversation.id);
-                        }}
-                        aria-label={`Delete ${conversation.title}`}
-                      >
-                        <IconTrash />
-                      </button>
-                    </>
-                  )}
+  return (
+    <>
+      {!collapsed && (
+        <div className="sb-mobile-overlay" onClick={onToggle} aria-hidden="true" />
+      )}
+      <aside className={`sb-wrap ${collapsed ? "sb-collapsed" : ""}`}>
+        <div className="sb-inner" onContextMenu={e => e.preventDefault()}>
+          {/* ── Top: Brand Header ── */}
+          <div className="sb-header">
+            <div className="sb-brand">
+              <div className="sb-brand-badge">L</div>
+              {!collapsed && (
+                <div className="sb-brand-text">
+                  <span className="sb-brand-name">LACUNEX</span>
+                  <span className="sb-brand-tagline">AI Assistant</span>
                 </div>
-              );
-            })
+              )}
+            </div>
+            {!collapsed && (
+              <button type="button" onClick={onToggle} className="sb-hide-btn" title="Collapse sidebar">
+                <IconHide />
+              </button>
+            )}
+          </div>
+
+          {/* ── New workspace button ── */}
+          <div className="sb-new-section">
+            <button type="button" onClick={onNew} className="sb-new-btn">
+              <IconPlus />
+              {!collapsed && <span>New workspace</span>}
+            </button>
+          </div>
+
+          {/* ── Search ── */}
+          {!collapsed && (
+            <div className="sb-search-wrap">
+              <span className="sb-search-icon"><IconSearch /></span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search workspaces..."
+                className="sb-search-input"
+              />
+            </div>
           )}
-        </div>
+
+          {/* ── Navigation Tabs ── */}
+          {!collapsed && (
+            <div className="sb-nav-tabs">
+              <button
+                className={`sb-nav-tab ${activeTab === 'chats' ? 'active' : ''}`}
+                onClick={() => setActiveTab('chats')}
+              >
+                <IconChat />
+                <span>Chats</span>
+              </button>
+              <button
+                className={`sb-nav-tab ${activeTab === 'code-studio' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('code-studio');
+                  // Dispatch event to open Code Studio
+                  window.dispatchEvent(new CustomEvent('lacunex_open_codestudio'));
+                }}
+              >
+                <IconCode />
+                <span>Code Studio</span>
+              </button>
+              <button
+                className={`sb-nav-tab ${activeTab === 'flow' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('flow');
+                  // Dispatch event to toggle flow view
+                  window.dispatchEvent(new CustomEvent('lacunex_open_flow'));
+                }}
+              >
+                <IconFlow />
+                <span>Lacunex Flow</span>
+              </button>
+            </div>
+          )}
+
+          {/* ── Workspace List ── */}
+          <div className="sb-workspace-list">
+            {activeTab === 'chats' && (
+              <>
+                {filtered.length === 0 ? (
+                  <div className="sb-empty-state">
+                    <IconChat />
+                    {!collapsed && <span>No workspaces yet</span>}
+                  </div>
+                ) : (
+                  <>
+                    {/* Starred Section */}
+                    {starredConvos.length > 0 && (
+                      <div className="sb-section">
+                        {!collapsed && (
+                          <button
+                            className="sb-section-header"
+                            onClick={() => setStarredExpanded(!starredExpanded)}
+                          >
+                            <div className="sb-section-label">
+                              <IconStarFilled />
+                              <span>Starred</span>
+                            </div>
+                            <span className={`sb-section-chevron ${starredExpanded ? 'expanded' : ''}`}>
+                              <IconChevron />
+                            </span>
+                          </button>
+                        )}
+                        {starredExpanded && (
+                          <div className="sb-section-items">
+                            {starredConvos.map(c => renderWorkspaceItem(c, true))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Recents Section */}
+                    <div className="sb-section">
+                      {!collapsed && starredConvos.length > 0 && (
+                        <button
+                          className="sb-section-header"
+                          onClick={() => setRecentsExpanded(!recentsExpanded)}
+                        >
+                          <div className="sb-section-label">
+                            <IconClock />
+                            <span>Recents</span>
+                          </div>
+                          <span className={`sb-section-chevron ${recentsExpanded ? 'expanded' : ''}`}>
+                            <IconChevron />
+                          </span>
+                        </button>
+                      )}
+                      {recentsExpanded && (
+                        <div className="sb-section-items">
+                          {(starredConvos.length > 0 ? recentConvos : filtered).map(c =>
+                            renderWorkspaceItem(c, starredIds.includes(c.id))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {activeTab === 'code-studio' && !collapsed && (
+              <div className="sb-tab-content">
+                <div className="sb-tab-hero">
+                  <div className="sb-tab-hero-icon code-studio-icon">
+                    <IconCode />
+                  </div>
+                  <h3>Online Code Studio</h3>
+                  <p>Write, run, and debug code in 10+ languages with a professional editor experience.</p>
+                  <button
+                    className="sb-tab-action-btn"
+                    onClick={() => window.dispatchEvent(new CustomEvent('lacunex_open_codestudio'))}
+                  >
+                    <IconCode />
+                    <span>Open Code Studio</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'flow' && !collapsed && (
+              <div className="sb-tab-content">
+                <div className="sb-tab-hero">
+                  <div className="sb-tab-hero-icon flow-icon">
+                    <IconFlow />
+                  </div>
+                  <h3>Lacunex Flow</h3>
+                  <p>Build visual AI pipelines with drag-and-drop nodes. Chain prompts, tools, and logic together.</p>
+                  <button
+                    className="sb-tab-action-btn flow-btn"
+                    onClick={() => window.dispatchEvent(new CustomEvent('lacunex_open_flow'))}
+                  >
+                    <IconFlow />
+                    <span>Open Flow Canvas</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Bottom User Profile Card ── */}
+          {!collapsed && (
+            <div className="sb-user-profile">
+              <div className="sb-user-avatar">
+                <span>{userInitials}</span>
+              </div>
+              <div className="sb-user-info">
+                <span className="sb-user-name">{userName}</span>
+                <span className="sb-user-status">
+                  <span className="sb-status-dot"></span>
+                  Online
+                </span>
+              </div>
+              <button className="sb-user-more" title="More options">
+                <IconMoreH />
+              </button>
+            </div>
+          )}
+          {collapsed && (
+            <div className="sb-user-profile-collapsed">
+              <div className="sb-user-avatar-sm">
+                <span>{userInitials}</span>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
+      {/* ── Context Menu ── */}
       {contextMenu && (
         <div
-          className="context-menu"
+          className="sb-context-menu"
           style={{
             position: "fixed",
             top: contextMenu.y,
             left: contextMenu.x,
             zIndex: 9999,
-            background: "#1e1e1e",
-            border: "1px solid #333",
-            borderRadius: "6px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-            padding: "4px 0",
-            minWidth: "140px"
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className="context-menu-item"
-            style={{ padding: "8px 12px", cursor: "pointer", fontSize: "0.85rem", color: "#e5e5e5", transition: "background 0.2s" }}
-            onMouseOver={e => e.currentTarget.style.background = "#333"}
-            onMouseOut={e => e.currentTarget.style.background = "transparent"}
+            className="sb-context-item"
             onClick={() => {
               setEditingId(contextMenu.id);
               setEditValue(contextMenu.title);
               setContextMenu(null);
             }}
           >
-            ✏️ Rename Workspace
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            </svg>
+            Rename
           </div>
           <div
-            className="context-menu-item"
-            style={{ padding: "8px 12px", cursor: "pointer", fontSize: "0.85rem", color: "#ff5f57", transition: "background 0.2s" }}
-            onMouseOver={e => e.currentTarget.style.background = "#4a1212"}
-            onMouseOut={e => e.currentTarget.style.background = "transparent"}
+            className="sb-context-item"
+            onClick={() => {
+              toggleStar(contextMenu.id);
+              setContextMenu(null);
+            }}
+          >
+            {contextMenu.starred ? <IconStarFilled /> : <IconStar />}
+            {contextMenu.starred ? 'Unstar' : 'Star'}
+          </div>
+          <div className="sb-context-divider" />
+          <div
+            className="sb-context-item sb-context-danger"
             onClick={() => {
               onDelete(contextMenu.id);
               setContextMenu(null);
             }}
           >
-            🗑️ Delete Workspace
+            <IconTrash />
+            Delete
           </div>
         </div>
       )}
