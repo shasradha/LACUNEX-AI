@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { getUser } from "@/lib/auth";
 
 /* ── Inline SVG icons (Claude-style elegant strokes) ── */
@@ -206,19 +206,38 @@ export default function Sidebar({
   );
 
   const handleRenameAccount = () => {
-    const freshBody = getUser() || { name: 'User' };
-    const newName = prompt("Enter your new display name:", freshBody.name);
-    if (newName && newName.trim()) {
-      const updated = { ...freshBody, name: newName.trim() };
-      localStorage.setItem('lacunex_user', JSON.stringify(updated));
-      window.location.reload(); // Refresh to propagate change
+    const current = getUser();
+    const currentName = current?.name || 'User';
+    const newName = prompt("Enter your new display name:", currentName);
+    if (newName && newName.trim() && newName.trim() !== currentName) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('lacunex_user') || '{}');
+        stored.name = newName.trim();
+        localStorage.setItem('lacunex_user', JSON.stringify(stored));
+      } catch {
+        localStorage.setItem('lacunex_user', JSON.stringify({ name: newName.trim() }));
+      }
+      window.location.reload();
     }
     setShowProfileMenu(false);
   };
 
-  const handleResetData = () => {
-    if (confirm("CRITICAL: This will delete ALL workspaces and reset your local session. Continue?")) {
+  const handleDeleteAllWorkspaces = () => {
+    if (!conversations || conversations.length === 0) {
+      alert("No workspaces to delete.");
+      setShowProfileMenu(false);
+      return;
+    }
+    if (confirm(`Delete ALL ${conversations.length} workspaces? This cannot be undone.`)) {
+      conversations.forEach(c => onDelete(c.id));
+    }
+    setShowProfileMenu(false);
+  };
+
+  const handleResetSession = () => {
+    if (confirm("This will clear your local session and log you out. Continue?")) {
       localStorage.clear();
+      sessionStorage.clear();
       window.location.href = '/login';
     }
     setShowProfileMenu(false);
@@ -542,15 +561,21 @@ export default function Sidebar({
               </button>
 
               {showProfileMenu && (
-                <div className="sb-profile-dropdown animate-enter">
+                <div className="sb-profile-dropdown">
                   <button className="sb-dropdown-item" onClick={handleRenameAccount}>
                     <IconUser />
                     <span>Change Name</span>
                   </button>
                   <div className="sb-dropdown-divider" />
-                  <button className="sb-dropdown-item danger" onClick={handleResetData}>
+                  <button className="sb-dropdown-item danger" onClick={handleDeleteAllWorkspaces}>
                     <IconTrash />
-                    <span>Factory Reset / Delete All</span>
+                    <span>Delete All Workspaces</span>
+                  </button>
+                  <button className="sb-dropdown-item danger" onClick={handleResetSession}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                    </svg>
+                    <span>Reset Session &amp; Logout</span>
                   </button>
                 </div>
               )}
