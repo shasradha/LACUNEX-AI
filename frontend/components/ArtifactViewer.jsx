@@ -186,8 +186,26 @@ export default function ArtifactViewer({ code, onClose }) {
 
   // Build the unified srcdoc for preview using debounced files for performance
   const srcdocHtml = useMemo(() => {
-    const htmlFile = debouncedFiles["index.html"];
-    if (!htmlFile) return "<h3>Error: No index.html found.</h3>";
+    // Try index.html first, then any .html file, then first file as fallback
+    let htmlFile = debouncedFiles["index.html"];
+    if (!htmlFile) {
+      const htmlKey = Object.keys(debouncedFiles).find(k => k.endsWith('.html'));
+      if (htmlKey) htmlFile = debouncedFiles[htmlKey];
+    }
+    if (!htmlFile) {
+      // Last resort: use the first file's content if it looks like HTML
+      const firstKey = Object.keys(debouncedFiles)[0];
+      const firstContent = firstKey ? debouncedFiles[firstKey] : "";
+      if (firstContent && (firstContent.includes('<html') || firstContent.includes('<!DOCTYPE') || firstContent.includes('<body'))) {
+        htmlFile = firstContent;
+      }
+    }
+    if (!htmlFile) {
+      // Wrap any content as HTML snippet for preview
+      const firstKey = Object.keys(debouncedFiles)[0];
+      if (firstKey) return wrapSnippet(`<pre>${debouncedFiles[firstKey]}</pre>`);
+      return "<h3>No previewable content.</h3>";
+    }
 
     let bundled = htmlFile;
 
@@ -382,87 +400,25 @@ export default function ArtifactViewer({ code, onClose }) {
           />
         ) : (
           <div className="artifact-code-view">
-            <textarea
-              ref={editorRef}
-              value={files[activeFile] || ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                setLocalFiles(prev => ({ ...prev, [activeFile]: val }));
-              }}
-              onScroll={(e) => {
-                const highlighter = e.currentTarget.nextSibling;
-                if (highlighter) {
-                  highlighter.scrollTop = e.currentTarget.scrollTop;
-                  highlighter.scrollLeft = e.currentTarget.scrollLeft;
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Tab') {
-                  e.preventDefault();
-                  const start = e.target.selectionStart;
-                  const end = e.target.selectionEnd;
-                  const val = e.target.value;
-                  const newVal = val.substring(0, start) + "  " + val.substring(end);
-                  setLocalFiles(prev => ({ ...prev, [activeFile]: newVal }));
-                  setTimeout(() => {
-                    if (editorRef.current) {
-                      editorRef.current.selectionStart = editorRef.current.selectionEnd = start + 2;
-                    }
-                  }, 0);
-                }
-              }}
-              spellCheck={false}
-              className="artifact-textarea"
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
+            <SyntaxHighlighter
+              language={currentLang}
+              style={vscDarkPlus}
+              showLineNumbers
+              wrapLongLines={false}
+              lineNumberStyle={{ color: "#4a5568", minWidth: "3em", paddingRight: "1em", userSelect: "none" }}
+              customStyle={{
                 margin: 0,
                 padding: "1.25rem",
-                paddingLeft: "4.25rem",
                 background: "transparent",
-                color: "transparent",
-                caretColor: "white",
                 fontSize: "0.85rem",
-                fontFamily: "var(--font-mono, monospace)",
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                 lineHeight: "1.6",
-                border: "none",
-                resize: "none",
-                outline: "none",
-                zIndex: 2,
-                whiteSpace: "pre",
-                overflow: "auto"
+                borderRadius: 0,
+                minHeight: "100%",
               }}
-            />
-            <div style={{ 
-              position: "absolute", 
-              inset: 0, 
-              zIndex: 1, 
-              pointerEvents: "none", 
-              overflow: "hidden" 
-            }}>
-              <SyntaxHighlighter
-                language={currentLang}
-                style={vscDarkPlus}
-                showLineNumbers
-                wrapLines={false}
-                lineNumberStyle={{ color: "#4a5568", minWidth: "3em", paddingRight: "1em", userSelect: "none" }}
-                customStyle={{
-                  margin: 0,
-                  padding: "1.25rem",
-                  background: "transparent",
-                  fontSize: "0.85rem",
-                  fontFamily: "var(--font-mono, monospace)",
-                  lineHeight: "1.6",
-                  borderRadius: 0,
-                  height: "100%",
-                  overflow: "hidden"
-                }}
-              >
-                {files[activeFile] || ""}
-              </SyntaxHighlighter>
-            </div>
+            >
+              {files[activeFile] || ""}
+            </SyntaxHighlighter>
           </div>
         )}
       </div>

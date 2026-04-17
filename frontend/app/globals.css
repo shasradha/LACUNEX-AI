@@ -5098,8 +5098,7 @@ textarea { resize: none; }
 
 .artifact-code-view {
   flex: 1;
-  position: relative;
-  overflow: hidden; /* textarea handles scroll */
+  overflow: auto;
   background: #0d1117;
 }
 
@@ -7068,7 +7067,7 @@ textarea { resize: none; }
 .code-studio-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9990;
+  z-index: 10001;
   background: rgba(1, 4, 9, 0.75);
   backdrop-filter: blur(6px);
   display: flex;
