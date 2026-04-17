@@ -309,8 +309,9 @@ export default function Sidebar({
                     value={editValue}
                     onChange={e => setEditValue(e.target.value)}
                     onBlur={() => {
-                      if (editValue.trim() && editValue !== conversation.title && onRename) {
-                        onRename(conversation.id, editValue.trim());
+                      const finalValue = editValue.trim();
+                      if (finalValue && finalValue !== conversation.title && onRename) {
+                        onRename(conversation.id, finalValue);
                       }
                       setEditingId(null);
                     }}
@@ -318,14 +319,12 @@ export default function Sidebar({
                       e.stopPropagation();
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (editValue.trim() && editValue !== conversation.title && onRename) {
-                          onRename(conversation.id, editValue.trim());
-                        }
-                        setEditingId(null);
+                        e.target.blur(); // Trigger onBlur to handle save
                       }
                       if (e.key === 'Escape') {
                         e.preventDefault();
-                        setEditingId(null);
+                        setEditValue(conversation.title); // Revert value
+                        e.target.blur(); // Trigger onBlur, won't save since it matches
                       }
                     }}
                     onPointerDown={e => e.stopPropagation()}
