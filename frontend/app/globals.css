@@ -4812,8 +4812,30 @@ textarea { resize: none; }
 .chat-container.has-artifact .chat-panel {
   flex: 1;
   min-width: 0;
-  border-right: 1px solid var(--glass-border);
-  transition: flex var(--duration-normal) var(--ease-out-expo);
+  border-right: none;
+}
+
+.split-resizer {
+  width: 8px;
+  background: var(--glass-border);
+  cursor: col-resize;
+  z-index: 50;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.split-resizer:hover, .split-resizer:active {
+  background: var(--accent-primary, #a855f7);
+}
+
+.split-resizer-handle {
+  width: 2px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 2px;
 }
 
 /* â”€â”€ Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */

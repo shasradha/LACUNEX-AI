@@ -193,6 +193,32 @@ export default function ChatBox({
   const skipReload = useRef(null);
   const stopRef = useRef(null); // AbortController for terminating streams
 
+  // Resizable split screen
+  const [splitWidth, setSplitWidth] = useState(50); // percentage
+  const containerRef = useRef(null);
+
+  const startResizer = useCallback((e) => {
+    e.preventDefault();
+    const handleMouseMove = (moveEvent) => {
+      if (!containerRef.current) return;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const newWidth = ((moveEvent.clientX - containerRect.left) / containerRect.width) * 100;
+      if (newWidth >= 20 && newWidth <= 80) setSplitWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
   const currentTitle = conversation?.title || "New workspace";
 
   /* ── Effects ─────────────────────────────────── */
@@ -932,9 +958,14 @@ export default function ChatBox({
   }), [handleSend]);
 
   /* ── Render ─────────────────────────────────── */
+  const isSplitMode = activeArtifact || (codeStudioOpen && codeStudioMinimized);
+  
   return (
-    <div className={`chat-container ${activeArtifact || (codeStudioOpen && codeStudioMinimized) ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}>
-      <div className="chat-panel">
+    <div 
+      ref={containerRef}
+      className={`chat-container ${isSplitMode ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}
+    >
+      <div className="chat-panel" style={isSplitMode ? { flex: 'none', width: `${splitWidth}%` } : undefined}>
         {/* Header */}
         <div className="chat-header">
           <div className="chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflow: 'hidden' }}>
@@ -1176,6 +1207,17 @@ export default function ChatBox({
         </div>
       </div>
       
+      {/* Resizer Handle */}
+      {isSplitMode && (
+        <div 
+          className="split-resizer" 
+          onMouseDown={startResizer}
+          title="Drag to resize"
+        >
+          <div className="split-resizer-handle"></div>
+        </div>
+      )}
+
       {/* Code Studio Panel */}
       {codeStudioOpen && (
         <div className={codeStudioMinimized ? "artifact-viewer-panel animate-enter" : "code-studio-overlay"}>

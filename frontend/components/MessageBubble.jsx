@@ -224,8 +224,7 @@ const getSuggestionChips = (userMsg, aiResp) => {
 const RUNNABLE_LANGS = new Set([
   "python", "py", "python3", "javascript", "js", "typescript", "ts",
   "java", "c", "cpp", "c++", "csharp", "cs", "go", "golang",
-  "rust", "rs", "php", "ruby", "rb", "swift", "kotlin", "kt",
-  "bash", "sh", "perl", "lua", "dart", "scala", "r", "haskell", "elixir", "sql",
+  "rust", "rs", "php", "ruby", "rb", "swift", "kotlin", "kt"
 ]);
 
 const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp, onOpenCodeStudio }) => {
