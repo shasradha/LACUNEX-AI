@@ -152,6 +152,8 @@ export default function Sidebar({
   const [starredExpanded, setStarredExpanded] = useState(true);
   const [recentsExpanded, setRecentsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' | 'code-studio' | 'flow'
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef(null);
 
   // Load starred IDs from localStorage
   useEffect(() => {
@@ -164,14 +166,17 @@ export default function Sidebar({
     return () => clearInterval(interval);
   }, []);
 
-  // Click outside context menu to close
+  // Click outside menus to close
   useEffect(() => {
-    const handleClickOutside = () => setContextMenu(null);
-    if (contextMenu) {
-      window.addEventListener("click", handleClickOutside);
-    }
-    return () => window.removeEventListener("click", handleClickOutside);
-  }, [contextMenu]);
+    const handleClickOutside = (e) => {
+      if (contextMenu) setContextMenu(null);
+      if (showProfileMenu && profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [contextMenu, showProfileMenu]);
 
   const toggleStar = useCallback((id, e) => {
     if (e) { e.stopPropagation(); e.preventDefault(); }
@@ -199,6 +204,25 @@ export default function Sidebar({
     filtered.filter(c => !starredIds.includes(c.id)),
     [filtered, starredIds]
   );
+
+  const handleRenameAccount = () => {
+    const freshBody = getUser() || { name: 'User' };
+    const newName = prompt("Enter your new display name:", freshBody.name);
+    if (newName && newName.trim()) {
+      const updated = { ...freshBody, name: newName.trim() };
+      localStorage.setItem('lacunex_user', JSON.stringify(updated));
+      window.location.reload(); // Refresh to propagate change
+    }
+    setShowProfileMenu(false);
+  };
+
+  const handleResetData = () => {
+    if (confirm("CRITICAL: This will delete ALL workspaces and reset your local session. Continue?")) {
+      localStorage.clear();
+      window.location.href = '/login';
+    }
+    setShowProfileMenu(false);
+  };
 
   const user = getUser();
   const userName = user?.name || "User";
@@ -498,7 +522,7 @@ export default function Sidebar({
 
           {/* ── Bottom User Profile Card ── */}
           {!collapsed && (
-            <div className="sb-user-profile">
+            <div className="sb-user-profile" ref={profileMenuRef}>
               <div className="sb-user-avatar">
                 <span>{userInitials}</span>
               </div>
@@ -509,9 +533,27 @@ export default function Sidebar({
                   Online
                 </span>
               </div>
-              <button className="sb-user-more" title="More options">
+              <button 
+                className={`sb-user-more ${showProfileMenu ? 'active' : ''}`} 
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                title="Account Settings"
+              >
                 <IconMoreH />
               </button>
+
+              {showProfileMenu && (
+                <div className="sb-profile-dropdown animate-enter">
+                  <button className="sb-dropdown-item" onClick={handleRenameAccount}>
+                    <IconUser />
+                    <span>Change Name</span>
+                  </button>
+                  <div className="sb-dropdown-divider" />
+                  <button className="sb-dropdown-item danger" onClick={handleResetData}>
+                    <IconTrash />
+                    <span>Factory Reset / Delete All</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {collapsed && (

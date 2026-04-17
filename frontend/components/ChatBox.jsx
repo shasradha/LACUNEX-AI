@@ -299,6 +299,17 @@ export default function ChatBox({
     setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  /* ── Auto Scroll Logic ── */
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const scrollEl = scrollRef.current;
+    const isAtBottom = scrollEl.scrollHeight - scrollEl.scrollTop <= scrollEl.clientHeight + 150;
+    
+    if (isAtBottom && isBusy) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isBusy]);
+
   const saveEncrypted = useCallback(async (convId, msg, doneData) => {
     const encrypted = await encryptMessage(msg.content || "");
     await saveMessage({
@@ -911,7 +922,9 @@ export default function ChatBox({
           return { isMultiFile: true, files };
         }
       }
-      return raw; // Single file string
+      
+      // Single file - hide any rogue <file> tags if they exist (e.g. unclosed tags)
+      return raw.replace(/<file name=[^>]+>|<\/file>/gi, "").trim();
     }
     
     // 2. Fallback: markdown code blocks (```html, ```jsx, etc.)
@@ -1064,7 +1077,6 @@ export default function ChatBox({
             emptyState
           ) : (
             <div className={`message-list ${isLoading ? "op-50" : ""}`}>
-              {/* Optional: Small top-aligned spinner when switching workspaces */}
               {isLoading && (
                 <div className="workspace-loader">
                   <IconSpinner />

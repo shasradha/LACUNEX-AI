@@ -381,13 +381,20 @@ export default function ArtifactViewer({ code, onClose }) {
             className="artifact-iframe"
           />
         ) : (
-          <div className="artifact-code-view" style={{ position: "relative" }}>
+          <div className="artifact-code-view">
             <textarea
               ref={editorRef}
               value={files[activeFile] || ""}
               onChange={(e) => {
                 const val = e.target.value;
                 setLocalFiles(prev => ({ ...prev, [activeFile]: val }));
+              }}
+              onScroll={(e) => {
+                const highlighter = e.currentTarget.nextSibling;
+                if (highlighter) {
+                  highlighter.scrollTop = e.currentTarget.scrollTop;
+                  highlighter.scrollLeft = e.currentTarget.scrollLeft;
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Tab') {
@@ -413,22 +420,28 @@ export default function ArtifactViewer({ code, onClose }) {
                 height: "100%",
                 margin: 0,
                 padding: "1.25rem",
-                paddingLeft: "4.25rem", // Align with line numbers
+                paddingLeft: "4.25rem",
                 background: "transparent",
                 color: "transparent",
                 caretColor: "white",
                 fontSize: "0.85rem",
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+                fontFamily: "var(--font-mono, monospace)",
                 lineHeight: "1.6",
                 border: "none",
                 resize: "none",
                 outline: "none",
                 zIndex: 2,
-                whiteSpace: "pre-wrap",
-                wordBreak: "keep-all"
+                whiteSpace: "pre",
+                overflow: "auto"
               }}
             />
-            <div style={{ position: "relative", zIndex: 1, pointerEvents: "none" }}>
+            <div style={{ 
+              position: "absolute", 
+              inset: 0, 
+              zIndex: 1, 
+              pointerEvents: "none", 
+              overflow: "hidden" 
+            }}>
               <SyntaxHighlighter
                 language={currentLang}
                 style={vscDarkPlus}
@@ -440,9 +453,11 @@ export default function ArtifactViewer({ code, onClose }) {
                   padding: "1.25rem",
                   background: "transparent",
                   fontSize: "0.85rem",
-                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+                  fontFamily: "var(--font-mono, monospace)",
                   lineHeight: "1.6",
                   borderRadius: 0,
+                  height: "100%",
+                  overflow: "hidden"
                 }}
               >
                 {files[activeFile] || ""}

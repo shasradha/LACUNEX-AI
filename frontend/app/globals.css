@@ -607,7 +607,7 @@ textarea { resize: none; }
 .topbar-wrap {
   padding: 0;
   position: relative;
-  z-index: 100;
+  z-index: 10000; /* Priority layering over sidebar */
   border-bottom: 1px solid var(--glass-border);
 }
 
@@ -1378,10 +1378,13 @@ textarea { resize: none; }
 .sb-user-profile {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.06);
-  flex-shrink: 0;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  margin-top: auto;
+  position: relative;
   transition: background 0.15s ease;
 }
 
@@ -4211,24 +4214,27 @@ textarea { resize: none; }
 
 .chaos-tooltip {
   position: absolute;
-  top: calc(100% + 1rem); /* More clearance */
-  left: -3.875rem; /* Shifted far left to sit over sidebar area */
-  width: 240px; /* Slightly slimmer to avoid content zone */
-  background: rgba(13, 18, 30, 0.95); /* More opaque for readability */
-  backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-xl);
-  padding: 0.875rem 1rem;
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  color: white;
+  top: calc(100% + 1.25rem);
+  left: -2rem;
+  width: 280px; 
+  background: rgba(10, 14, 23, 0.9);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 20px rgba(168, 85, 247, 0.05);
+  color: #f8fafc;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(8px) scale(0.98);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(12px) scale(0.96);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top left;
   white-space: normal;
-  z-index: 2000; /* Ensure it stays above everything */
-  line-height: 1.5;
+  z-index: 10001;
+  line-height: 1.6;
 }
 
 .chaos-logo-wrap:hover .chaos-tooltip {
@@ -5017,12 +5023,28 @@ textarea { resize: none; }
 
 .artifact-code-view {
   flex: 1;
-  overflow: auto;
+  position: relative;
+  overflow: hidden; /* textarea handles scroll */
   background: #0d1117;
 }
 
 .artifact-code-view pre {
   margin: 0 !important;
+  height: 100%;
+}
+
+.artifact-textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.artifact-textarea::-webkit-scrollbar {
+  width: 8px;
+}
+.artifact-textarea::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+}
 }
 
 /* â”€â”€ Launch Artifact Card (inside chat bubbles) â”€â”€ */
@@ -5161,7 +5183,7 @@ textarea { resize: none; }
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
    Code Execution (â–¶ Run Button + Terminal Output)
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
