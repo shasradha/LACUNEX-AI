@@ -222,6 +222,24 @@ export default function Sidebar({
     setShowProfileMenu(false);
   };
 
+  const handleDeleteFullAccount = async () => {
+    if (confirm("🚨 DANGER: This will permanently delete your account, fresh start your email, and erase ALL chats. This CANNOT be undone! Are you sure?")) {
+      const confirmation = prompt("Type 'DELETE' to confirm account deletion:");
+      if (confirmation === 'DELETE') {
+        try {
+          const { deleteAccount } = await import('@/lib/api');
+          await deleteAccount();
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.href = '/login';
+        } catch (e) {
+          alert('Failed to delete account: ' + (e.message || 'Unknown error'));
+        }
+      }
+    }
+    setShowProfileMenu(false);
+  };
+
   const handleDeleteAllWorkspaces = () => {
     if (!conversations || conversations.length === 0) {
       alert("No workspaces to delete.");
@@ -285,17 +303,7 @@ export default function Sidebar({
           <>
             <div className="sb-ws-content">
               <div className="sb-ws-title">
-                <span
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    setEditingId(conversation.id);
-                    setEditValue(conversation.title);
-                  }}
-                  style={{ display: editingId === conversation.id ? 'none' : 'block' }}
-                >
-                  {conversation.title}
-                </span>
-                {editingId === conversation.id && (
+                {editingId === conversation.id ? (
                   <input
                     autoFocus
                     value={editValue}
@@ -307,17 +315,35 @@ export default function Sidebar({
                       setEditingId(null);
                     }}
                     onKeyDown={e => {
+                      e.stopPropagation();
                       if (e.key === 'Enter') {
+                        e.preventDefault();
                         if (editValue.trim() && editValue !== conversation.title && onRename) {
                           onRename(conversation.id, editValue.trim());
                         }
                         setEditingId(null);
                       }
-                      if (e.key === 'Escape') setEditingId(null);
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setEditingId(null);
+                      }
                     }}
-                    className="sb-rename-input"
+                    onPointerDown={e => e.stopPropagation()}
                     onClick={e => e.stopPropagation()}
+                    onDoubleClick={e => e.stopPropagation()}
+                    className="sb-rename-input"
                   />
+                ) : (
+                  <span
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingId(conversation.id);
+                      setEditValue(conversation.title);
+                    }}
+                  >
+                    {conversation.title}
+                  </span>
                 )}
               </div>
               <div className="sb-ws-meta">
@@ -334,6 +360,8 @@ export default function Sidebar({
                 type="button"
                 className={`sb-ws-star-btn ${isStarred ? 'starred' : ''}`}
                 onClick={(e) => toggleStar(conversation.id, e)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
                 aria-label={isStarred ? "Unstar" : "Star"}
               >
                 {isStarred ? <IconStarFilled /> : <IconStar />}
@@ -571,6 +599,15 @@ export default function Sidebar({
                     <IconTrash />
                     <span>Delete All Workspaces</span>
                   </button>
+                  <button className="sb-dropdown-item danger" onClick={handleDeleteFullAccount}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+                      <line x1="15" y1="9" x2="9" y2="15"></line>
+                      <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Permanently Delete Account</span>
+                  </button>
+                  <div className="sb-dropdown-divider" />
                   <button className="sb-dropdown-item danger" onClick={handleResetSession}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>

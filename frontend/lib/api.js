@@ -147,6 +147,12 @@ export async function login(email, password) {
   });
 }
 
+export async function deleteAccount() {
+  return request("/api/auth/account", {
+    method: "DELETE",
+  });
+}
+
 export async function getModels() {
   return request("/api/models", { auth: false });
 }

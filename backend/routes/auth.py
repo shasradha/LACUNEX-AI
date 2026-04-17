@@ -66,3 +66,15 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return UserResponse(
         id=current_user.id, email=current_user.email, name=current_user.name
     )
+
+
+@router.delete("/account")
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Permanently deletes the current user and cascades to all chats."""
+    await db.delete(current_user)
+    await db.commit()
+    return {"message": "Account deleted successfully"}
+
