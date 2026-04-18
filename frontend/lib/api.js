@@ -1,19 +1,28 @@
 import { clearAuth, getToken } from "./auth";
 
-// Production backend URL for the Android app
-// UPDATE THIS to your deployed backend URL (Render, Railway, etc.)
+// Production backend URL for the Capacitor Android app
 const PRODUCTION_API_URL = "https://lacunex-ai.onrender.com";
 
+// Lazy evaluation — checks on EVERY request (not at module load time)
+// This is critical because window.Capacitor isn't available during module init
+let _cachedBaseUrl = null;
 function getApiBaseUrl() {
-  // On native (Capacitor Android), always use the production backend
-  if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
-    return PRODUCTION_API_URL;
+  if (_cachedBaseUrl) return _cachedBaseUrl;
+  if (typeof window !== "undefined") {
+    // Check multiple ways to detect Capacitor native platform
+    const isCapacitor = window.Capacitor?.isNativePlatform?.()
+      || window.Capacitor?.platform === "android"
+      || window.Capacitor?.platform === "ios"
+      || document.URL?.startsWith("http://localhost")
+      || document.URL?.startsWith("capacitor://");
+    if (isCapacitor) {
+      _cachedBaseUrl = PRODUCTION_API_URL;
+      return _cachedBaseUrl;
+    }
   }
-  // On web, use the env variable (Vercel sets this in dashboard)
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  _cachedBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  return _cachedBaseUrl;
 }
-
-const API_BASE_URL = getApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(message, status, data) {
@@ -101,7 +110,7 @@ async function request(path, options = {}) {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
       method,
       headers: buildHeaders({ auth, json: json && !isFormData, headers }),
       body:
@@ -251,7 +260,7 @@ export async function extractFile(file) {
 
 export async function keepAlive() {
   try {
-    await fetch(`${API_BASE_URL}/`, { method: "GET", cache: "no-store" });
+    await fetch(`${getApiBaseUrl()}/`, { method: "GET", cache: "no-store" });
   } catch { /* silent */ }
 }
 
@@ -265,7 +274,7 @@ export async function streamChat(
   webSearch = false,
   signal = null
 ) {
-  const response = await fetch(`${API_BASE_URL}/api/generate`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/generate`, {
     method: "POST",
     headers: buildHeaders(),
     body: JSON.stringify({
@@ -366,7 +375,7 @@ export async function streamChat(
 
 export async function exportConversation(title, messages, format = "pdf", modelName = null) {
   const token = getToken();
-  const response = await fetch(`${API_BASE_URL}/api/export`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/export`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -399,7 +408,7 @@ export async function exportConversation(title, messages, format = "pdf", modelN
 
 export async function exportDocument(docJson, theme = "professional", format = "pdf") {
   const token = getToken();
-  const response = await fetch(`${API_BASE_URL}/api/export/document`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/export/document`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -430,7 +439,7 @@ export async function exportDocument(docJson, theme = "professional", format = "
 
 export async function exportDocumentAll(docJson, theme = "professional") {
   const token = getToken();
-  const response = await fetch(`${API_BASE_URL}/api/export/all`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/export/all`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -460,7 +469,7 @@ export async function exportDocumentAll(docJson, theme = "professional") {
 }
 
 export async function getSuggestions(messageContent) {
-  const response = await fetch(`${API_BASE_URL}/api/suggestions`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/suggestions`, {
     method: "POST",
     headers: buildHeaders(),
     body: JSON.stringify({ message: messageContent }),
@@ -481,7 +490,7 @@ export async function generateAutoTitle(messageContent) {
   const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/title`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/title`, {
       method: "POST",
       headers: buildHeaders(),
       body: JSON.stringify({ message: messageContent }),

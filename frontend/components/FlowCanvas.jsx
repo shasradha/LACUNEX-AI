@@ -315,11 +315,22 @@ const TEMPLATES = [
 ];
 
 const PRODUCTION_API_URL = "https://lacunex-ai.onrender.com";
+let _flowApiBase = null;
 function getFlowApiBase() {
-  if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) return PRODUCTION_API_URL;
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  if (_flowApiBase) return _flowApiBase;
+  if (typeof window !== "undefined") {
+    const isCapacitor = window.Capacitor?.isNativePlatform?.()
+      || window.Capacitor?.platform === "android"
+      || document.URL?.startsWith("http://localhost")
+      || document.URL?.startsWith("capacitor://");
+    if (isCapacitor) {
+      _flowApiBase = PRODUCTION_API_URL;
+      return _flowApiBase;
+    }
+  }
+  _flowApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  return _flowApiBase;
 }
-const API_BASE = getFlowApiBase();
 
 // ---------------------------------------------------------
 // Styled Template Dropdown
@@ -581,7 +592,7 @@ export default function FlowCanvas() {
 
       setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'running' } })));
 
-      const res = await fetch(`${API_BASE}/api/flow/execute`, {
+      const res = await fetch(`${getFlowApiBase()}/api/flow/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nodes, edges, initial_input }),
@@ -633,7 +644,7 @@ export default function FlowCanvas() {
 
       if (resultsMap.should_download && resultsMap.pdf_content && !resultsMap.pdf_content.startsWith('[ERROR]')) {
         try {
-          const exportRes = await fetch(`${API_BASE}/api/export`, {
+          const exportRes = await fetch(`${getFlowApiBase()}/api/export`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ messages: [{ role: "assistant", content: resultsMap.pdf_content }], format: "pdf" })
