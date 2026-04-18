@@ -41,3 +41,7 @@ frontend/assets/
 *.apk
 *.aab
 *.keystore
+
+# Android Studio
+lacunex-release-key.jks
+lacunex-release-key

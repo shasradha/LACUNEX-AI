@@ -1,6 +1,19 @@
 import { clearAuth, getToken } from "./auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Production backend URL for the Android app
+// UPDATE THIS to your deployed backend URL (Render, Railway, etc.)
+const PRODUCTION_API_URL = "https://lacunex-ai-backend.onrender.com";
+
+function getApiBaseUrl() {
+  // On native (Capacitor Android), always use the production backend
+  if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
+    return PRODUCTION_API_URL;
+  }
+  // On web, use the env variable (Vercel sets this in dashboard)
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(message, status, data) {

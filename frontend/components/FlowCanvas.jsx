@@ -314,7 +314,12 @@ const TEMPLATES = [
   }
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const PRODUCTION_API_URL = "https://lacunex-ai-backend.onrender.com";
+function getFlowApiBase() {
+  if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) return PRODUCTION_API_URL;
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+const API_BASE = getFlowApiBase();
 
 // ---------------------------------------------------------
 // Styled Template Dropdown
