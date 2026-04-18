@@ -778,7 +778,7 @@ textarea { resize: none; }
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
-    z-index: 199;
+    z-index: 9998;
     animation: fadeIn 0.2s ease-out;
   }
 }
@@ -801,7 +801,7 @@ textarea { resize: none; }
     left: 0;
     top: 0;
     bottom: 0;
-    z-index: 200;
+    z-index: 9999;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
   }
   .sb-collapsed {
@@ -8644,7 +8644,12 @@ html, body {
     height: 100dvh !important;
   }
 
-  /* ── "New workspace" title bar — don't overlap with topbar ── */
+  /* ── "New workspace" title bar / chat header — completely aligned ── */
+  .chat-header {
+    margin-top: 0 !important;
+    padding-top: max(16px, env(safe-area-inset-top, 0px)) !important;
+  }
+  
   .workspace-header {
     margin-top: 0 !important;
   }

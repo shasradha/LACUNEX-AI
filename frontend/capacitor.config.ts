@@ -7,7 +7,6 @@ const config: CapacitorConfig = {
   server: {
     // Use HTTPS scheme to match production API
     androidScheme: 'https',
-    allowNavigation: ['*'],
   },
   plugins: {
     // CRITICAL: Route ALL fetch() calls through Android's native HTTP client

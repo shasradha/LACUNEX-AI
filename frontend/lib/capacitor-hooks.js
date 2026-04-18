@@ -227,4 +227,39 @@ export const initializeNativeApp = async () => {
   await configureStatusBar();
   await configureKeyboard();
   setTimeout(() => { hideSplashScreen(); }, 500);
+
+  // CRITICAL FIX: Intercept ALL external links to open in the system browser 
+  // instead of hijacking the Capacitor WebView.
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', async (e) => {
+      let target = e.target;
+      while (target && target.tagName !== 'A') {
+        target = target.parentNode;
+      }
+      if (target && target.tagName === 'A') {
+        const href = target.getAttribute('href');
+        const targetAttr = target.getAttribute('target');
+        // If it's an external link or target=_blank
+        if (href && (href.startsWith('http') || targetAttr === '_blank') && !href.includes(window.location.host)) {
+          e.preventDefault();
+          try {
+            const mod = getPlugin('@capacitor/browser');
+            if (mod?.Browser) {
+              await mod.Browser.open({ url: href });
+            } else {
+              // Fallback to Capacitor system intent
+              const appMod = getPlugin('@capacitor/app');
+              if (appMod?.App) {
+                await appMod.App.openUrl({ url: href });
+              } else {
+                window.open(href, '_system');
+              }
+            }
+          } catch (err) {
+            window.open(href, '_system');
+          }
+        }
+      }
+    });
+  }
 };
