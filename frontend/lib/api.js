@@ -1,26 +1,35 @@
 import { clearAuth, getToken } from "./auth";
-import { Capacitor } from '@capacitor/core';
 
 // Production backend URL for the Capacitor Android app
 const PRODUCTION_API_URL = "https://lacunex-ai.onrender.com";
 
-// Lazy evaluation — checks on EVERY request (not at module load time)
+// Lazy evaluation -- checks on EVERY request (not at module load time)
 let _cachedBaseUrl = null;
+let _isNative = null;
+
+function isNativePlatform() {
+  if (_isNative !== null) return _isNative;
+  if (typeof window !== "undefined") {
+    try {
+      _isNative = !!(window.Capacitor?.isNativePlatform?.()
+        || window.Capacitor?.platform === "android"
+        || window.Capacitor?.platform === "ios");
+    } catch {
+      _isNative = false;
+    }
+  } else {
+    _isNative = false;
+  }
+  return _isNative;
+}
+
 function getApiBaseUrl() {
   if (_cachedBaseUrl) return _cachedBaseUrl;
-  if (typeof window !== "undefined") {
-    // Check using official Capacitor API
-    const isCapacitor = Capacitor?.isNativePlatform?.()
-      || window.Capacitor?.isNativePlatform?.()
-      || document.URL?.includes("capacitor://");
-      
-    if (isCapacitor) {
-      _cachedBaseUrl = PRODUCTION_API_URL;
-      return _cachedBaseUrl;
-    }
+  if (isNativePlatform()) {
+    _cachedBaseUrl = PRODUCTION_API_URL;
+  } else {
+    _cachedBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   }
-  // Fallback to Env var for Web
-  _cachedBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   return _cachedBaseUrl;
 }
 
@@ -92,6 +101,23 @@ async function parseFailure(response) {
   throw new ApiError(message, response.status, data);
 }
 
+// Single fetch attempt with the given timeout
+async function singleFetch(url, fetchOptions, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
 async function request(path, options = {}) {
   const {
     auth = true,
@@ -103,56 +129,83 @@ async function request(path, options = {}) {
   } = options;
 
   const isFormData = body instanceof FormData;
+  const native = isNativePlatform();
 
-  // Longer timeout for file uploads & image analysis (mobile + cold starts)
-  const timeoutMs = isFormData ? 60000 : 30000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // Much longer timeout on native to survive Render cold starts (50s+)
+  const timeoutMs = native ? 90000 : isFormData ? 60000 : 30000;
+  const maxRetries = native ? 2 : 1;
 
-  try {
-    const response = await fetch(`${getApiBaseUrl()}${path}`, {
-      method,
-      headers: buildHeaders({ auth, json: json && !isFormData, headers }),
-      body:
-        body == null
-          ? undefined
-          : isFormData
-            ? body
-            : json
-              ? JSON.stringify(body)
-              : body,
-      cache: "no-store",
-      signal: controller.signal,
-      ...rest,
-    });
+  const url = `${getApiBaseUrl()}${path}`;
+  const fetchOptions = {
+    method,
+    headers: buildHeaders({ auth, json: json && !isFormData, headers }),
+    body:
+      body == null
+        ? undefined
+        : isFormData
+          ? body
+          : json
+            ? JSON.stringify(body)
+            : body,
+    ...rest,
+  };
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      await parseFailure(response);
-    }
-
-    if (response.status === 204) {
-      return null;
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      return response.json();
-    }
-
-    return response.text();
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") {
-      throw new ApiError(
-        "Request timed out. The server may be restarting — please try again in a few seconds.",
-        408,
-        null
-      );
-    }
-    throw new Error(`Network Error (${getApiBaseUrl()}${path}): ${err.message}`);
+  // On native, DON'T pass cache: "no-store" -- Android WebView can choke on it
+  if (!native) {
+    fetchOptions.cache = "no-store";
   }
+
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        // Wait before retry (1.5s, then 3s)
+        await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+
+      const response = await singleFetch(url, fetchOptions, timeoutMs);
+
+      if (!response.ok) {
+        await parseFailure(response);
+      }
+
+      if (response.status === 204) {
+        return null;
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return response.json();
+      }
+
+      return response.text();
+    } catch (err) {
+      lastError = err;
+      // Only retry on network errors, not on API errors
+      if (err instanceof ApiError || err instanceof AuthError) {
+        throw err;
+      }
+      if (err.name === "AbortError") {
+        lastError = new ApiError(
+          "Server is waking up -- please tap again in 10 seconds.",
+          408,
+          null
+        );
+        // Don't retry timeouts -- just throw
+        throw lastError;
+      }
+      // Network error -- retry if we have attempts left
+      if (attempt === maxRetries - 1) {
+        throw new Error(
+          native
+            ? "Can't reach server. Check your internet connection, or the server may be starting up -- tap again in 30 seconds."
+            : `Failed to fetch`
+        );
+      }
+    }
+  }
+  throw lastError;
 }
 
 export async function signup(email, password, name) {

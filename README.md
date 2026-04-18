@@ -425,6 +425,98 @@ LACUNEX features a sophisticated multi-format export pipeline:
 | 🧪 | **Interactive Quizzes** | AI generates MCQs with explanations for academic content |
 | 💡 | **Fact-Check Badges** | «verified» and «approx» badges on factual claims |
 | 🔄 | **Keep-Alive Pings** | Prevents server cold starts on free hosting tiers |
+| 📲 | **Android Native App** | Full Capacitor-powered Android APK with native features |
+
+---
+
+## 📲 Android Native App (Capacitor)
+
+LACUNEX AI ships as a **native Android application** built with [Capacitor](https://capacitorjs.com/) — the same framework used by production apps like Burger King, Popeyes, and Tim Hortons.
+
+### Why Native?
+
+The Android app isn't a PWA wrapped in a WebView. It's a **true hybrid native app** with:
+
+- **Native splash screen** with custom Lacunex branding and spinner
+- **Hardware-accelerated rendering** via Capacitor's optimized WebView
+- **Android back button handling** — closes sidebar if open, otherwise navigates naturally
+- **App lifecycle management** — auto-reconnects when resuming from background
+- **90-second cold start timeout** — handles Render's free-tier wakeup seamlessly
+- **Automatic retry** — network errors trigger automatic retries with exponential backoff
+- **Safe area support** — properly handles gesture navigation and 3-button nav bars
+- **Custom app icon and splash** — generated for all Android densities (mdpi → xxxhdpi)
+
+### Architecture
+
+```
+┌──────────────────────────────────┐
+│     Android Native Shell          │
+│     (Capacitor + WebView)         │
+├──────────────────────────────────┤
+│  Server: androidScheme: 'https'   │
+│  → Enables HTTPS API calls        │
+│  → No mixed-content blocking      │
+├──────────────────────────────────┤
+│  Next.js Static Export (out/)     │
+│  → All pages pre-rendered         │
+│  → Zero server dependency         │
+├──────────────────────────────────┤
+│  Native Plugins:                  │
+│  • @capacitor/splash-screen       │
+│  • @capacitor/keyboard            │
+│  • @capacitor/network             │
+│  • @capacitor/haptics             │
+│  • @capacitor/status-bar          │
+│  • @capacitor/app                 │
+└──────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────┐
+│  Render Backend (Production)      │
+│  https://lacunex-ai.onrender.com  │
+│  CORS: http://localhost,          │
+│        capacitor://localhost      │
+└──────────────────────────────────┘
+```
+
+### Smart API Routing
+
+The app automatically detects whether it's running on **web** (Vercel) or **native** (Android):
+
+| Platform | API URL | Source |
+|----------|---------|--------|
+| Vercel (Web) | `process.env.NEXT_PUBLIC_API_URL` | Vercel env vars |
+| Android (Native) | `https://lacunex-ai.onrender.com` | Hardcoded production URL |
+| Local Dev | `http://localhost:8000` | `.env.local` fallback |
+
+### Building the APK
+
+```bash
+cd frontend
+
+# 1. Build the static export
+npm run build
+
+# 2. Sync assets to Android
+npx cap sync android
+
+# 3. Open in Android Studio
+npx cap open android
+
+# 4. In Android Studio: Build → Build APK(s)
+# APK output: android/app/build/outputs/apk/release/
+```
+
+### Tech Details
+
+| Component | Value |
+|-----------|-------|
+| **App ID** | `com.lacunex.ai` |
+| **Min SDK** | Android 7.0 (API 24) |
+| **Target SDK** | Android 15 (API 35) |
+| **WebView Scheme** | HTTPS (prevents mixed-content blocking) |
+| **Timeout (Native)** | 90 seconds (handles Render cold starts) |
+| **Retry Logic** | 2 attempts with 1.5s backoff |
 
 ---
 
