@@ -489,7 +489,17 @@ The app automatically detects whether it's running on **web** (Vercel) or **nati
 | Android (Native) | `https://lacunex-ai.onrender.com` | Hardcoded production URL |
 | Local Dev | `http://localhost:8000` | `.env.local` fallback |
 
-### Building the APK
+### Installing the APK (For Users)
+
+> **You don't need to build anything!** Just download and install:
+
+1. Go to the [LACUNEX AI GitHub Repository](https://github.com/shasradha/LACUNEX-AI)
+2. Click on **Packages** in the repository sidebar
+3. Download the latest `.apk` file
+4. Open the APK on your Android phone and install it
+5. Launch **Lacunex AI** and sign in!
+
+### Building the APK (For Developers)
 
 ```bash
 cd frontend
@@ -513,8 +523,9 @@ npx cap open android
 |-----------|-------|
 | **App ID** | `com.lacunex.ai` |
 | **Min SDK** | Android 7.0 (API 24) |
-| **Target SDK** | Android 15 (API 35) |
+| **Target SDK** | Android 16 (API 36) |
 | **WebView Scheme** | HTTPS (prevents mixed-content blocking) |
+| **CapacitorHttp** | Enabled (native HTTP, bypasses WebView) |
 | **Timeout (Native)** | 90 seconds (handles Render cold starts) |
 | **Retry Logic** | 2 attempts with 1.5s backoff |
 
@@ -612,14 +623,15 @@ LACUNEX AI/
 │       └── document_renderer.py   # Document tree → styled output
 │
 ├── frontend/
+│   ├── capacitor.config.ts        # Capacitor native config (HTTPS, plugins)
 │   ├── app/
-│   │   ├── globals.css            # 8,000+ lines of premium CSS
+│   │   ├── globals.css            # 8,600+ lines of premium CSS
 │   │   ├── layout.js              # Root layout with metadata
 │   │   ├── page.js                # Landing/redirect page
 │   │   ├── chat/page.js           # Main chat workspace page
 │   │   └── login/page.js          # Authentication page
 │   ├── components/
-│   │   ├── ChatBox.jsx            # Core chat interface (1,275 lines)
+│   │   ├── ChatBox.jsx            # Core chat interface (1,375 lines)
 │   │   ├── Sidebar.jsx            # Claude-style sidebar (687 lines)
 │   │   ├── MessageBubble.jsx      # Rich message renderer with KaTeX + Mermaid
 │   │   ├── ArtifactViewer.jsx     # Multi-file HTML/CSS/JS live preview
@@ -633,10 +645,22 @@ LACUNEX AI/
 │   │   ├── LoginPageClient.jsx    # Auth UI with animations
 │   │   ├── Navbar.jsx             # Top navigation bar
 │   │   └── ...                    # Additional UI components
-│   └── lib/
-│       ├── api.js                 # API client with auth + streaming
-│       ├── auth.js                # Token management
-│       └── crypto.js              # AES-GCM encryption/decryption
+│   ├── lib/
+│   │   ├── api.js                 # API client with native HTTP + retry
+│   │   ├── auth.js                # Token management
+│   │   ├── crypto.js              # AES-GCM encryption/decryption
+│   │   └── capacitor-hooks.js     # Native hooks (haptics, splash, back button)
+│   │
+│   └── android/                   # Capacitor Android project
+│       ├── app/
+│       │   ├── build.gradle       # App-level Gradle config
+│       │   └── src/main/
+│       │       ├── AndroidManifest.xml    # Permissions + activity config
+│       │       ├── java/.../MainActivity.java  # Edge-to-edge + status bar
+│       │       ├── assets/public/  # Built web assets (synced from out/)
+│       │       └── res/           # Icons, splash, XML configs
+│       ├── build.gradle           # Root Gradle config
+│       └── variables.gradle       # SDK versions (API 24-36)
 │
 ├── README.md
 ├── LICENSE

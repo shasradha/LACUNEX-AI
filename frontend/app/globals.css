@@ -8467,3 +8467,228 @@ textarea { resize: none; }
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   CAPACITOR NATIVE APP — Mobile Premium Experience
+   Handles edge-to-edge, safe areas, Android 7-16, gesture + 3-button nav
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Edge-to-edge layout for Android 16 (API 36) ── */
+html, body {
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Message bubble animations ── */
+@keyframes messageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes messageSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-row {
+  animation: messageFadeIn 0.35s var(--ease-out-expo) both;
+}
+
+/* ── Button press effect (works on all buttons) ── */
+.btn {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* ── Ripple effect for touch interactions ── */
+@keyframes ripple {
+  to {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* ── Smooth scrolling for chat area ── */
+.messages-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Typing indicator animation ── */
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+
+.typing-dot {
+  animation: typingBounce 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* ── Mobile-specific overrides for Capacitor ── */
+@media (max-width: 768px) {
+
+  /* ── Force safe area + edge-to-edge ── */
+  body {
+    padding-top: max(env(safe-area-inset-top, 0px), 0px) !important;
+    padding-bottom: 0 !important;
+    padding-left: env(safe-area-inset-left, 0px) !important;
+    padding-right: env(safe-area-inset-right, 0px) !important;
+  }
+
+  /* ── Topbar: fixed to top with safe-area ── */
+  .topbar-wrap {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000 !important;
+    padding-top: max(env(safe-area-inset-top, 0px), 0px) !important;
+    background: var(--bg-deep) !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+  }
+
+  .topbar {
+    min-height: 48px !important;
+    padding: 0 8px !important;
+  }
+
+  /* ── Touch-friendly tap targets (44px minimum) ── */
+  .btn, .btn-icon, .topbar button, .sidebar button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  /* ── Main chat area: proper scroll between fixed elements ── */
+  .chat-container,
+  .main-content {
+    padding-top: calc(52px + max(env(safe-area-inset-top, 0px), 0px)) !important;
+    padding-bottom: calc(64px + max(env(safe-area-inset-bottom, 0px), 20px)) !important;
+    height: 100dvh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ── Composer: fixed to bottom with safe-area ── */
+  .composer-wrap {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 999 !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px) !important;
+    background: linear-gradient(to top, var(--bg-deep) 80%, transparent) !important;
+  }
+
+  .composer-box {
+    margin: 0 6px 4px !important;
+    border-radius: 16px !important;
+  }
+
+  .composer-textarea {
+    font-size: 16px !important;
+    min-height: 44px !important;
+    max-height: 120px !important;
+  }
+
+  /* ── Model selector bar ── */
+  .composer-footer {
+    padding: 4px 8px !important;
+    gap: 4px !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .composer-footer button,
+  .composer-footer .model-selector-trigger {
+    min-height: 36px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* ── Copyright footer ── */
+  .copyright-footer-fixed {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 50 !important;
+    padding-bottom: max(28px, env(safe-area-inset-bottom, 28px)) !important;
+    background: linear-gradient(to top, var(--bg-deep) 70%, transparent) !important;
+    font-size: 0.6rem !important;
+  }
+
+  /* ── Sidebar safe area ── */
+  .sidebar {
+    padding-top: max(env(safe-area-inset-top, 0px), 0px) !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px) !important;
+    height: 100dvh !important;
+  }
+
+  /* ── "New workspace" title bar — don't overlap with topbar ── */
+  .workspace-header {
+    margin-top: 0 !important;
+  }
+
+  /* ── Hide the workspace count pill on very small screens ── */
+  .stat-pill {
+    display: none !important;
+  }
+
+  /* ── User chip: compact on mobile ── */
+  .user-chip {
+    padding: 4px 8px !important;
+    gap: 4px !important;
+  }
+  .user-info-label {
+    display: none !important;
+  }
+
+  /* ── Welcome/prompt cards ── */
+  .prompt-templates-grid {
+    padding: 0 8px !important;
+  }
+
+  /* ── Keyboard handling ── */
+  /* When virtual keyboard is open, ensure composer stays visible */
+  .keyboard-open .composer-wrap {
+    position: fixed !important;
+    bottom: 0 !important;
+  }
+}
+
+/* ── Foldable / Tablet landscape ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .topbar {
+    padding: 0 16px !important;
+  }
+}
+
+/* ── Ultra-wide aspect ratios (21:9+) ── */
+@media (min-aspect-ratio: 21/9) and (max-width: 768px) {
+  .chat-container,
+  .main-content {
+    padding-top: 52px !important;
+    padding-bottom: 60px !important;
+  }
+}
+

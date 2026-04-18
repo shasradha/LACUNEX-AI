@@ -1317,6 +1317,10 @@ export default function ChatBox({
               </svg>
               <span>Shasradha Karmakar</span>
             </a>
+            <span style={{ margin: "0 4px", color: "var(--text-tertiary)" }}>•</span>
+            <a href="https://github.com/shasradha/LACUNEX-AI" target="_blank" rel="noopener noreferrer" className="copyright-link" style={{ color: "var(--accent-primary)" }}>
+              LACUNEX GITHUB
+            </a>
           </div>
         </div>
       </div>

@@ -285,6 +285,14 @@ CASUAL_PATTERNS = {
         'who created you', 'who built you', 'what is lacunex',
         'tum kaun ho', 'apna parichay do',
     ],
+    'lacunex_app': [
+        'lacunex app', 'lacunex mobile', 'lacunex apk', 'lacunex android',
+        'install lacunex', 'download lacunex', 'lacunex phone',
+        'how to install lacunex', 'get lacunex app', 'lacunex on phone',
+        'lacunex mobile app', 'mobile version of lacunex',
+        'is there an app', 'do you have an app', 'android app',
+        'download the app', 'install the app', 'get the app',
+    ],
     'language_confusion': [
         'i dont understand', 'i do not understand', 'can you speak in',
         'speak in', 'talk in', 'ki bolchis', 'matha mundu', 'bujhte parchi na',
@@ -681,6 +689,20 @@ def get_system_prompt_injection(intent: Intent) -> str:
             "e.g., 'i don't understand', 'ki bolchis', 'what language is this'). "
             "You MUST apologize and ask them directly: 'Which language would you prefer to speak? (English, Hindi, Bengali, etc.)' "
             "Do NOT proceed with complex explanations until they confirm their language preference."
+        )
+    elif intent.primary == 'casual_chat' and intent.sub_intent == 'lacunex_app':
+        injections.append(
+            "The user is asking about the LACUNEX mobile app. Respond with enthusiasm! "
+            "Tell them: 'Yes! LACUNEX AI has an official Android app! 📲\n\n"
+            "**How to install:**\n"
+            "1. Go to the LACUNEX GitHub repository — you can find the link in the footer of the website (click the LACUNEX GITHUB link)\n"
+            "2. Or visit directly: https://github.com/shasradha/LACUNEX-AI\n"
+            "3. Click on **Packages** in the repository\n"
+            "4. Download the `.apk` file\n"
+            "5. Install it on your Android phone\n\n"
+            "The app includes all features: AI chat, Code Studio, Lacunex Flow, and more — "
+            "optimized for mobile with haptic feedback, smooth animations, and native performance!'"
+            " Do NOT search the web. Just provide the installation instructions directly."
         )
     elif intent.primary == 'casual_chat' and intent.sub_intent == 'greeting':
         injections.append(
