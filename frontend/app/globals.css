@@ -8060,3 +8060,389 @@ textarea { resize: none; }
   font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE MASTER FIX — Artifact, Code Studio & Flow
+   Prevents freezing, glitching, and hanging on mobile devices
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Global mobile touch optimization ── */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Prevent double-tap zoom on all interactive elements */
+  button, a, input, textarea, select, [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Reduce animation complexity on mobile for performance */
+  .animate-enter,
+  .animate-fade {
+    animation-duration: 0.15s !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* ── Artifact Panel — Fullscreen overlay on mobile ── */
+  .artifact-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important; /* dynamic viewport for mobile address bars */
+    min-width: unset !important;
+    max-width: 100vw !important;
+    z-index: 10000 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    animation: none !important; /* Kill slide-in animation that causes lag */
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .artifact-header {
+    padding: 0.5rem 0.5rem !important;
+    gap: 0.25rem !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+  }
+
+  .artifact-tabs {
+    padding: 2px !important;
+    gap: 1px !important;
+  }
+
+  .artifact-tab {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* Hide text labels on mobile artifact actions — icon only */
+  .artifact-action-btn span {
+    display: none !important;
+  }
+  
+  .artifact-action-btn {
+    padding: 0.35rem !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    justify-content: center !important;
+  }
+
+  .artifact-body {
+    flex: 1 !important;
+    overflow: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Iframe: GPU-accelerated, touch-scrollable, prevent freezing */
+  .artifact-iframe {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    touch-action: pan-x pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+    transform: translateZ(0); /* Force GPU layer */
+    will-change: transform;
+  }
+
+  .artifact-code-view {
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-height: calc(100vh - 50px) !important;
+    max-height: calc(100dvh - 50px) !important;
+  }
+
+  /* File explorer on mobile */
+  .artifact-file-explorer {
+    padding: 0 0.25rem !important;
+    gap: 2px !important;
+  }
+
+  .artifact-file-tab {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.7rem !important;
+    min-width: auto !important;
+  }
+
+  /* Download menu positioning fix */
+  .artifact-download-menu {
+    right: 0 !important;
+    left: auto !important;
+    min-width: 200px !important;
+  }
+
+  /* ── Split screen — disabled on mobile ── */
+  .chat-container.has-artifact {
+    flex-direction: column !important;
+  }
+
+  .chat-container.has-artifact .chat-panel {
+    width: 100% !important;
+    flex: 1 !important;
+    border-right: none !important;
+  }
+
+  .split-resizer {
+    display: none !important;
+  }
+
+  /* ── Code Studio — Fullscreen, no padding ── */
+  .code-studio-overlay {
+    padding: 0 !important;
+    background: #0d1117 !important;
+    backdrop-filter: none !important; /* Remove blur on mobile — saves GPU */
+  }
+
+  .cs-root {
+    border-radius: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    max-width: 100% !important;
+    border: none !important;
+  }
+
+  .cs-main {
+    flex-direction: column !important;
+  }
+
+  .cs-layout-split .cs-editor-pane,
+  .cs-layout-split .cs-terminal-pane {
+    flex: 1 !important;
+    min-height: 0 !important;
+  }
+
+  .cs-gutter {
+    width: 100% !important;
+    height: 1px !important;
+  }
+
+  .cs-toolbar {
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding: 0 6px !important;
+    gap: 4px !important;
+    min-height: 38px !important;
+    height: 38px !important;
+  }
+  
+  .cs-toolbar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .cs-shortcut-hint { display: none !important; }
+  .cs-layout-group { display: none !important; }
+
+  .cs-run-btn {
+    padding: 0 10px !important;
+    font-size: 11px !important;
+    height: 28px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .cs-tool-btn {
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    height: 26px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .cs-tool-btn span { display: none !important; }
+
+  .cs-titlebar {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 8px !important;
+  }
+  
+  .cs-titlebar-text { font-size: 11px !important; }
+  .cs-titlebar-file { display: none !important; }
+  .cs-titlebar-sep { display: none !important; }
+
+  .cs-statusbar {
+    height: 22px !important;
+    min-height: 22px !important;
+    font-size: 10px !important;
+    gap: 8px !important;
+  }
+
+  /* Language selector on mobile */
+  .cs-lang-dropdown {
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: 60px !important;
+    width: auto !important;
+    max-height: 50vh !important;
+    border-radius: 12px !important;
+    z-index: 10002 !important;
+  }
+
+  .cs-snippet-panel {
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: 60px !important;
+    width: auto !important;
+    max-height: 50vh !important;
+    border-radius: 12px !important;
+    z-index: 10002 !important;
+  }
+
+  /* Monaco editor mobile optimization */
+  .cs-editor-pane .monaco-editor,
+  .cs-editor-pane .overflow-guard {
+    touch-action: pan-x pan-y !important;
+  }
+
+  /* ── Flow Canvas — mobile-friendly ── */
+  .flow-canvas-wrap {
+    overflow: hidden !important;
+    touch-action: none !important;
+  }
+
+  .flow-toolbar {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    padding: 6px !important;
+  }
+
+  .flow-toolbar button {
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+    min-height: 32px !important;
+  }
+
+  .flow-node {
+    min-width: 140px !important;
+    font-size: 12px !important;
+  }
+
+  /* ── Composer on mobile ── */
+  .composer-wrap {
+    padding: 0 !important;
+  }
+
+  .composer-box {
+    border-radius: 12px !important;
+    margin: 0 4px 4px !important;
+  }
+
+  .composer-textarea {
+    font-size: 16px !important; /* Prevents iOS zoom */
+    min-height: 44px !important; /* Touch-friendly height */
+  }
+
+  .composer-toolbar {
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    gap: 4px !important;
+    padding: 4px 8px !important;
+  }
+
+  .composer-toolbar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .toolbar-hint {
+    display: none !important;
+  }
+
+  /* ── Chat header mobile ── */
+  .chat-header {
+    padding: 0.4rem 0.5rem !important;
+    gap: 0.25rem !important;
+  }
+
+  .chat-header-eyebrow {
+    display: none !important;
+  }
+
+  .chat-header-sep {
+    display: none !important;
+  }
+
+  .chat-stats {
+    gap: 0.25rem !important;
+  }
+
+  .stat-pill {
+    padding: 0.15rem 0.35rem !important;
+    font-size: 0.55rem !important;
+  }
+
+  .stat-pill-value {
+    font-size: 0.6rem !important;
+  }
+
+  /* Export button — icon only on mobile */
+  .export-trigger-label {
+    display: none !important;
+  }
+
+  /* ── Empty state templates on mobile — more touch-friendly ── */
+  .prompt-templates-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+    max-width: 100% !important;
+    padding: 0 0.5rem !important;
+  }
+
+  .prompt-template-card {
+    padding: 0.75rem 0.6rem !important;
+    font-size: 0.75rem !important;
+    min-height: 44px !important; /* Touch target */
+    border-radius: 10px !important;
+  }
+
+  .prompt-template-card:active {
+    transform: scale(0.97) !important;
+    background: rgba(168,85,247,0.12) !important;
+  }
+
+  .prompt-template-icon {
+    font-size: 1.1rem !important;
+  }
+
+  /* ── Document preview on mobile ── */
+  .doc-preview-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 10000 !important;
+    border-radius: 0 !important;
+  }
+
+  /* ── Copyright footer on mobile ── */
+  .copyright-footer {
+    font-size: 0.6rem !important;
+    padding: 4px 0 !important;
+    gap: 3px !important;
+  }
+}
+
+/* ── Extra small screens (< 400px) ── */
+@media (max-width: 400px) {
+  .prompt-templates-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .prompt-template-card {
+    padding: 0.6rem 0.75rem !important;
+  }
+
+  .artifact-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+}
+

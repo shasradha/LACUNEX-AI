@@ -100,6 +100,69 @@ function createMessageId() {
   return `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+/**
+ * Client-side fallback title generator.
+ * Analyzes the user's first message to create a meaningful 3-5 word title
+ * when the server-side AI title generation fails or returns a default.
+ */
+function generateFallbackTitle(message) {
+  if (!message || message.trim().length < 2) return null;
+  const text = message.trim();
+
+  // Template-based detection
+  const patterns = [
+    { regex: /build.*game/i, title: "Browser Game Project" },
+    { regex: /login\s*page/i, title: "Login Page Design" },
+    { regex: /python\s*script/i, title: "Python Script" },
+    { regex: /dashboard/i, title: "Analytics Dashboard" },
+    { regex: /debug|fix.*bug/i, title: "Code Debugging" },
+    { regex: /landing\s*page/i, title: "Landing Page Design" },
+    { regex: /calculator/i, title: "Calculator App" },
+    { regex: /todo|to-do/i, title: "Todo App" },
+    { regex: /weather/i, title: "Weather App" },
+    { regex: /portfolio/i, title: "Portfolio Website" },
+    { regex: /api|rest|endpoint/i, title: "API Development" },
+    { regex: /database|sql|mongo/i, title: "Database Work" },
+    { regex: /react|next\.?js|vue/i, title: "Frontend Development" },
+    { regex: /machine\s*learn|neural|ai\s*model/i, title: "ML Development" },
+    { regex: /essay|write.*about/i, title: "Writing Task" },
+    { regex: /explain|what\s+is|how\s+does/i, title: "Concept Explanation" },
+    { regex: /translate/i, title: "Translation Task" },
+    { regex: /summarize|summary/i, title: "Content Summary" },
+    { regex: /email|letter/i, title: "Email Draft" },
+    { regex: /^(hi|hello|hey|sup|yo|hii+|hhi+)/i, title: "Quick Chat" },
+  ];
+
+  for (const { regex, title } of patterns) {
+    if (regex.test(text)) return title;
+  }
+
+  // Smart extraction: take first meaningful words (skip filler)
+  const stopWords = new Set([
+    "a", "an", "the", "is", "are", "was", "were", "be", "been",
+    "being", "have", "has", "had", "do", "does", "did", "will",
+    "would", "could", "should", "may", "might", "can", "shall",
+    "i", "me", "my", "we", "our", "you", "your", "it", "its",
+    "to", "of", "in", "for", "on", "with", "at", "by", "from",
+    "as", "into", "about", "like", "please", "help", "want",
+    "need", "make", "create", "write", "build", "give", "tell",
+  ]);
+
+  const words = text
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !stopWords.has(w.toLowerCase()));
+
+  if (words.length === 0) return "Quick Chat";
+
+  // Capitalize first letter of each word
+  const titleWords = words.slice(0, 4).map(w =>
+    w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+  );
+
+  return titleWords.join(" ");
+}
+
 function updateMsg(messages, id, updater) {
   return messages.map((m) => (m.id === id ? { ...m, ...updater } : m));
 }
@@ -555,7 +618,7 @@ export default function ChatBox({
     try {
       // Background conversation creation — DO NOT AWAIT, instantly proceed to stream!
       if (!localConvId) {
-        createConvPromise = createConversation("New workspace").then(created => {
+        createConvPromise = createConversation("New Workspace").then(created => {
           localConvId = created.id;
           skipReload.current = created.id;
           setConversationId(created.id);
@@ -782,13 +845,33 @@ export default function ChatBox({
                 
                 // AUTO-TITLE GENERATION (If this was the first ever prompt)
                 if (!conversationId || history.length === 0) {
-                  generateAutoTitle(rawPrompt).then(async (newTitle) => {
-                    if (newTitle) {
+                  try {
+                    // Try server-side AI title generation first
+                    let newTitle = await generateAutoTitle(rawPrompt);
+                    
+                    // If server returns default/empty, generate client-side fallback
+                    if (!newTitle || newTitle === "New Workspace" || newTitle === "New workspace" || newTitle.trim().length < 2) {
+                      newTitle = generateFallbackTitle(rawPrompt);
+                    }
+                    
+                    // Only update if we got a meaningful title
+                    if (newTitle && newTitle !== "New Workspace" && newTitle !== "New workspace") {
                       const { updateConversationTitle } = await import("@/lib/api");
                       await updateConversationTitle(finalId, newTitle);
-                      onConversationCreated?.(); // Refresh sidebar safely to show new name instead of 'New workspace'
+                      onConversationCreated?.(); // Refresh sidebar to show new name
                     }
-                  }).catch(e => console.error("Auto Title Error:", e));
+                  } catch (e) {
+                    console.error("Auto Title Error:", e);
+                    // Last resort: use client-side fallback even on error
+                    try {
+                      const fallback = generateFallbackTitle(rawPrompt);
+                      if (fallback && fallback !== "New Workspace") {
+                        const { updateConversationTitle } = await import("@/lib/api");
+                        await updateConversationTitle(finalId, fallback);
+                        onConversationCreated?.();
+                      }
+                    } catch {}
+                  }
                 }
               }
             } catch (err) {
@@ -854,7 +937,7 @@ export default function ChatBox({
   }, []);
 
   /* ── Empty State ────────────────────────────── */
-  const emptyState = useMemo(() => (
+  const emptyState = (
     <div className="empty-state animate-enter">
       <div className="empty-hero">
         <div>
@@ -871,7 +954,11 @@ export default function ChatBox({
             key={t.label}
             type="button"
             className="prompt-template-card"
-            onClick={() => { setDraft(t.prompt); setTimeout(() => textareaRef.current?.focus(), 50); }}
+            onClick={() => {
+              if (isBusy) return;
+              handleSend(t.prompt);
+            }}
+            disabled={isBusy}
           >
             <span className="prompt-template-icon">{t.icon}</span>
             <span className="prompt-template-label">{t.label}</span>
@@ -879,7 +966,7 @@ export default function ChatBox({
         ))}
       </div>
     </div>
-  ), []);
+  );
 
   const handleExport = async (format) => {
     setShowExportMenu(false);
@@ -975,8 +1062,18 @@ export default function ChatBox({
     },
   }), [handleSend]);
 
+  /* ── Mobile detection ── */
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   /* ── Render ─────────────────────────────────── */
-  const isSplitMode = activeArtifact || (codeStudioOpen && codeStudioMinimized);
+  // On mobile: never use split screen — artifacts/studio render as fullscreen overlays
+  const isSplitMode = !isMobile && (activeArtifact || (codeStudioOpen && codeStudioMinimized));
   
   return (
     <div 

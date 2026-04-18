@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import dynamic from "next/dynamic";
+
+// Lazy load SyntaxHighlighter - it's heavy and causes freezing on mobile
+const SyntaxHighlighter = dynamic(
+  () => import("react-syntax-highlighter").then(mod => ({ default: mod.Prism })),
+  { ssr: false, loading: () => <div style={{ padding: '1.25rem', color: '#8b949e', fontFamily: 'monospace', fontSize: '0.85rem' }}>Loading editor...</div> }
+);
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 /* ── Icons ──────────────────────────────────────── */
@@ -138,6 +144,15 @@ export default function ArtifactViewer({ code, onClose }) {
   const [localFiles, setLocalFiles] = useState({});
   const [debouncedFiles, setDebouncedFiles] = useState({});
   const editorRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Mobile detection
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Smart file-type extraction logic to detect if HTML preview is needed
   const isHtmlProject = useMemo(() => {
@@ -166,12 +181,13 @@ export default function ArtifactViewer({ code, onClose }) {
   }, [code]);
 
   // Debounce the code to prevent intense iframe reloading and thread blocking
+  // Use longer debounce on mobile to prevent freezing
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedFiles(localFiles);
-    }, 500);
+    }, isMobile ? 1000 : 500);
     return () => clearTimeout(timer);
-  }, [localFiles]);
+  }, [localFiles, isMobile]);
 
   const files = localFiles;
 
@@ -397,14 +413,16 @@ export default function ArtifactViewer({ code, onClose }) {
             srcDoc={srcdocHtml}
             sandbox="allow-scripts allow-modals"
             className="artifact-iframe"
+            loading="lazy"
+            style={isMobile ? { touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' } : undefined}
           />
         ) : (
           <div className="artifact-code-view">
             <SyntaxHighlighter
               language={currentLang}
               style={vscDarkPlus}
-              showLineNumbers
-              wrapLongLines={false}
+              showLineNumbers={!isMobile}
+              wrapLongLines={isMobile}
               lineNumberStyle={{ color: "#4a5568", minWidth: "3em", paddingRight: "1em", userSelect: "none" }}
               customStyle={{
                 margin: 0,
@@ -422,6 +440,35 @@ export default function ArtifactViewer({ code, onClose }) {
           </div>
         )}
       </div>
+
+      {/* Mobile: Floating close button for easy access */}
+      {isMobile && (
+        <button
+          className="artifact-mobile-close"
+          onClick={onClose}
+          aria-label="Close artifact"
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            right: '20px',
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            background: 'rgba(239, 68, 68, 0.9)',
+            border: '2px solid rgba(255,255,255,0.2)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: 100,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <IconX />
+        </button>
+      )}
     </div>
   );
 }

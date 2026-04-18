@@ -447,7 +447,7 @@ export async function exportDocumentAll(docJson, theme = "professional") {
 }
 
 export async function getSuggestions(messageContent) {
-  const response = await fetch(`${API_BASE_URL}/api/chat/suggestions`, {
+  const response = await fetch(`${API_BASE_URL}/api/suggestions`, {
     method: "POST",
     headers: buildHeaders(),
     body: JSON.stringify({ message: messageContent }),
@@ -462,15 +462,37 @@ export async function getSuggestions(messageContent) {
 }
 
 export async function generateAutoTitle(messageContent) {
-  const response = await fetch(`${API_BASE_URL}/api/chat/title`, {
-    method: "POST",
-    headers: buildHeaders(),
-    body: JSON.stringify({ message: messageContent }),
-  });
+  if (!messageContent || messageContent.trim().length < 2) return null;
 
-  if (!response.ok) {
-    return "New Workspace";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/title`, {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify({ message: messageContent }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return null; // Let client-side fallback handle it
+    }
+    const data = await response.json();
+    const title = data.title || null;
+
+    // Reject default/empty titles — let client-side fallback handle them
+    if (!title || title === "New Workspace" || title === "New workspace" || title.trim().length < 2) {
+      return null;
+    }
+
+    // Clean up: remove quotes, excessive punctuation
+    return title.replace(/^["']+|["']+$/g, "").trim();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.error("Auto title generation failed:", err.message);
+    return null; // Client-side fallback will generate the title
   }
-  const data = await response.json();
-  return data.title || "New Workspace";
 }
