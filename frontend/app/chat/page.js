@@ -9,6 +9,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { AuthError, deleteConversation, getConversations, pingServer } from "@/lib/api";
 import { clearAuth, getToken } from "@/lib/auth";
+import { registerBackButton, onAppStateChange, hapticLight } from "@/lib/capacitor-hooks";
 
 function IconSpinner() {
   return (
@@ -77,6 +78,39 @@ export default function ChatPage() {
     if (typeof window !== "undefined" && window.innerWidth <= 768) {
       setSidebarCollapsed(true);
     }
+  }, []);
+
+  /* ── Android Back Button ── */
+  useEffect(() => {
+    const cleanup = registerBackButton((canGoBack) => {
+      // If sidebar is open on mobile, close it first
+      if (!sidebarCollapsed && typeof window !== "undefined" && window.innerWidth <= 768) {
+        setSidebarCollapsed(true);
+        hapticLight();
+        return;
+      }
+      // If in flow mode, go back to chat
+      if (viewMode === "flow") {
+        setViewMode("chat");
+        hapticLight();
+        return;
+      }
+      // Otherwise minimize app
+      if (typeof navigator !== "undefined" && navigator.app) {
+        navigator.app.exitApp();
+      }
+    });
+    return cleanup;
+  }, [sidebarCollapsed, viewMode]);
+
+  /* ── App Resume: re-ping server ── */
+  useEffect(() => {
+    const cleanup = onAppStateChange((isActive) => {
+      if (isActive) {
+        pingServer().catch(() => {});
+      }
+    });
+    return cleanup;
   }, []);
 
   const handleAuthExpired = useCallback(() => {

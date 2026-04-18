@@ -29,3 +29,15 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Capacitor
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/android/local.properties
+frontend/assets/
+*.apk
+*.aab
+*.keystore
