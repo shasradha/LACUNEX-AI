@@ -200,12 +200,16 @@ export default function ChatPage() {
         setConversations(prev => prev.map(c => c.id === id ? { ...c, title: newTitle } : c));
         const { updateConversationTitle } = await import("@/lib/api");
         await updateConversationTitle(id, newTitle);
+        // Re-sync from server to ensure consistency after rename
+        await loadConversations();
       } catch (err) {
+        // Revert optimistic update on failure
+        await loadConversations();
         if (err instanceof AuthError) { handleAuthExpired(); return; }
         setError(err.message || "Unable to rename workspace.");
       }
     },
-    [handleAuthExpired]
+    [handleAuthExpired, loadConversations]
   );
 
   /* ── Boot screen (Initial Load) ──────────────── */

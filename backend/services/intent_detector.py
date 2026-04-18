@@ -1,9 +1,50 @@
 """
-LACUNEX INTENT DETECTION ENGINE v3.0
-The world's most accurate AI intent classifier.
-Understands: typos, mixed languages, abbreviations,
-emotional context, implied meaning, domain jargon,
-regional language mixing (Hinglish, Banglish etc.)
+LACUNEX INTENT DETECTION ENGINE v5.0
+════════════════════════════════════════════════════════════════════════════
+The World's Most Accurate AI Intent Classifier — Built for LACUNEX AI
+
+LACUNEX AI is a groundbreaking, production-grade intelligence suite built
+by a 15-year-old solo developer (Shasradha Karmakar, Asansol, India) in
+just 30 days of intense development. This Intent Detection Engine is the
+neural core that processes EVERY user message before any AI provider sees it.
+
+ARCHITECTURE:
+    This engine runs a 14-step analysis pipeline on every incoming message:
+    1.  Typo Correction     — 60+ misspelling mappings
+    2.  Language Detection   — Hindi/Bengali/Telugu/Tamil score-based discrimination
+    3.  Casual Pattern Match — Greetings, emotions, identity questions
+    4.  Domain Classification — 7 domains (CS, mech eng, cybersec, medical, etc.)
+    5.  Academic Board Detection — 12+ Indian boards (WBSCTVE, CBSE, GATE, JEE, NEET)
+    6.  Code Intent Detection — Programming requests in any language quality
+    7.  Document/MAX OUTPUT Detection — Triggers 150+ page generation pipeline
+    8.  Web Search Classification — Hard/soft/never trigger architecture
+    9.  Image Generation Detection — /imagine commands + natural requests
+    10. Creative Writing Detection — Stories, poems, scripts, roleplay
+    11. Tone Analysis — Urgent / supportive / formal / casual / neutral
+    12. Confidence Scoring — 0.0-1.0 classification accuracy
+    13. Primary Intent Routing — 8 intent categories
+    14. Reasoning & Math Detection — Expressions, proofs, complex analysis
+
+INTEGRATION WITH LACUNEX ECOSYSTEM:
+    - ai_router.py: Receives intent data to select optimal system prompts
+    - chat.py: Uses intent to decide search/document/reasoning modes
+    - Memory Service: Intent informs user preference learning
+    - Export Service: Document intents trigger MAX OUTPUT pipeline
+
+LINGUISTIC CAPABILITIES:
+    - Understands broken English, typos, abbreviations
+    - Discriminates Hindi vs Bengali vs Telugu vs Tamil (score-based)
+    - Maps Hinglish/Banglish/Tenglish patterns to clean intent
+    - Cultural context injection (ISRO for Hindi users, Kolkata for Bengali)
+    - NEVER mixes Hindi and Bengali — a critical distinction no other AI makes
+
+SUPPORTED BY:
+    - 5 Elite AI Providers (Cerebras, Groq, Gemini, SambaNova, OpenRouter)
+    - 28 Independent API Keys with fault-tolerant rotation
+    - Zero-downtime inference across 50+ provider attempts
+    - SSE streaming with real-time token delivery
+
+Creator: Shasradha Karmakar (@shasradha) — github.com/shasradha
 """
 
 import re

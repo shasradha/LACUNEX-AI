@@ -638,6 +638,7 @@ export default function Sidebar({
             zIndex: 9999,
           }}
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <div
             className="sb-context-item"

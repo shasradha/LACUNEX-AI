@@ -1212,8 +1212,6 @@ textarea { resize: none; }
   align-items: center;
   gap: 0;
   flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s ease;
 }
 
 .sb-ws-item:hover .sb-ws-actions {
@@ -1233,6 +1231,12 @@ textarea { resize: none; }
   cursor: pointer;
   transition: all 0.15s ease;
   color: var(--text-tertiary);
+  opacity: 0;
+}
+
+.sb-ws-item:hover .sb-ws-star-btn,
+.sb-ws-item:hover .sb-ws-delete-btn {
+  opacity: 1;
 }
 
 .sb-ws-star-btn:hover {
@@ -1241,25 +1245,13 @@ textarea { resize: none; }
 }
 
 .sb-ws-star-btn.starred {
-  opacity: 1;
+  opacity: 1 !important;
   color: #f59e0b;
 }
 
 .sb-ws-delete-btn:hover {
   color: #f87171;
   background: rgba(239, 68, 68, 0.08);
-}
-
-.sb-ws-item .sb-ws-star-btn.starred {
-  opacity: 1;
-}
-
-.sb-ws-item:not(:hover) .sb-ws-actions {
-  opacity: 0;
-}
-
-.sb-ws-item:not(:hover) .sb-ws-star-btn.starred {
-  opacity: 1;
 }
 
 /* ── Collapsed Sidebar ── */
