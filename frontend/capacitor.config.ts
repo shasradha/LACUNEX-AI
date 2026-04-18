@@ -5,13 +5,16 @@ const config: CapacitorConfig = {
   appName: 'Lacunex AI',
   webDir: 'out',
   server: {
-    // CRITICAL: Use HTTPS scheme so Android WebView allows requests
-    // to external HTTPS APIs (like Render) without mixed-content blocking
+    // Use HTTPS scheme to match production API
     androidScheme: 'https',
-    // Allow navigation to any URL (needed for OAuth, external links)
     allowNavigation: ['*'],
   },
   plugins: {
+    // CRITICAL: Route ALL fetch() calls through Android's native HTTP client
+    // This completely bypasses WebView CORS, mixed content, and SSL issues
+    CapacitorHttp: {
+      enabled: true,
+    },
     SplashScreen: {
       launchShowDuration: 3000,
       launchAutoHide: false,
