@@ -1,25 +1,25 @@
 import { clearAuth, getToken } from "./auth";
+import { Capacitor } from '@capacitor/core';
 
 // Production backend URL for the Capacitor Android app
 const PRODUCTION_API_URL = "https://lacunex-ai.onrender.com";
 
 // Lazy evaluation — checks on EVERY request (not at module load time)
-// This is critical because window.Capacitor isn't available during module init
 let _cachedBaseUrl = null;
 function getApiBaseUrl() {
   if (_cachedBaseUrl) return _cachedBaseUrl;
   if (typeof window !== "undefined") {
-    // Check multiple ways to detect Capacitor native platform
-    const isCapacitor = window.Capacitor?.isNativePlatform?.()
-      || window.Capacitor?.platform === "android"
-      || window.Capacitor?.platform === "ios"
-      || document.URL?.startsWith("http://localhost")
-      || document.URL?.startsWith("capacitor://");
+    // Check using official Capacitor API
+    const isCapacitor = Capacitor?.isNativePlatform?.()
+      || window.Capacitor?.isNativePlatform?.()
+      || document.URL?.includes("capacitor://");
+      
     if (isCapacitor) {
       _cachedBaseUrl = PRODUCTION_API_URL;
       return _cachedBaseUrl;
     }
   }
+  // Fallback to Env var for Web
   _cachedBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   return _cachedBaseUrl;
 }
@@ -151,7 +151,7 @@ async function request(path, options = {}) {
         null
       );
     }
-    throw err;
+    throw new Error(`Network Error (${getApiBaseUrl()}${path}): ${err.message}`);
   }
 }
 

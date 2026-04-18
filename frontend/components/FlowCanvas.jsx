@@ -319,10 +319,9 @@ let _flowApiBase = null;
 function getFlowApiBase() {
   if (_flowApiBase) return _flowApiBase;
   if (typeof window !== "undefined") {
+    // We already have Capacitor loaded dynamically or globally, but let's check window safely
     const isCapacitor = window.Capacitor?.isNativePlatform?.()
-      || window.Capacitor?.platform === "android"
-      || document.URL?.startsWith("http://localhost")
-      || document.URL?.startsWith("capacitor://");
+      || document.URL?.includes("capacitor://");
     if (isCapacitor) {
       _flowApiBase = PRODUCTION_API_URL;
       return _flowApiBase;
