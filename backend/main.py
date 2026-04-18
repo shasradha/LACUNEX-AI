@@ -21,6 +21,8 @@ def get_allowed_origins() -> list[str]:
         "http://127.0.0.1:3000",
         "https://lacunex.vercel.app",
         "https://lacunex-ai.vercel.app",
+        "http://localhost",
+        "capacitor://localhost",
     }
 
     configured = os.getenv("CORS_ORIGINS") or os.getenv("FRONTEND_URL")

@@ -2,7 +2,7 @@ import { clearAuth, getToken } from "./auth";
 
 // Production backend URL for the Android app
 // UPDATE THIS to your deployed backend URL (Render, Railway, etc.)
-const PRODUCTION_API_URL = "https://lacunex-ai-backend.onrender.com";
+const PRODUCTION_API_URL = "https://lacunex-ai.onrender.com";
 
 function getApiBaseUrl() {
   // On native (Capacitor Android), always use the production backend
