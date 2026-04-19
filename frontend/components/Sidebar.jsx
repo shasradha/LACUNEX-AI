@@ -100,6 +100,14 @@ function IconHide() {
   );
 }
 
+function IconWarning() {
+  return (
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{margin: "0 auto 16px", display: "block"}}>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+    </svg>
+  );
+}
+
 function IconMoreH() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -153,6 +161,7 @@ export default function Sidebar({
   const [recentsExpanded, setRecentsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' | 'code-studio' | 'flow'
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showMobileFlowAlert, setShowMobileFlowAlert] = useState(false);
   const profileMenuRef = useRef(null);
 
   // Load starred IDs from localStorage
@@ -453,7 +462,7 @@ export default function Sidebar({
                 className={`sb-nav-btn ${activeTab === 'flow' ? 'active' : ''}`}
                 onClick={() => {
                   if (window.innerWidth <= 768) {
-                    alert("Lacunex Flow cannot be opened on mobile devices because it is not properly usable. Kindly use a desktop computer for optimal experience.");
+                    setShowMobileFlowAlert(true);
                     return;
                   }
                   setActiveTab('flow');
@@ -562,7 +571,7 @@ export default function Sidebar({
                     className="sb-tab-action-btn flow-btn"
                     onClick={() => {
                       if (window.innerWidth <= 768) {
-                        alert("Lacunex Flow cannot be opened on mobile devices because it is not properly usable. Kindly use a desktop computer for optimal experience.");
+                        setShowMobileFlowAlert(true);
                         return;
                       }
                       window.dispatchEvent(new CustomEvent('lacunex_open_flow'));
@@ -636,6 +645,36 @@ export default function Sidebar({
           )}
         </div>
       </aside>
+
+      {/* ── Mobile Flow Constraint Alert ── */}
+      {showMobileFlowAlert && (
+        <div className="mobile-flow-alert-overlay" style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, 
+          background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 99999, padding: "20px"
+        }}>
+          <div className="glass-panel" style={{
+            background: "#111827", borderRadius: "16px", padding: "24px",
+            textAlign: "center", maxWidth: "400px", width: "100%",
+            border: "1px solid rgba(255,255,255,0.1)",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)"
+          }}>
+            <IconWarning />
+            <h2 style={{fontSize: "1.25rem", fontWeight: "600", marginBottom: "12px", color: "white"}}>Desktop Required</h2>
+            <p style={{color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "24px"}}>
+              Lacunex Flow cannot be opened on mobile devices because it is not properly usable. Kindly use a desktop computer for optimal experience.
+            </p>
+            <button 
+              className="btn btn-primary" 
+              style={{width: "100%", padding: "12px", borderRadius: "8px", fontWeight: "600", fontSize: "1rem"}}
+              onClick={() => setShowMobileFlowAlert(false)}
+            >
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Context Menu ── */}
       {contextMenu && (
