@@ -8729,3 +8729,23 @@ html, body {
     padding-top: max(env(safe-area-inset-top), 20px) !important;
   }
 }
+
+/* Final Mobile Layout Repairs */
+@media (max-width: 768px) {
+  /* Restore chat layout padding so chat-header isn't buried behind Navbar */
+  .chat-layout {
+    padding-top: max(env(safe-area-inset-top, 0px), 60px) !important;
+  }
+  
+  /* Prevent Artifact Viewer and Doc Preview from hitting status bar */
+  .doc-preview-panel,
+  .artifact-panel {
+    padding-top: max(env(safe-area-inset-top, 0px), 10px) !important;
+  }
+}
+
+/* Fix Chat Scroll Glitching on Touch Devices */
+.chat-scroll {
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain !important;
+}

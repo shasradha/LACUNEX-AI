@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
     // CRITICAL: Route ALL fetch() calls through Android's native HTTP client
     // This completely bypasses WebView CORS, mixed content, and SSL issues
     CapacitorHttp: {
-      enabled: true,
+      enabled: false,
     },
     SplashScreen: {
       launchShowDuration: 3000,
