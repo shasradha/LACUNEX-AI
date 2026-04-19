@@ -59,6 +59,80 @@ _TYPE_MAP = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  MATH SYMBOL FIXER — Fixes broken Unicode/Greek/emoji in AI output
+# ═══════════════════════════════════════════════════════════════════════════
+
+def fix_math_symbols(text: str) -> str:
+    """Fix broken math/Greek symbols and callout prefixes in AI content."""
+    if not text:
+        return text
+
+    # Fix callout prefixes (the ?/?? broken emoji icons)
+    text = re.sub(r'>\s*\?\?\s*Solved Example:', '🔍 Solved Example:', text)
+    text = re.sub(r'>\s*\?\?\s*Common Mistake:', '⚠️ Common Mistake:', text)
+    text = re.sub(r'>\s*\?\s*Key Formula:', '📐 Key Formula:', text)
+    text = re.sub(r'>\s*\?\s*Key Point:', '💡 Key Point:', text)
+    text = re.sub(r'>\s*\?\s*Exam Tip:', '📝 Exam Tip:', text)
+    text = re.sub(r'>\s*\?\s*Quick Revision:', '🔄 Quick Revision:', text)
+    text = re.sub(r'>\s*\?+\s*', '', text)  # Catch-all for remaining >? patterns
+
+    # Fix Delta symbols: Deltav → Δv, Deltat → Δt
+    text = re.sub(r'\bDelta([a-zA-Z])', lambda m: 'Δ' + m.group(1), text)
+    text = re.sub(r'\bDelta\b', 'Δ', text)
+
+    # Fix standalone Greek letters (word boundaries, case-insensitive)
+    greek = {
+        r'\bthetaf\b': 'θ_f', r'\bthetai\b': 'θ_i',
+        r'\btheta\b': 'θ', r'\bomega\b': 'ω', r'\balpha\b': 'α',
+        r'\bbeta\b': 'β', r'\bgamma\b': 'γ', r'\blambda\b': 'λ',
+        r'\bsigma\b': 'σ', r'\bepsilon\b': 'ε', r'\bphi\b': 'φ',
+        r'\bpsi\b': 'ψ', r'\brho\b': 'ρ', r'\btau\b': 'τ',
+        r'\bpi\b': 'π',
+    }
+    for pattern, symbol in greek.items():
+        text = re.sub(pattern, symbol, text, flags=re.IGNORECASE)
+
+    # Fix friction coefficients
+    text = re.sub(r'\bmus\b', 'μₛ', text)
+    text = re.sub(r'\bmuk\b', 'μₖ', text)
+    text = re.sub(r'\bmur\b', 'μᵣ', text)
+
+    # Fix sqrt
+    text = re.sub(r'sqrt\(([^)]+)\)', r'√(\1)', text)
+    text = re.sub(r'sqrt(\d+(?:\.\d+)?)', r'√\1', text)
+
+    # Fix em dashes
+    text = re.sub(r'\s--\s', ' — ', text)
+
+    # Fix scientific notation: 10^4 → 10⁴
+    def fix_sci(m):
+        sup_map = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴',
+                   '5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'}
+        exp = ''.join(sup_map.get(c, c) for c in m.group(1))
+        return '10' + exp
+    text = re.sub(r'10\^(\d+)', fix_sci, text)
+
+    return text
+
+
+def _fix_section_content(section: dict) -> dict:
+    """Recursively fix math symbols in all section content."""
+    if section.get("content"):
+        section["content"] = fix_math_symbols(section["content"])
+    if section.get("heading"):
+        section["heading"] = fix_math_symbols(section["heading"])
+    for sub in section.get("subsections", []):
+        _fix_section_content(sub)
+    for hl in section.get("highlights", []):
+        if hl.get("text"):
+            hl["text"] = fix_math_symbols(hl["text"])
+    for tbl in section.get("tables", []):
+        tbl["headers"] = [fix_math_symbols(h) for h in tbl.get("headers", [])]
+        tbl["rows"] = [[fix_math_symbols(c) for c in row] for row in tbl.get("rows", [])]
+    return section
+
+
 def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
     """Flatten a section tree into renderable blocks (v2 — enhanced detection)."""
     blocks = []
@@ -635,6 +709,10 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
     toc = doc_json.get("table_of_contents", [])
     meta = doc_json.get("metadata", {})
 
+    # Pre-process: fix broken math symbols in all sections
+    for sec in sections:
+        _fix_section_content(sec)
+
     page_w, page_h = A4
     LM, RM, TM, BM = 22*mm, 20*mm, 22*mm, 20*mm
     PW = page_w - LM - RM
@@ -1044,33 +1122,10 @@ def generate_document_pdf(doc_json: dict, theme: str = "professional") -> bytes:
             story.append(dia)
             story.append(Spacer(1, 3*mm))
 
-    # Ensure minimum 3 diagrams
-    if diagram_count < 3 and sections:
-        extras = [
-            lambda: _make_flowchart(
-                ["Start", "Analyze", "Process", "Execute", "Complete"],
-                float(PW)),
-            lambda: _make_bar_chart(
-                [(s.get("heading", "")[:15],
-                  max(10, len(s.get("content", ""))))
-                 for s in sections[:8]] or [("A", 50)],
-                "Section Content Overview", float(PW)),
-            lambda: _make_architecture(
-                [s.get("heading", "Layer")[:20]
-                 for s in sections[:6]] or ["System"],
-                float(PW)),
-        ]
-        fig_s = ParagraphStyle('fig2', fontName='Helvetica-Bold',
-                               fontSize=9, textColor=C_CYAN,
-                               alignment=TA_CENTER, spaceAfter=2*mm)
-        for builder in extras:
-            if diagram_count >= 3:
-                break
-            diagram_count += 1
-            story.append(Spacer(1, 3*mm))
-            story.append(Paragraph(f"Figure {diagram_count}", fig_s))
-            story.append(builder())
-            story.append(Spacer(1, 3*mm))
+
+    # NOTE: Removed "ensure minimum 3 diagrams" — was generating irrelevant
+    # boilerplate figures (flowchart, bar chart, architecture) at the end of
+    # every document. Diagrams should only appear when content-relevant.
 
     pdf.build(story, onFirstPage=_cover, onLaterPages=_content)
     return buf.getvalue()
@@ -1096,6 +1151,10 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
     toc = doc_json.get("table_of_contents", [])
     meta = doc_json.get("metadata", {})
     CONTENT_W = 9360  # DXA = 6.5 inches
+
+    # Pre-process: fix broken math symbols in all sections
+    for sec in sections_data:
+        _fix_section_content(sec)
 
     # ── Page setup ────────────────────────────────────────────────────────
     for sect in doc.sections:
@@ -1139,8 +1198,9 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
 
     _style_heading('Heading 1', 20, '0a0a2e', outline_level=0,
                    border_color='00d4ff', border_sz=24)
-    _style_heading('Heading 2', 16, '1a1a4e', outline_level=1)
-    _style_heading('Heading 3', 13, '0066cc', outline_level=2)
+    _style_heading('Heading 2', 16, '1a1a4e', outline_level=1,
+                   border_color='00d4ff', border_sz=12)
+    _style_heading('Heading 3', 13, '00d4ff', outline_level=2)
     _style_heading('Heading 4', 11, '555555', italic=True, outline_level=3)
 
     # Normal style

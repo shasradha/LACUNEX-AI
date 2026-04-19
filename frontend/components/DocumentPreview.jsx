@@ -83,6 +83,15 @@ export default function DocumentPreview({
   const contentRef = useRef(null);
   const mermaidLoaded = useRef(false);
 
+  // Android back button: close document preview
+  useEffect(() => {
+    try {
+      const { registerBackButton } = require('@/lib/capacitor-hooks');
+      const cleanup = registerBackButton(() => { onClose?.(); });
+      return cleanup;
+    } catch { return () => {}; }
+  }, [onClose]);
+
   // Sync theme with parent
   useEffect(() => {
     setTheme(currentTheme);

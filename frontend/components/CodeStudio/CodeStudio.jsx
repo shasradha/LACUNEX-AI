@@ -169,6 +169,30 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
   const [theme, setTheme] = useState('github-dark')
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Mobile detection
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Android back button: close Code Studio
+  useEffect(() => {
+    if (!onClose) return
+    try {
+      const { registerBackButton } = require('@/lib/capacitor-hooks')
+      const cleanup = registerBackButton(() => { onClose() })
+      return cleanup
+    } catch { return () => {} }
+  }, [onClose])
+
+  // On mobile, force layout to 'editor' for better fit
+  useEffect(() => {
+    if (isMobile) setLayout('editor')
+  }, [isMobile])
 
   const isHtml = language.livePreview === true
 
@@ -388,6 +412,37 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
             </div>
           </div>
         </div>
+      )}
+
+      {/* Mobile: Floating Close FAB — always visible and easy to tap */}
+      {isMobile && onClose && (
+        <button
+          className="cs-mobile-close-fab"
+          onClick={onClose}
+          aria-label="Close Code Studio"
+          style={{
+            position: 'fixed',
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+            right: '16px',
+            width: '52px',
+            height: '52px',
+            borderRadius: '50%',
+            background: 'rgba(239, 68, 68, 0.9)',
+            border: '2px solid rgba(255,255,255,0.2)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: 10001,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(8px)',
+            fontSize: '13px',
+            fontWeight: 600,
+          }}
+        >
+          ✕
+        </button>
       )}
     </div>
   )

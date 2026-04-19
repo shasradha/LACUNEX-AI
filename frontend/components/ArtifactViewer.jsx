@@ -154,6 +154,16 @@ export default function ArtifactViewer({ code, onClose }) {
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Android back button: close artifact viewer
+  useEffect(() => {
+    if (!onClose) return;
+    try {
+      const { registerBackButton } = require('@/lib/capacitor-hooks');
+      const cleanup = registerBackButton(() => { onClose(); });
+      return cleanup;
+    } catch { return () => {}; }
+  }, [onClose]);
+
   // Smart file-type extraction logic to detect if HTML preview is needed
   const isHtmlProject = useMemo(() => {
     if (typeof code === "object" && code.isMultiFile) {

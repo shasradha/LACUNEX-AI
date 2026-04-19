@@ -1095,93 +1095,6 @@ export default function ChatBox({
       className={`chat-container ${isSplitMode ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}
     >
       <div className="chat-panel" style={isSplitMode ? { flex: 'none', width: `${splitWidth}%` } : undefined}>
-        {/* Header */}
-        <div className="chat-header">
-          <div className="chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflow: 'hidden' }}>
-            <span className="eyebrow chat-header-eyebrow" style={{ margin: 0, whiteSpace: 'nowrap' }}>Workspace</span>
-            <span className="text-muted chat-header-sep">•</span>
-            <h2 className="heading-sm" style={{ margin: 0, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTitle}</h2>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-            <div className="chat-stats">
-              <span className="stat-pill">
-                <span className="stat-pill-value">{messages.length}</span>
-                <span>messages</span>
-              </span>
-              <span className="stat-pill">
-                <span className="stat-pill-value">{thinkMode ? "Deep" : "Fast"}</span>
-                <span>mode</span>
-              </span>
-              {docGenerating && (
-                <span className="stat-pill gen-pill pulsing">
-                  <span className="stat-pill-value">Generating</span>
-                  <span>Document...</span>
-                </span>
-              )}
-            </div>
-
-            {/* Document Quick Open — only show when doc has data but is closed */}
-            {(docJson || docHtml || docToc) && !docPreviewOpen && (
-              <button
-                type="button"
-                className="header-doc-btn"
-                onClick={() => setDocPreviewOpen(true)}
-                title="View Document"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-                  <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-                </svg>
-                <span>View Doc</span>
-              </button>
-            )}
-
-            {/* Export button — only show when there are messages */}
-            {messages.length > 0 && (
-              <div className="export-wrap" ref={exportMenuRef}>
-                <button
-                  type="button"
-                  className={`export-trigger ${showExportMenu ? 'export-trigger-active' : ''}`}
-                  onClick={() => setShowExportMenu((v) => !v)}
-                  disabled={isExporting}
-                  aria-label="Export conversation"
-                  title="Export conversation"
-                >
-                  {isExporting ? <IconSpinner /> : <IconDownload />}
-                  <span className="export-trigger-label">{isExporting ? 'Exporting…' : 'Export'}</span>
-                  <IconChevronDown />
-                </button>
-                {showExportMenu && (
-                  <div className="export-menu" role="menu">
-                    <div className="export-menu-header">Download as</div>
-                    <button type="button" className="export-menu-item" onClick={() => handleExport('pdf')} role="menuitem">
-                      <span className="export-menu-icon export-icon-pdf">PDF</span>
-                      <div>
-                        <div className="export-menu-title">PDF Document</div>
-                        <div className="export-menu-subtitle">Best for reading & sharing</div>
-                      </div>
-                    </button>
-                    <button type="button" className="export-menu-item" onClick={() => handleExport('docx')} role="menuitem">
-                      <span className="export-menu-icon export-icon-docx">DOC</span>
-                      <div>
-                        <div className="export-menu-title">Word Document (.docx)</div>
-                        <div className="export-menu-subtitle">Editable in Microsoft Word</div>
-                      </div>
-                    </button>
-                    <button type="button" className="export-menu-item" onClick={() => handleExport('xlsx')} role="menuitem">
-                      <span className="export-menu-icon export-icon-xlsx">XLS</span>
-                      <div>
-                        <div className="export-menu-title">Excel Spreadsheet (.xlsx)</div>
-                        <div className="export-menu-subtitle">Structured data with timestamps</div>
-                      </div>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Notices */}
         {convError && <div className="banner banner-danger">{convError}</div>}
         {saveNotice && <div className="banner banner-info">{saveNotice}</div>}
@@ -1189,6 +1102,93 @@ export default function ChatBox({
 
         {/* Messages */}
         <div ref={scrollRef} className="chat-scroll">
+          {/* Header — sticky inside scroll container */}
+          <div className="chat-header">
+            <div className="chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+              <span className="eyebrow chat-header-eyebrow" style={{ margin: 0, whiteSpace: 'nowrap' }}>Workspace</span>
+              <span className="text-muted chat-header-sep">•</span>
+              <h2 className="heading-sm" style={{ margin: 0, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTitle}</h2>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+              <div className="chat-stats">
+                <span className="stat-pill">
+                  <span className="stat-pill-value">{messages.length}</span>
+                  <span>messages</span>
+                </span>
+                <span className="stat-pill">
+                  <span className="stat-pill-value">{thinkMode ? "Deep" : "Fast"}</span>
+                  <span>mode</span>
+                </span>
+                {docGenerating && (
+                  <span className="stat-pill gen-pill pulsing">
+                    <span className="stat-pill-value">Generating</span>
+                    <span>Document...</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Document Quick Open — only show when doc has data but is closed */}
+              {(docJson || docHtml || docToc) && !docPreviewOpen && (
+                <button
+                  type="button"
+                  className="header-doc-btn"
+                  onClick={() => setDocPreviewOpen(true)}
+                  title="View Document"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                  </svg>
+                  <span>View Doc</span>
+                </button>
+              )}
+
+              {/* Export button — only show when there are messages */}
+              {messages.length > 0 && (
+                <div className="export-wrap" ref={exportMenuRef}>
+                  <button
+                    type="button"
+                    className={`export-trigger ${showExportMenu ? 'export-trigger-active' : ''}`}
+                    onClick={() => setShowExportMenu((v) => !v)}
+                    disabled={isExporting}
+                    aria-label="Export conversation"
+                    title="Export conversation"
+                  >
+                    {isExporting ? <IconSpinner /> : <IconDownload />}
+                    <span className="export-trigger-label">{isExporting ? 'Exporting…' : 'Export'}</span>
+                    <IconChevronDown />
+                  </button>
+                  {showExportMenu && (
+                    <div className="export-menu" role="menu">
+                      <div className="export-menu-header">Download as</div>
+                      <button type="button" className="export-menu-item" onClick={() => handleExport('pdf')} role="menuitem">
+                        <span className="export-menu-icon export-icon-pdf">PDF</span>
+                        <div>
+                          <div className="export-menu-title">PDF Document</div>
+                          <div className="export-menu-subtitle">Best for reading & sharing</div>
+                        </div>
+                      </button>
+                      <button type="button" className="export-menu-item" onClick={() => handleExport('docx')} role="menuitem">
+                        <span className="export-menu-icon export-icon-docx">DOC</span>
+                        <div>
+                          <div className="export-menu-title">Word Document (.docx)</div>
+                          <div className="export-menu-subtitle">Editable in Microsoft Word</div>
+                        </div>
+                      </button>
+                      <button type="button" className="export-menu-item" onClick={() => handleExport('xlsx')} role="menuitem">
+                        <span className="export-menu-icon export-icon-xlsx">XLS</span>
+                        <div>
+                          <div className="export-menu-title">Excel Spreadsheet (.xlsx)</div>
+                          <div className="export-menu-subtitle">Structured data with timestamps</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           {messages.length === 0 && !isLoading ? (
             emptyState
           ) : (
@@ -1199,7 +1199,7 @@ export default function ChatBox({
                   <span>Syncing workspace...</span>
                 </div>
               )}
-              {messages.map((msg) => (
+              {messages.filter(msg => msg.content?.trim() || msg.isStreaming || isBusy).map((msg) => (
                 <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} onSendFollowUp={handleSend} onOpenCodeStudio={handleOpenCodeStudio} />
               ))}
               {isBusy && searchStatus && (
