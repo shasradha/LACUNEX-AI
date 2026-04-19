@@ -1865,8 +1865,8 @@ textarea { resize: none; }
   left: 0;
   right: 0;
   z-index: 20;
-  background: var(--bg-deep); /* plain header — no fade/gradient */
-  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border-bottom: none;
   min-height: 0;
   pointer-events: none;
 }

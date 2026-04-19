@@ -1078,10 +1078,17 @@ export default function ChatBox({
 
   /* ── Mobile detection ── */
   const [isMobile, setIsMobile] = useState(false);
+  const [isNativeApp, setIsNativeApp] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
     check();
     window.addEventListener('resize', check);
+    
+    // Check if running inside capacitor native app
+    if (window.Capacitor?.isNativePlatform?.() || window.Capacitor?.platform === "android" || window.Capacitor?.platform === "ios") {
+      setIsNativeApp(true);
+    }
+    
     return () => window.removeEventListener('resize', check);
   }, []);
 
@@ -1095,9 +1102,10 @@ export default function ChatBox({
       className={`chat-container ${isSplitMode ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}
     >
       <div className="chat-panel" style={isSplitMode ? { flex: 'none', width: `${splitWidth}%` } : undefined}>
-        {/* Header */}
-        <div className="chat-header">
-          <div className="chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+        {/* Header - Hidden on native mobile app as requested */}
+        {!isNativeApp && (
+          <div className="chat-header">
+            <div className="chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflow: 'hidden' }}>
             <span className="eyebrow chat-header-eyebrow" style={{ margin: 0, whiteSpace: 'nowrap' }}>Workspace</span>
             <span className="text-muted chat-header-sep">•</span>
             <h2 className="heading-sm" style={{ margin: 0, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTitle}</h2>
@@ -1181,6 +1189,7 @@ export default function ChatBox({
             )}
           </div>
         </div>
+        )}
 
         {/* Notices */}
         {convError && <div className="banner banner-danger">{convError}</div>}
@@ -1199,7 +1208,7 @@ export default function ChatBox({
                   <span>Syncing workspace...</span>
                 </div>
               )}
-              {messages.filter(msg => msg.content?.trim() || msg.isStreaming || isBusy).map((msg) => (
+              {messages.filter(msg => (typeof msg.content === 'string' ? msg.content.trim() : msg.content) || msg.isStreaming || isBusy).map((msg) => (
                 <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} onSendFollowUp={handleSend} onOpenCodeStudio={handleOpenCodeStudio} />
               ))}
               {isBusy && searchStatus && (
