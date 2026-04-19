@@ -414,34 +414,28 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
         </div>
       )}
 
-      {/* Mobile: Floating Close FAB — always visible and easy to tap */}
+      {/* Mobile close button — ALWAYS render on mobile */}
       {isMobile && onClose && (
         <button
-          className="cs-mobile-close-fab"
           onClick={onClose}
-          aria-label="Close Code Studio"
           style={{
             position: 'fixed',
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
-            right: '16px',
-            width: '52px',
-            height: '52px',
-            borderRadius: '50%',
-            background: 'rgba(239, 68, 68, 0.9)',
-            border: '2px solid rgba(255,255,255,0.2)',
+            top: `calc(env(safe-area-inset-top, 0px) + 8px)`,
+            right: '12px',
+            zIndex: 99999,
+            background: 'rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            borderRadius: '20px',
             color: 'white',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            zIndex: 10001,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(8px)',
+            padding: '5px 14px',
             fontSize: '13px',
-            fontWeight: 600,
+            fontWeight: '600',
+            cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
           }}
         >
-          ✕
+          ✕ Close
         </button>
       )}
     </div>

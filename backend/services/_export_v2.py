@@ -146,14 +146,19 @@ def _doc_flatten_content(section: dict, depth: int = 0) -> list[dict]:
     if section.get("content"):
         lines = section["content"].split("\n")
         i = 0
+        prev_blank = False
         while i < len(lines):
             line = lines[i]
             stripped = line.strip()
 
             if not stripped:
-                blocks.append({"type": "blank"})
+                if not prev_blank:
+                    blocks.append({"type": "blank"})
+                    prev_blank = True
                 i += 1
                 continue
+            
+            prev_blank = False
 
             # Callout patterns
             cm = _CALLOUT_RE.match(stripped)
@@ -1208,8 +1213,18 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
     ns.font.name = "Arial"
     ns.font.size = Pt(11)
     ns.font.color.rgb = RGBColor(0x2d, 0x2d, 0x2d)
-    ns.paragraph_format.line_spacing = 1.5
-    ns.paragraph_format.space_after = Pt(6)
+    ns.paragraph_format.line_spacing = 1.15
+    ns.paragraph_format.space_before = Pt(2)
+    ns.paragraph_format.space_after = Pt(4)
+
+    # Tighten heading spacing to prevent massive gaps
+    for h_level in ['Heading 1', 'Heading 2', 'Heading 3', 'Heading 4']:
+        try:
+            style = doc.styles[h_level]
+            style.paragraph_format.space_before = Pt(8)
+            style.paragraph_format.space_after = Pt(4)
+        except KeyError:
+            pass
 
     # ── Helpers ───────────────────────────────────────────────────────────
     def add_hr(color="CCCCDD"):
@@ -1309,13 +1324,17 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
         tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
         cell = tbl.rows[0].cells[0]
         p1 = cell.paragraphs[0]
-        r1 = p1.add_run(f"[{cs['label']}]")
+        p1.paragraph_format.space_before = Pt(0)
+        p1.paragraph_format.space_after = Pt(0)
+        r1 = p1.add_run(f"[{cs['label']}] ")
         r1.bold = True
         r1.font.size = Pt(10)
         r1.font.name = "Arial"
         r1.font.color.rgb = RGBColor.from_string(cs["tc"].lstrip('#'))
-        p2 = cell.add_paragraph()
-        add_runs(p2, text, base_size=10)
+        
+        # Add content in the same paragraph to avoid empty gaps
+        add_runs(p1, text, base_size=10)
+        
         shade_cell(cell, cs["bg"].lstrip('#'))
         set_cell_borders_left(cell, cs["border"].lstrip('#'), 24)
         set_cell_margins(cell)
@@ -1584,16 +1603,16 @@ def generate_document_docx(doc_json: dict, theme: str = "professional") -> bytes
                     line = txt.strip()
                     if line.startswith('#### '):
                         p = doc.add_paragraph(style='Heading 4')
-                        p.add_run(line[5:]).bold = True
+                        p.add_run(line.lstrip('#').strip()).bold = True
                     elif line.startswith('### '):
                         p = doc.add_paragraph(style='Heading 3')
-                        p.add_run(line[4:]).bold = True
+                        p.add_run(line.lstrip('#').strip()).bold = True
                     elif line.startswith('## '):
                         p = doc.add_paragraph(style='Heading 2')
-                        p.add_run(line[3:]).bold = True
+                        p.add_run(line.lstrip('#').strip()).bold = True
                     elif line.startswith('# '):
                         p = doc.add_paragraph(style='Heading 1')
-                        p.add_run(line[2:]).bold = True
+                        p.add_run(line.lstrip('#').strip()).bold = True
                     else:
                         p = doc.add_paragraph(style='Normal')
                         add_runs(p, line)
