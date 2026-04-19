@@ -452,6 +452,10 @@ export default function Sidebar({
               <button
                 className={`sb-nav-btn ${activeTab === 'flow' ? 'active' : ''}`}
                 onClick={() => {
+                  if (window.innerWidth <= 768) {
+                    alert("Lacunex Flow cannot be opened on mobile devices because it is not properly usable. Kindly use a desktop computer for optimal experience.");
+                    return;
+                  }
                   setActiveTab('flow');
                   window.dispatchEvent(new CustomEvent('lacunex_open_flow'));
                 }}
@@ -556,7 +560,13 @@ export default function Sidebar({
                   <p>Build visual AI pipelines with drag-and-drop nodes. Chain prompts, tools, and logic together.</p>
                   <button
                     className="sb-tab-action-btn flow-btn"
-                    onClick={() => window.dispatchEvent(new CustomEvent('lacunex_open_flow'))}
+                    onClick={() => {
+                      if (window.innerWidth <= 768) {
+                        alert("Lacunex Flow cannot be opened on mobile devices because it is not properly usable. Kindly use a desktop computer for optimal experience.");
+                        return;
+                      }
+                      window.dispatchEvent(new CustomEvent('lacunex_open_flow'));
+                    }}
                   >
                     <IconFlow />
                     <span>Open Flow Canvas</span>
