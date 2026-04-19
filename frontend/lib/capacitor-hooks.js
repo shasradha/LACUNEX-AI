@@ -120,15 +120,6 @@ export const hapticSuccess = async () => {
   });
 };
 
-export const hapticError = async () => {
-  await runIfNative(async () => {
-    try {
-      const mod = getPlugin('@capacitor/haptics');
-      if (mod?.Haptics) await mod.Haptics.notification({ type: mod.NotificationType?.Error || 'ERROR' });
-    } catch { /* silent */ }
-  });
-};
-
 // --- Back Button ---
 
 export const registerBackButton = (handler) => {
@@ -166,8 +157,7 @@ export const configureStatusBar = async () => {
       if (mod?.StatusBar) {
         await mod.StatusBar.setStyle({ style: mod.Style?.Dark || 'DARK' });
         await mod.StatusBar.setBackgroundColor({ color: '#050A14' });
-        // CRITICAL: overlay: false = WebView starts BELOW status bar (no content behind it)
-        await mod.StatusBar.setOverlaysWebView({ overlay: false });
+        await mod.StatusBar.setOverlaysWebView({ overlay: true });
       }
     } catch (e) { console.warn('StatusBar config failed:', e); }
   });

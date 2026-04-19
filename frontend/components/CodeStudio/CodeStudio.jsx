@@ -169,30 +169,6 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
   const [theme, setTheme] = useState('github-dark')
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-
-  // Mobile detection
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-
-  // Android back button: close Code Studio
-  useEffect(() => {
-    if (!onClose) return
-    try {
-      const { registerBackButton } = require('@/lib/capacitor-hooks')
-      const cleanup = registerBackButton(() => { onClose() })
-      return cleanup
-    } catch { return () => {} }
-  }, [onClose])
-
-  // On mobile, force layout to 'editor' for better fit
-  useEffect(() => {
-    if (isMobile) setLayout('editor')
-  }, [isMobile])
 
   const isHtml = language.livePreview === true
 
@@ -270,27 +246,6 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
   }, [])
 
   const hasError = result && (result.stderr || result.compile_output)
-
-  if (isMobile) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100000, background: 'var(--bg-deep)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)', marginBottom: '1rem' }} >
-          <polyline points="16 18 22 12 16 6" />
-          <polyline points="8 6 2 12 8 18" />
-        </svg>
-        <h2 style={{ fontSize: '1.25rem', color: 'white', marginBottom: '0.5rem', fontWeight: 600 }}>Not Supported on Mobile</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '2rem', maxWidth: '300px' }}>
-          For the best web development experience, please use LACUNEX AI's Code Studio on a desktop client or browser.
-        </p>
-        <button 
-          onClick={onClose} 
-          style={{ background: 'var(--accent)', border: 'none', color: 'white', padding: '0.6rem 1.5rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
-        >
-          ✕ Close
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className={`cs-root ${isFullscreen ? 'cs-fullscreen' : ''}`}>
@@ -433,31 +388,6 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
             </div>
           </div>
         </div>
-      )}
-
-      {/* Mobile close button — ALWAYS render on mobile */}
-      {isMobile && onClose && (
-        <button
-          onClick={onClose}
-          style={{
-            position: 'fixed',
-            top: `calc(env(safe-area-inset-top, 0px) + 8px)`,
-            right: '12px',
-            zIndex: 99999,
-            background: 'rgba(255,255,255,0.12)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            borderRadius: '20px',
-            color: 'white',
-            padding: '5px 14px',
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-          }}
-        >
-          ✕ Close
-        </button>
       )}
     </div>
   )

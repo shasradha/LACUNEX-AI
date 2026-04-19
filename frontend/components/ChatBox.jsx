@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { hapticLight, hapticSuccess, hapticError } from "@/lib/capacitor-hooks";
 import dynamic from "next/dynamic";
 
 import ImageUpload from "./ImageUpload";
@@ -357,25 +356,16 @@ export default function ChatBox({
     setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  /* ── Auto Scroll Logic — Debounced rAF (Section 3.1 screen shake fix) ── */
-  const scrollRafRef = useRef(null);
-
-  const smoothScrollToBottom = useCallback((container) => {
-    if (scrollRafRef.current) return; // Already scheduled
-    scrollRafRef.current = requestAnimationFrame(() => {
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-      scrollRafRef.current = null;
-    });
-  }, []);
-
-  // Cleanup rAF on unmount
+  /* ── Auto Scroll Logic ── */
   useEffect(() => {
-    return () => {
-      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
-    };
-  }, []);
+    if (!scrollRef.current) return;
+    const scrollEl = scrollRef.current;
+    const isAtBottom = scrollEl.scrollHeight - scrollEl.scrollTop <= scrollEl.clientHeight + 150;
+    
+    if (isAtBottom && isBusy) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isBusy]);
 
   const saveEncrypted = useCallback(async (convId, msg, doneData) => {
     const encrypted = await encryptMessage(msg.content || "");
@@ -419,13 +409,17 @@ export default function ChatBox({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const threshold = 180;
+
+    // Smart Scroll: only pin to bottom if user is already near the bottom
+    // or if the AI is currently generating and we want to keep up.
+    const threshold = 180; // slightly larger for stability
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
 
     if (isBusy || isNearBottom) {
-      smoothScrollToBottom(el);
+      // Use scrollIntoView on a dedicated bottom anchor for rock-solid pinning
+      bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
     }
-  }, [messages, isBusy, smoothScrollToBottom]);
+  }, [messages, isBusy]);
 
   useEffect(() => {
     // CRITICAL: Abort any active stream when switching workspaces
@@ -613,7 +607,6 @@ export default function ChatBox({
     setSaveNotice("");
     setIntentInfo(null);
     setIsBusy(true);
-    hapticLight(); // Haptic feedback on send (Section 1.7)
 
     requestAnimationFrame(() => {
       if (textareaRef.current) textareaRef.current.style.height = "40px";
@@ -791,9 +784,6 @@ export default function ChatBox({
           },
           onDone: async (data) => {
             setSearchStatus("");
-            // CRITICAL FIX (Section 3.2): Unblock input IMMEDIATELY.
-            // Post-processing (title generation, persistence) runs non-blocking.
-            setIsBusy(false);
 
             // Handle MAX OUTPUT document JSON
             if (data.max_output && data.document_json) {
@@ -888,9 +878,6 @@ export default function ChatBox({
               console.error("Final persistence failed:", err);
             }
 
-            // Haptic success feedback (Section 1.7)
-            hapticSuccess();
-
             // Non-blocking Proactive Intelligence (Feature 1)
             setTimeout(async () => {
               try {
@@ -905,7 +892,6 @@ export default function ChatBox({
             setSearchStatus("");
             setIsBusy(false);
             setDocGenerating(false);
-            hapticError(); // Haptic error feedback (Section 1.7)
             setMessages((prev) =>
               updateMsg(prev, botId, {
                 content: errMsg || "Something went wrong.",
@@ -1078,17 +1064,10 @@ export default function ChatBox({
 
   /* ── Mobile detection ── */
   const [isMobile, setIsMobile] = useState(false);
-  const [isNativeApp, setIsNativeApp] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
     check();
     window.addEventListener('resize', check);
-    
-    // Check if running inside capacitor native app
-    if (window.Capacitor?.isNativePlatform?.() || window.Capacitor?.platform === "android" || window.Capacitor?.platform === "ios") {
-      setIsNativeApp(true);
-    }
-    
     return () => window.removeEventListener('resize', check);
   }, []);
 
@@ -1102,10 +1081,9 @@ export default function ChatBox({
       className={`chat-container ${isSplitMode ? "has-artifact" : ""} ${docPreviewOpen ? "has-doc-preview" : ""}`}
     >
       <div className="chat-panel" style={isSplitMode ? { flex: 'none', width: `${splitWidth}%` } : undefined}>
-        {/* Header - Hidden on native mobile app as requested */}
-        {!isNativeApp && (
-          <div className="chat-header">
-            <div className="chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+        {/* Header */}
+        <div className="chat-header">
+          <div className="chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflow: 'hidden' }}>
             <span className="eyebrow chat-header-eyebrow" style={{ margin: 0, whiteSpace: 'nowrap' }}>Workspace</span>
             <span className="text-muted chat-header-sep">•</span>
             <h2 className="heading-sm" style={{ margin: 0, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentTitle}</h2>
@@ -1189,7 +1167,6 @@ export default function ChatBox({
             )}
           </div>
         </div>
-        )}
 
         {/* Notices */}
         {convError && <div className="banner banner-danger">{convError}</div>}
@@ -1208,7 +1185,7 @@ export default function ChatBox({
                   <span>Syncing workspace...</span>
                 </div>
               )}
-              {messages.filter(msg => (typeof msg.content === 'string' ? msg.content.trim() : msg.content) || msg.isStreaming || isBusy).map((msg) => (
+              {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} onOpenArtifact={handleOpenArtifact} onSendFollowUp={handleSend} onOpenCodeStudio={handleOpenCodeStudio} />
               ))}
               {isBusy && searchStatus && (

@@ -83,15 +83,6 @@ export default function DocumentPreview({
   const contentRef = useRef(null);
   const mermaidLoaded = useRef(false);
 
-  // Android back button: close document preview
-  useEffect(() => {
-    try {
-      const { registerBackButton } = require('@/lib/capacitor-hooks');
-      const cleanup = registerBackButton(() => { onClose?.(); });
-      return cleanup;
-    } catch { return () => {}; }
-  }, [onClose]);
-
   // Sync theme with parent
   useEffect(() => {
     setTheme(currentTheme);
@@ -208,31 +199,6 @@ export default function DocumentPreview({
 
   return (
     <div className="doc-preview-panel" ref={previewRef}>
-      {/* Mobile close button — ALWAYS render on mobile */}
-      {isMobile && (
-        <button
-          onClick={onClose}
-          style={{
-            position: 'fixed',
-            top: `calc(env(safe-area-inset-top, 0px) + 8px)`,
-            right: '12px',
-            zIndex: 99999,
-            background: 'rgba(255,255,255,0.12)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            borderRadius: '20px',
-            color: 'white',
-            padding: '5px 14px',
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-          }}
-        >
-          ✕ Close
-        </button>
-      )}
-
       {/* Header */}
       <div className="doc-preview-header">
         <div className="doc-preview-header-left">
