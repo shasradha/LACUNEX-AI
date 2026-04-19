@@ -320,6 +320,16 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp, onOpenCod
           throwOnError: false,
           errorColor: '#ff6b6b',
         });
+        // Wrap display math in scrollable containers (Section 3.3 fix)
+        const displayMaths = markdownRef.current.querySelectorAll('.katex-display');
+        displayMaths.forEach((el) => {
+          if (!el.parentElement?.classList.contains('math-scroll-wrapper')) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'math-scroll-wrapper';
+            el.parentElement?.insertBefore(wrapper, el);
+            wrapper.appendChild(el);
+          }
+        });
       } catch (e) {
         // KaTeX may not be loaded yet, ignore
       }

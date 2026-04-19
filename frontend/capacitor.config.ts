@@ -4,6 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.lacunex.ai',
   appName: 'Lacunex AI',
   webDir: 'out',
+  backgroundColor: '#050a14',
   server: {
     // Use HTTPS scheme to match production API
     androidScheme: 'https',
@@ -23,6 +24,14 @@ const config: CapacitorConfig = {
       showSpinner: true,
       androidSpinnerStyle: "large",
       spinnerColor: "#A855F7"
+    },
+    // CRITICAL: Status bar must NOT overlay the WebView.
+    // overlaysWebView: false pushes the entire WebView below the status bar,
+    // eliminating content hidden behind the Android notification/battery bar.
+    StatusBar: {
+      style: "DARK",
+      backgroundColor: "#050a14",
+      overlaysWebView: false
     },
     Keyboard: {
       resize: "none",

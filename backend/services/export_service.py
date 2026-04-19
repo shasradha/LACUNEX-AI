@@ -78,33 +78,64 @@ def _clean(text: str) -> str:
 
 def _pdf_safe(text: str) -> str:
     """
-    Convert text to ASCII-safe string for FPDF Helvetica (Latin-1 font).
-    Strips LaTeX first, then maps Unicode to ASCII equivalents.
+    Convert text to PDF-safe string for FPDF Helvetica (Latin-1 font).
+    Strips LaTeX first, then maps Unicode to Latin-1 compatible equivalents.
+    Preserves as many real symbols as possible within Latin-1 encoding.
     """
     # Strip LaTeX before Unicode mapping
     text = _strip_latex(text)
+    
+    # Scientific notation: 10^4 -> 10⁴ etc (superscript digits)
+    superscript_map = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+                       '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'}
+    def _sup_repl(m):
+        return ''.join(superscript_map.get(c, c) for c in m.group(1))
+    text = re.sub(r'\^(\d+)', _sup_repl, text)
+    
+    # Fix em-dash: -- -> — (Latin-1 has em-dash at position 0x97)
+    text = text.replace(' -- ', ' \u2014 ')
+    
     replacements = {
         "\u2018": "'", "\u2019": "'",          # smart single quotes
         "\u201c": '"', "\u201d": '"',          # smart double quotes
-        "\u2013": "-", "\u2014": "--",         # en-dash, em-dash
+        "\u2013": "\u2013",                     # en-dash (keep, Latin-1 has it)
+        "\u2014": "--",                         # em-dash -> double hyphen for Latin-1
         "\u2022": "*", "\u00b7": "*",          # bullet
         "\u2026": "...",                       # ellipsis
         "\u00a9": "(c)", "\u00ae": "(R)",      # copyright, registered
-        "\u00b0": "deg", "\u00b1": "+/-",      # degree, plus-minus
-        "\u00d7": "x", "\u00f7": "/",          # multiply, divide
-        "\u2212": "-", "\u00ac": "not",        # minus sign, not
-        "\u2260": "!=", "\u2264": "<=",        # not-equal, leq
-        "\u2265": ">=", "\u221e": "inf",       # geq, infinity
-        "\u03b1": "alpha", "\u03b2": "beta",   # Greek letters
+        "\u00b0": "\u00b0",                    # degree sign (Latin-1 native)
+        "\u00b1": "\u00b1",                    # plus-minus (Latin-1 native)
+        "\u00d7": "\u00d7",                    # multiply sign (Latin-1 native)
+        "\u00f7": "\u00f7",                    # divide sign (Latin-1 native)
+        "\u2212": "-",                         # minus sign
+        "\u00ac": "\u00ac",                    # not sign (Latin-1 native)
+        "\u2260": "!=",                        # not-equal
+        "\u2264": "<=",                        # leq
+        "\u2265": ">=",                        # geq
+        "\u221e": "inf",                       # infinity
+        # Greek letters -> ASCII names (no Latin-1 equivalents)
+        "\u0394": "Delta", "\u03b1": "alpha", "\u03b2": "beta",
         "\u03b3": "gamma", "\u03b4": "delta",
         "\u03b5": "epsilon", "\u03b8": "theta",
         "\u03c0": "pi", "\u03bb": "lambda",
         "\u03c3": "sigma", "\u03c6": "phi",
         "\u03c8": "psi", "\u03c9": "omega",
-        "\u2192": "->", "\u2190": "<-",        # arrows
-        "\u21d2": "=>", "\u21d0": "<=",        # double arrows
-        "\u2713": "OK", "\u2717": "X",         # check, cross
-        "\u2248": "~=", "\u2261": "===",       # approx, equiv
+        "\u03bc": "mu",
+        # Arrows -> text
+        "\u2192": "->", "\u2190": "<-",
+        "\u21d2": "=>", "\u21d0": "<=",
+        # Check/cross marks
+        "\u2713": "[OK]", "\u2717": "[X]",
+        # Math operators
+        "\u2248": "~=", "\u2261": "===",
+        "\u221a": "sqrt",                      # square root
+        # Superscripts that Latin-1 supports
+        "\u00b2": "\u00b2",                    # superscript 2 (Latin-1 native)
+        "\u00b3": "\u00b3",                    # superscript 3 (Latin-1 native)
+        "\u00b9": "\u00b9",                    # superscript 1 (Latin-1 native)
+        # Other superscripts -> fallback
+        "\u2070": "0", "\u2074": "4", "\u2075": "5",
+        "\u2076": "6", "\u2077": "7", "\u2078": "8", "\u2079": "9",
     }
     out = []
     for ch in text:
@@ -143,16 +174,27 @@ def _strip_md(text: str) -> str:
         line = _MD_ITALIC.sub(r"\1", line)
         # Inline code
         line = _MD_CODE_INLINE.sub(r"\1", line)
-        # Links
+        # Links: [text](url) -> text
         line = _MD_LINK.sub(r"\1", line)
+        # Image refs: ![alt](url) -> alt
+        line = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", line)
+        # HTML tags: <br>, <strong>, etc -> stripped
+        line = re.sub(r"<[^>]+>", "", line)
+        # Blockquote markers: > text -> text
+        line = re.sub(r"^>\s*", "", line)
         # HR → blank
         if _MD_HR.match(line.strip()):
             line = ""
+        # Stray bracket annotations: [Key Point], [Note], [Important] etc
+        line = re.sub(r"\[(Key Point|Note|Important|Warning|Summary|Definition|Example|Tip|Remember|Caution)\]", "", line, flags=re.I)
         # Numbered / unordered lists → keep text cleanly
         line = re.sub(r"^(\s*)[-*]\s+", r"\1", line)
         line = re.sub(r"^(\s*)\d+\.\s+", r"\1", line)
+        # Clean double/triple spaces
+        line = re.sub(r"  +", " ", line)
         lines.append(line)
     return "\n".join(lines)
+
 
 
 def _parse_blocks(content: str):
@@ -191,7 +233,7 @@ def _parse_blocks(content: str):
             continue
 
         # Heading
-        m = re.match(r"^(#{1,4})\s+(.*)", stripped)
+        m = re.match(r"^(#{1,6})\s+(.*)", stripped)
         if m:
             blocks.append({"type": "heading", "level": len(m.group(1)), "text": m.group(2).strip()})
             i += 1
@@ -314,7 +356,7 @@ def generate_pdf(title: str, messages: list[dict], model_name: str | None = None
 
             elif btype == "heading":
                 lvl = block["level"]
-                sizes = {1: 14, 2: 12, 3: 11, 4: 10}
+                sizes = {1: 14, 2: 12, 3: 11, 4: 10, 5: 10, 6: 9}
                 pdf.set_font("Helvetica", "B", sizes.get(lvl, 10))
                 pdf.set_text_color(30, 30, 50)
                 pdf.ln(2)
@@ -489,7 +531,7 @@ def generate_docx(title: str, messages: list[dict], model_name: str | None = Non
 
             elif btype == "heading":
                 lvl = block["level"]
-                sizes = {1: 15, 2: 13, 3: 12, 4: 11}
+                sizes = {1: 15, 2: 13, 3: 12, 4: 11, 5: 10, 6: 10}
                 hp = doc.add_paragraph()
                 hr_ = hp.add_run(block["text"])
                 hr_.bold = True

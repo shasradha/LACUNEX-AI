@@ -9,7 +9,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { AuthError, deleteConversation, getConversations, pingServer } from "@/lib/api";
 import { clearAuth, getToken } from "@/lib/auth";
-import { registerBackButton, onAppStateChange, hapticLight } from "@/lib/capacitor-hooks";
+import { registerBackButton, onAppStateChange, hapticLight, hapticSuccess, hapticError } from "@/lib/capacitor-hooks";
 
 function IconSpinner() {
   return (
@@ -320,6 +320,7 @@ export default function ChatPage() {
               setConversationId={setActiveId}
               pendingFlowOutput={pendingFlowOutput}
               onFlowOutputConsumed={() => setPendingFlowOutput(null)}
+              onSend={() => hapticLight()}
             />
           </section>
         )}

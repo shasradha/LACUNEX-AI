@@ -153,7 +153,17 @@ export default function Sidebar({
   const [recentsExpanded, setRecentsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' | 'code-studio' | 'flow'
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showFlowMobileModal, setShowFlowMobileModal] = useState(false);
   const profileMenuRef = useRef(null);
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Load starred IDs from localStorage
   useEffect(() => {
@@ -452,6 +462,10 @@ export default function Sidebar({
               <button
                 className={`sb-nav-btn ${activeTab === 'flow' ? 'active' : ''}`}
                 onClick={() => {
+                  if (isMobile) {
+                    setShowFlowMobileModal(true);
+                    return;
+                  }
                   setActiveTab('flow');
                   window.dispatchEvent(new CustomEvent('lacunex_open_flow'));
                 }}
@@ -679,6 +693,29 @@ export default function Sidebar({
           >
             <IconTrash />
             Delete
+          </div>
+        </div>
+      )}
+
+      {/* ── Lacunex Flow Mobile Modal (Section 1.6) ── */}
+      {showFlowMobileModal && (
+        <div className="flow-mobile-modal-backdrop" onClick={() => setShowFlowMobileModal(false)}>
+          <div className="flow-mobile-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="flow-mobile-modal-icon">🖥️</div>
+            <h3>Lacunex Flow</h3>
+            <p>
+              Lacunex Flow is best experienced on desktop for the full visual
+              workflow building experience.
+            </p>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-tertiary)', marginBottom: '1.25rem' }}>
+              Open LACUNEX on your PC or laptop for the complete Flow editor.
+            </p>
+            <button
+              className="flow-mobile-modal-btn"
+              onClick={() => setShowFlowMobileModal(false)}
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}
