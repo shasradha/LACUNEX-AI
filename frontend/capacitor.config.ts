@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Lacunex AI',
   webDir: 'out',
   server: {
-    // Use HTTPS scheme to match production API
-    androidScheme: 'https',
+    // Use HTTP scheme to natively map to 'http://localhost' which is pre-whitelisted by backend CORS
+    androidScheme: 'http',
   },
   plugins: {
     // CRITICAL: Route ALL fetch() calls through Android's native HTTP client

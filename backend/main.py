@@ -22,6 +22,7 @@ def get_allowed_origins() -> list[str]:
         "https://lacunex.vercel.app",
         "https://lacunex-ai.vercel.app",
         "http://localhost",
+        "https://localhost",
         "capacitor://localhost",
     }
 
