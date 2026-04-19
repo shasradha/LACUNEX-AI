@@ -8696,28 +8696,36 @@ html, body {
 }
 
 
+
+
+
+
 /* Mobile Fixes for UI */
 @media (max-width: 768px) {
-  /* Remove New Workspace bar */
-  .sb-new-section {
-    display: none !important;
-  }
-  
-  /* Fix z-index for AI model drop menu */
+  /* Fix z-index and positioning for AI model drop menu */
   .composer-toolbar {
     z-index: 99 !important;
   }
   .model-library-container {
-    z-index: 9999 !important;
-    position: relative !important;
+    position: static !important;
   }
   .model-library-menu {
-    z-index: 99999 !important;
+    position: fixed !important;
+    bottom: max(env(safe-area-inset-bottom, 0px) + 85px, 85px) !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    width: calc(100vw - 2rem) !important;
+    z-index: 999999 !important;
+    transform: none !important;
   }
   
   /* Fix Sidebar overlapping status bar in Capacitor */
   .sb-inner {
     padding-top: max(env(safe-area-inset-top), 20px) !important;
   }
+  
+  /* Fix Code Studio overlapping status bar in Capacitor */
+  .cs-root {
+    padding-top: max(env(safe-area-inset-top), 20px) !important;
+  }
 }
-
