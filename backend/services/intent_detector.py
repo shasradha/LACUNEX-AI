@@ -75,20 +75,39 @@ CORRECTION_MAP = {
     # Greetings
     'helo': 'hello', 'hii': 'hi', 'heloo': 'hello',
     'hye': 'hey', 'hwllo': 'hello', 'hlw': 'hello',
+    'helllo': 'hello', 'hllo': 'hello', 'helo': 'hello',
     # Common requests
-    'explan': 'explain', 'explian': 'explain',
-    'crate': 'create', 'mak': 'make', 'maek': 'make',
-    'writ': 'write', 'wrte': 'write', 'wriet': 'write',
-    'cod': 'code', 'cpde': 'code', 'coed': 'code',
-    'websit': 'website', 'wesite': 'website',
-    'progarm': 'program', 'programm': 'program',
-    'algorythm': 'algorithm', 'algoritm': 'algorithm',
-    'machien': 'machine', 'machin': 'machine',
-    'enginer': 'engineer', 'engneer': 'engineer',
-    'quantom': 'quantum', 'quntum': 'quantum',
-    'phyics': 'physics', 'physic': 'physics',
-    'mathamatics': 'mathematics', 'maths': 'mathematics',
-    'chemestry': 'chemistry', 'chemisty': 'chemistry',
+    'explan': 'explain', 'explian': 'explain', 'explane': 'explain',
+    'expain': 'explain', 'explantion': 'explanation',
+    'crate': 'create', 'mak': 'make', 'maek': 'make', 'creat': 'create',
+    'writ': 'write', 'wrte': 'write', 'wriet': 'write', 'wirte': 'write',
+    'cod': 'code', 'cpde': 'code', 'coed': 'code', 'codd': 'code',
+    'websit': 'website', 'wesite': 'website', 'webiste': 'website',
+    'progarm': 'program', 'programm': 'program', 'prgram': 'program',
+    'algorythm': 'algorithm', 'algoritm': 'algorithm', 'algo': 'algorithm',
+    'machien': 'machine', 'machin': 'machine', 'mechine': 'machine',
+    'enginer': 'engineer', 'engneer': 'engineer', 'enginear': 'engineer',
+    'quantom': 'quantum', 'quntum': 'quantum', 'quantam': 'quantum',
+    'phyics': 'physics', 'physic': 'physics', 'physcis': 'physics',
+    'mathamatics': 'mathematics', 'maths': 'mathematics', 'mathematic': 'mathematics',
+    'chemestry': 'chemistry', 'chemisty': 'chemistry', 'chemstry': 'chemistry',
+    # More academic typos
+    'biolgy': 'biology', 'bioligy': 'biology', 'histroy': 'history',
+    'geograpy': 'geography', 'grammer': 'grammar', 'gramer': 'grammar',
+    'speling': 'spelling', 'spellings': 'spelling', 'vocablary': 'vocabulary',
+    'vocubulary': 'vocabulary', 'languag': 'language', 'languge': 'language',
+    'sentance': 'sentence', 'paragrph': 'paragraph', 'definiton': 'definition',
+    'diferent': 'different', 'diffrent': 'different', 'importent': 'important',
+    'tecnology': 'technology', 'techology': 'technology',
+    'artifical': 'artificial', 'artifial': 'artificial',
+    'inteligence': 'intelligence', 'inteligent': 'intelligent',
+    'calculat': 'calculate', 'calulate': 'calculate',
+    'problm': 'problem', 'probelm': 'problem', 'prolbem': 'problem',
+    'questin': 'question', 'queston': 'question', 'qustion': 'question',
+    'anser': 'answer', 'anwer': 'answer', 'awser': 'answer',
+    'reserch': 'research', 'reasearch': 'research',
+    'analsis': 'analysis', 'anaylsis': 'analysis',
+    'summry': 'summary', 'sumarry': 'summary', 'sumary': 'summary',
     # Hinglish patterns
     'bana': 'make/create', 'banao': 'make/create',
     'dikhao': 'show me', 'batao': 'tell me/explain',
@@ -104,6 +123,11 @@ CORRECTION_MAP = {
     'hw': 'how', 'wht': 'what', 'ur': 'your',
     'u': 'you', 'r': 'are', 'n': 'and', 'b4': 'before',
     'asap': 'as soon as possible', 'imo': 'in my opinion',
+    'abt': 'about', 'bcz': 'because', 'bcoz': 'because',
+    'msg': 'message', 'pic': 'picture', 'pics': 'pictures',
+    'thx': 'thanks', 'ty': 'thank you', 'gm': 'good morning',
+    'gn': 'good night', 'rn': 'right now', 'nvm': 'never mind',
+    'idk': 'I do not know', 'ik': 'I know', 'smth': 'something',
 }
 
 # ── Indian Language Discriminator (CRITICAL — Hindi ≠ Bengali) ─────
@@ -292,6 +316,21 @@ CASUAL_PATTERNS = {
         'lacunex mobile app', 'mobile version of lacunex',
         'is there an app', 'do you have an app', 'android app',
         'download the app', 'install the app', 'get the app',
+        'how to download', 'where to download', 'apk download',
+        'how can i install', 'how do i install', 'app install',
+    ],
+    'language_learning': [
+        'word coach', 'teach me english', 'learn english',
+        'learn grammar', 'grammar practice', 'spelling practice',
+        'learn language', 'duolingo', 'vocabulary', 'word meaning',
+        'help me with grammar', 'teach me vocabulary', 'english words',
+        'improve my english', 'learn hindi', 'learn bengali',
+        'learn spanish', 'learn french', 'language learning',
+        'teach me words', 'word quiz', 'grammar quiz',
+        'spelling test', 'vocabulary test', 'grammar test',
+        'english practice', 'correct my grammar', 'fix my grammar',
+        'pronunciation', 'how to pronounce', 'word of the day',
+        'english teacher', 'language tutor', 'teach me language',
     ],
     'language_confusion': [
         'i dont understand', 'i do not understand', 'can you speak in',
@@ -695,14 +734,32 @@ def get_system_prompt_injection(intent: Intent) -> str:
             "The user is asking about the LACUNEX mobile app. Respond with enthusiasm! "
             "Tell them: 'Yes! LACUNEX AI has an official Android app! 📲\n\n"
             "**How to install:**\n"
-            "1. Go to the LACUNEX GitHub repository — you can find the link in the footer of the website (click the LACUNEX GITHUB link)\n"
-            "2. Or visit directly: https://github.com/shasradha/LACUNEX-AI\n"
-            "3. Click on **Packages** in the repository\n"
-            "4. Download the `.apk` file\n"
-            "5. Install it on your Android phone\n\n"
-            "The app includes all features: AI chat, Code Studio, Lacunex Flow, and more — "
-            "optimized for mobile with haptic feedback, smooth animations, and native performance!'"
+            "1. Scroll down to the **footer** of this website — you will see a clickable link that says **LACUNEX GITHUB** \n"
+            "2. Click on it — it will take you to: https://github.com/shasradha/LACUNEX-AI\n"
+            "3. Go to the **Releases** section in the repository\n"
+            "4. Download the latest `.apk` file from there\n"
+            "5. Open the `.apk` file on your Android phone and install it\n\n"
+            "The app includes all features: AI chat, Code Studio, web search, reasoning mode, "
+            "file exports, and more — optimized for mobile with native performance, haptic feedback, "
+            "and smooth animations!'"
             " Do NOT search the web. Just provide the installation instructions directly."
+        )
+    elif intent.primary == 'casual_chat' and intent.sub_intent == 'language_learning':
+        injections.append(
+            "The user wants to LEARN A LANGUAGE — activate LACUNEX WORD COACH mode! "
+            "You are now a professional language tutor like Duolingo. Follow these rules:\n"
+            "1. Detect the user's native language from context (use language_hint).\n"
+            "2. Start by asking what language they want to learn and their current level (beginner/intermediate/advanced).\n"
+            "3. Teach using their NATIVE language as a bridge — translate examples into their language.\n"
+            "4. Present vocabulary in a structured format:\n"
+            "   📝 **Word**: [word] | **Meaning**: [meaning] | **Example**: [sentence] | **Translation**: [in native language]\n"
+            "5. Include pronunciation tips in brackets: [pronounced: ...]\n"
+            "6. Give fill-in-the-blank exercises inline.\n"
+            "7. At the END, generate an interactive quiz using the <lacunex-quiz> format with 5-8 vocabulary/grammar MCQs.\n"
+            "8. Be encouraging, patient, and use emojis to make it fun! 🎯\n"
+            "9. If teaching grammar, explain rules simply with examples, then quiz.\n"
+            "10. Track difficulty — start easy, get harder as they succeed.\n"
+            "Make the user feel like they are using a premium language learning app!"
         )
     elif intent.primary == 'casual_chat' and intent.sub_intent == 'greeting':
         injections.append(
@@ -839,10 +896,13 @@ def should_auto_search(message: str, intent: Intent) -> tuple[bool, str]:
     # SPORTS (IPL, FIFA, cricket, football, NBA, etc.)
     sports_patterns = [
         r'(ipl|cricket|match|score|result|winner|won|lost|played)',
-        r'(football|fifa|premier league|champions league|serie a)',
-        r'(nba|nfl|tennis|wimbledon|grand slam)',
+        r'(football|fifa|premier league|champions league|serie a|la liga|bundesliga)',
+        r'(nba|nfl|tennis|wimbledon|grand slam|f1|formula)',
         r'(today.*match|yesterday.*match|match.*today|match.*yesterday)',
-        r'(who won|what was the score|result of)',
+        r'(who won|what was the score|result of|man of the match)',
+        r'(live|playing|streaming|schedule|standings|ranking|fixtures)',
+        r'(team|player|captain|coach|points table|leaderboard)',
+        r'(orange cap|purple cap|run rate|wicket|goal|assist)',
     ]
     for pattern in sports_patterns:
         if re.search(pattern, msg):

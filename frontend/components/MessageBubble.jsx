@@ -319,6 +319,10 @@ const MessageBubble = memo(({ message, onOpenArtifact, onSendFollowUp, onOpenCod
           ],
           throwOnError: false,
           errorColor: '#ff6b6b',
+          strict: false,
+          trust: true,
+          maxSize: 500,
+          maxExpand: 1000,
         });
       } catch (e) {
         // KaTeX may not be loaded yet, ignore

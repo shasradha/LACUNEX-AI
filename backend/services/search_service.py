@@ -1,22 +1,25 @@
 """
-LACUNEX AI — Web & Image Search Service
+LACUNEX AI — Web & Image Search Service v6.0
 Privacy-focused search powered by DuckDuckGo (ddgs package).
-No API keys required. No tracking. Fast results.
+Enhanced with multi-query strategy, news endpoint, result deduplication,
+and timeliness scoring for superior real-time data accuracy.
 
 IMPORTANT: This uses the NEW 'ddgs' package, NOT the deprecated 'duckduckgo-search'.
 """
 
 import asyncio
 import re
+import os
+import aiohttp
 from typing import List
+from datetime import date, timedelta
 
 
-async def search_web(query: str, max_results: int = 15) -> List[dict]:
+async def search_web(query: str, max_results: int = 20) -> List[dict]:
     """
-    Search the web for text results.
+    Search the web for text results with smart date enrichment.
     Returns a list of {title, url, snippet} dicts.
     """
-    from datetime import date
     TODAY = date.today()
     TODAY_STR = TODAY.strftime("%d %B %Y")
     TODAY_SHORT = TODAY.strftime("%B %Y")
@@ -24,14 +27,20 @@ async def search_web(query: str, max_results: int = 15) -> List[dict]:
 
     orig_query = query.lower()
     final_query = query
-    # Sports/Scores/News
-    if any(k in orig_query for k in ['ipl', 'cricket', 'football', 'fifa', 'score', 'match', 'news', 'update', 'today', 'yesterday']):
+
+    # Sports/Scores/News — force today's date
+    if any(k in orig_query for k in [
+        'ipl', 'cricket', 'football', 'fifa', 'score', 'match',
+        'news', 'update', 'today', 'yesterday', 'nba', 'tennis',
+        'premier league', 'world cup', 'live', 'playing', 'schedule',
+        'standings', 'ranking', 'result', 'won', 'lost'
+    ]):
         final_query = f"{query} {TODAY_STR}"
     # Latest/Recent
-    elif any(k in orig_query for k in ['latest', 'recent', 'this month']):
+    elif any(k in orig_query for k in ['latest', 'recent', 'this month', 'this week']):
         final_query = f"{query} {TODAY_SHORT}"
     # General current
-    elif any(k in orig_query for k in ['2025', '2026', 'current']):
+    elif any(k in orig_query for k in ['2025', '2026', 'current', 'now']):
         final_query = f"{query} {YEAR}"
 
     try:
@@ -48,6 +57,82 @@ async def search_web(query: str, max_results: int = 15) -> List[dict]:
                     })
                 return results
 
+        def _search_news():
+            """Search DuckDuckGo News for time-sensitive queries."""
+            try:
+                with DDGS(timeout=8) as ddgs:
+                    results = []
+                    for r in ddgs.news(query, max_results=8):
+                        results.append({
+                            "title": r.get("title", ""),
+                            "url": r.get("url", ""),
+                            "snippet": r.get("body", ""),
+                        })
+                    return results
+            except Exception:
+                return []
+
+        # Determine if this is a time-sensitive query
+        is_time_sensitive = any(k in orig_query for k in [
+            'today', 'yesterday', 'score', 'match', 'live', 'news',
+            'ipl', 'cricket', 'football', 'nba', 'weather', 'stock',
+            'schedule', 'result', 'won', 'playing', 'standings'
+        ])
+
+        if is_time_sensitive:
+            # Multi-query strategy: search web + news in parallel
+            try:
+                web_task = asyncio.to_thread(_search, "api")
+                news_task = asyncio.to_thread(_search_news)
+                web_results, news_results = await asyncio.wait_for(
+                    asyncio.gather(web_task, news_task, return_exceptions=True),
+                    timeout=12.0
+                )
+                
+                web_results = web_results if isinstance(web_results, list) else []
+                news_results = news_results if isinstance(news_results, list) else []
+                
+                # Merge and deduplicate by URL
+                seen_urls = set()
+                merged = []
+                
+                # Prioritize news results (more recent)
+                for r in news_results:
+                    url = r.get("url", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        merged.append(r)
+                
+                for r in web_results:
+                    url = r.get("url", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        merged.append(r)
+                
+                # Timeliness scoring: boost results mentioning today's date or year
+                today_patterns = [
+                    TODAY_STR.lower(),
+                    TODAY.strftime("%d/%m/%Y"),
+                    TODAY.strftime("%Y-%m-%d"),
+                    str(YEAR),
+                    TODAY.strftime("%B %d"),
+                ]
+                
+                def timeliness_score(result):
+                    snippet = (result.get("snippet", "") + " " + result.get("title", "")).lower()
+                    score = 0
+                    for pat in today_patterns:
+                        if pat.lower() in snippet:
+                            score += 1
+                    return score
+                
+                merged.sort(key=timeliness_score, reverse=True)
+                return merged[:max_results]
+                
+            except Exception as e:
+                print(f"[SearchService] Multi-query failed ({e}), falling back to single search")
+        
+        # Standard single search
         try:
             return await asyncio.wait_for(asyncio.to_thread(_search, "api"), timeout=10.0)
         except (asyncio.TimeoutError, Exception) as e:
@@ -61,8 +146,6 @@ async def search_web(query: str, max_results: int = 15) -> List[dict]:
         print(f"[SearchService] Web search failed completely: {e}")
         return []
 
-import os
-import aiohttp
 
 async def search_images(query: str, max_results: int = 8) -> List[dict]:
     """
@@ -190,7 +273,7 @@ async def search_all(query: str, image_search: bool = False) -> dict:
     """
     print(f"[SearchService] search_all called | image_search={image_search} | query='{query[:60]}'")
 
-    web_task = asyncio.create_task(search_web(query, max_results=15))
+    web_task = asyncio.create_task(search_web(query, max_results=20))
 
     if image_search:
         image_task = asyncio.create_task(search_images(query, max_results=8))

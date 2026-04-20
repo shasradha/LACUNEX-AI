@@ -650,28 +650,37 @@ export default function Sidebar({
       {showMobileFlowAlert && (
         <div className="mobile-flow-alert-overlay" style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0, 
-          background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)",
+          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          zIndex: 99999, padding: "20px"
+          zIndex: 99999, padding: "20px",
+          animation: "modalOverlayIn 0.3s ease"
         }}>
-          <div className="glass-panel" style={{
-            background: "#111827", borderRadius: "16px", padding: "24px",
-            textAlign: "center", maxWidth: "400px", width: "100%",
-            border: "1px solid rgba(255,255,255,0.1)",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)"
-          }}>
-            <IconWarning />
-            <h2 style={{fontSize: "1.25rem", fontWeight: "600", marginBottom: "12px", color: "white"}}>Desktop Required</h2>
-            <p style={{color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "24px"}}>
-              Lacunex Flow cannot be opened on mobile devices because it is not properly usable. Kindly use a desktop computer for optimal experience.
+          <div className="mobile-flow-modal">
+            <div className="mobile-flow-modal-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+                <path d="M6 8h.01M9 8h.01" />
+                <path d="M6 12h12" />
+              </svg>
+            </div>
+            <h2>Desktop Experience Only</h2>
+            <p>
+              Lacunex Flow is a powerful visual node-based AI pipeline builder designed for 
+              large-screen precision. Drag-and-drop canvas interactions require a desktop browser 
+              for the best experience.
             </p>
             <button 
-              className="btn btn-primary" 
-              style={{width: "100%", padding: "12px", borderRadius: "8px", fontWeight: "600", fontSize: "1rem"}}
+              className="mobile-flow-modal-btn"
               onClick={() => setShowMobileFlowAlert(false)}
             >
-              Got It
+              ✨ Got It
             </button>
+            <div className="mobile-flow-modal-hint">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Switch to desktop for the full Flow canvas
+            </div>
           </div>
         </div>
       )}

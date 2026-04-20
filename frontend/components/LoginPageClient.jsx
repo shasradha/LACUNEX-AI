@@ -332,8 +332,9 @@ export default function LoginPageClient() {
           target="_blank"
           rel="noopener noreferrer"
           className="copyright-link"
-          style={{ color: "var(--accent-primary)" }}
+          style={{ color: "var(--accent-primary)", display: "inline-flex", alignItems: "center", gap: "4px" }}
         >
+          <IconGithub />
           LACUNEX GITHUB
         </a>
       </footer>
