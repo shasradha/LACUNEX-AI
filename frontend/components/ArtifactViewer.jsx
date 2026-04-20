@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { downloadBlob } from "@/lib/download";
 
 // Lazy load SyntaxHighlighter - it's heavy and causes freezing on mobile
 const SyntaxHighlighter = dynamic(
@@ -120,16 +121,9 @@ function detectLanguage(filename) {
   return "html";
 }
 
-function downloadFile(content, filename) {
+async function downloadFile(content, filename) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  await downloadBlob(blob, filename);
 }
 
 /* ── Component ───────────────────────────────────── */

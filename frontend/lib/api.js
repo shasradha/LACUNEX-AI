@@ -1,4 +1,5 @@
 import { clearAuth, getToken } from "./auth";
+import { downloadBlob } from "./download";
 
 // Production backend URL for the Capacitor Android app
 const PRODUCTION_API_URL = "https://lacunex-ai.onrender.com";
@@ -447,14 +448,7 @@ export async function exportConversation(title, messages, format = "pdf", modelN
   const match = disposition.match(/filename="?([^"]+)"?/);
   const filename = match ? match[1] : `lacunex-export.${format}`;
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  await downloadBlob(blob, filename);
 }
 
 // ── Document Intelligence Exports ─────────────────────────────────────────
@@ -480,14 +474,7 @@ export async function exportDocument(docJson, theme = "professional", format = "
   const match = disposition.match(/filename="?([^"]+)"?/);
   const filename = match ? match[1] : `lacunex-document.${format}`;
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  await downloadBlob(blob, filename);
 }
 
 export async function exportDocumentAll(docJson, theme = "professional") {
@@ -511,14 +498,7 @@ export async function exportDocumentAll(docJson, theme = "professional") {
   const match = disposition.match(/filename="?([^"]+)"?/);
   const filename = match ? match[1] : "lacunex-document_all.zip";
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  await downloadBlob(blob, filename);
 }
 
 export async function getSuggestions(messageContent) {

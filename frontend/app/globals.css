@@ -8688,12 +8688,7 @@ html, body {
 }
 
 /* ── Ultra-wide aspect ratios (21:9+) ── */
-@media (min-aspect-ratio: 21/9) and (max-width: 768px) {
-  .main-content {
-    padding-top: 52px !important;
-    padding-bottom: 60px !important;
-  }
-}
+/* Ultra-wide rule removed: rogue padding-top:52px was shifting workspace header */
 
 
 

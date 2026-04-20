@@ -6,6 +6,7 @@ import LanguageSelector from './LanguageSelector'
 import SnippetManager from './SnippetManager'
 import { LANGUAGES, getLanguageByMonaco } from '@/lib/languages'
 import { executeCode } from '@/lib/api'
+import { downloadBlob } from '@/lib/download'
 
 const MonacoEditorPanel = dynamic(() => import('./MonacoEditor'), {
   ssr: false,
@@ -217,14 +218,9 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
     setTimeout(() => setCopied(false), 2000)
   }, [code])
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     const blob = new Blob([code], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `code.${language.extension}`
-    a.click()
-    URL.revokeObjectURL(url)
+    await downloadBlob(blob, `code.${language.extension}`)
   }, [code, language])
 
   // Detect stdin needs
