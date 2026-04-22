@@ -29,7 +29,7 @@ LACUNEX AI is **not** another ChatGPT wrapper. It is **not** a thin API proxy wi
 Built across **30 consecutive days** of intense, round-the-clock development by a single teenage developer, LACUNEX represents what happens when raw talent meets obsessive engineering. Every pixel, every API route, every state machine, every fallback cascade — hand-crafted by one person.
 
 **The scale of this project:**
-- **~50,000+ lines of code** across frontend and backend
+- **~41,100+ lines of code** across frontend and backend
 - **18+ React components**, each production-grade with full state management
 - **14+ backend services** with async concurrency, SSE streaming, and fault tolerance
 - **11 API route modules** handling auth, chat, export, flow, history, code execution, and more
@@ -426,6 +426,7 @@ LACUNEX features a sophisticated multi-format export pipeline:
 | 💡 | **Fact-Check Badges** | «verified» and «approx» badges on factual claims |
 | 🔄 | **Keep-Alive Pings** | Prevents server cold starts on free hosting tiers |
 | 📲 | **Android Native App** | Full Capacitor-powered Android APK with native features |
+| ☁️ | **Cross-Device Sync** | Real-time workspace synchronization and E2EE decryption across devices |
 
 ---
 
@@ -691,8 +692,9 @@ LACUNEX AI/
 | **Week 2** | Multi-provider engine, key rotation, intent detection v1, web search integration, image support |
 | **Week 3** | MAX OUTPUT engine, Code Studio, export pipeline (PDF/DOCX/XLSX), artifact viewer, Lacunex Flow |
 | **Week 4** | UI polish (8,000+ lines CSS), thinking mode, memory system, linguistic intelligence v5, deployment |
+| **Week 5** | Mobile/Capacitor optimization, AI workspace auto-naming, robust cross-device E2EE sync, iframe live previews |
 
-**Total development time:** 30 days
+**Total development time:** 35 days
 **Total developer count:** 1
 **Developer age:** 15 years old
 
@@ -721,6 +723,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 **[Shasradha Karmakar](https://github.com/shasradha)**
 - 🎂 Age: 15 years old
 - 📍 Location: Asansol, West Bengal, India
+- 🔗 ORCID: [0009-0004-0597-9841](https://orcid.org/0009-0004-0597-9841)
 - 🔐 Cybersecurity: TryHackMe Top 1% globally (#670 / 7M+ users), India Rank #120
 - 🏅 Certifications: Microsoft, Google, IBM, AWS, Cisco, NVIDIA
 - 🌐 Portfolio: [shasradha.github.io](https://shasradha.github.io/)
