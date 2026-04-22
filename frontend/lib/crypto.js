@@ -1,8 +1,11 @@
 /**
  * LACUNEX AI — E2EE Crypto Module
  * AES-256-GCM encryption via Web Crypto API.
- * Keys generated per-user, stored in IndexedDB — NEVER sent to server.
+ * Keys are deterministically derived from the user's session for cross-device sync.
+ * Legacy random keys are kept as fallback for old messages.
  */
+
+import { getUser } from './auth';
 
 const DB_NAME = "lacunex_e2ee";
 const STORE_NAME = "keys";
@@ -16,7 +19,7 @@ function openKeyDB() {
   });
 }
 
-export async function getOrCreateKey() {
+export async function getLegacyRandomKey() {
   const db = await openKeyDB();
   const stored = await new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
@@ -28,22 +31,40 @@ export async function getOrCreateKey() {
   if (stored) {
     return crypto.subtle.importKey("jwk", stored, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
   }
+  return null;
+}
 
-  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
-  const jwk = await crypto.subtle.exportKey("jwk", key);
+let cachedDerivedKey = null;
 
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    tx.objectStore(STORE_NAME).put(jwk, "master_key");
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+export async function getDerivedKey() {
+  if (cachedDerivedKey) return cachedDerivedKey;
+  
+  const user = getUser();
+  if (!user || !user.id) {
+    // If no user context, fallback to legacy creation logic or throw
+    // For now, throw because we need user context for cross-device keys.
+    throw new Error("Cannot derive E2E key: No user session found.");
+  }
 
-  return key;
+  // Use a stable, high-entropy string derived from the user's immutable fields
+  const seedString = `${user.id}::${user.email}::LACUNEX_E2EE_MASTER_SALT_V2`;
+  
+  const encoded = new TextEncoder().encode(seedString);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+  
+  cachedDerivedKey = await crypto.subtle.importKey(
+    "raw",
+    hashBuffer,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt", "decrypt"]
+  );
+  
+  return cachedDerivedKey;
 }
 
 export async function encryptMessage(plaintext) {
-  const key = await getOrCreateKey();
+  const key = await getDerivedKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext);
   const cipherBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
@@ -55,11 +76,28 @@ export async function encryptMessage(plaintext) {
 }
 
 export async function decryptMessage(encryptedContent, ivBase64) {
-  const key = await getOrCreateKey();
   const cipherBuffer = base64ToBuffer(encryptedContent);
   const iv = base64ToBuffer(ivBase64);
-  const plainBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipherBuffer);
-  return new TextDecoder().decode(plainBuffer);
+  
+  try {
+    // 1. Try the cross-device derived key first
+    const key = await getDerivedKey();
+    const plainBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipherBuffer);
+    return new TextDecoder().decode(plainBuffer);
+  } catch (e) {
+    // 2. If it fails, fallback to the legacy local random key (for older messages)
+    try {
+      const legacyKey = await getLegacyRandomKey();
+      if (legacyKey) {
+        const plainBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, legacyKey, cipherBuffer);
+        return new TextDecoder().decode(plainBuffer);
+      }
+    } catch (legacyErr) {
+      console.warn("E2EE: Failed to decrypt with legacy key as well.");
+    }
+    
+    throw new Error("This message could not be decrypted in the current browser session. It was encrypted on a different device.");
+  }
 }
 
 function bufferToBase64(buffer) {

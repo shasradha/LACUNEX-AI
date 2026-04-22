@@ -8714,9 +8714,10 @@ html, body {
     transform: none !important;
   }
   
-  /* Fix Sidebar overlapping status bar in Capacitor */
+  /* Fix Sidebar overlapping status bar and navigation gestures in Capacitor */
   .sb-inner {
     padding-top: max(env(safe-area-inset-top), 20px) !important;
+    padding-bottom: max(env(safe-area-inset-bottom), 30px) !important;
   }
   
   /* Fix Code Studio overlapping status bar in Capacitor */
@@ -8831,11 +8832,11 @@ html, body {
 
 /* ── Points 1, 3, 4, 15: Mobile Master Fixes ─────────────────────── */
 @media (max-width: 768px) {
-  /* Point 1: Prevent Copy/Share from colliding with model selector */
-  .message-list { padding-bottom: 70px !important; }
-  .msg-actions { position: relative !important; z-index: 1 !important; }
-  .composer-toolbar { position: relative; z-index: 100 !important; }
-  .confidence-pill { position: relative !important; z-index: 1 !important; margin-bottom: 6px !important; }
+  /* Point 1 & 2: Prevent Copy/Share from colliding with model selector */
+  .message-list { padding-bottom: 160px !important; }
+  .msg-actions { position: relative !important; z-index: 10 !important; }
+  .composer-toolbar { position: relative; z-index: 90 !important; }
+  .confidence-pill { position: relative !important; z-index: 10 !important; margin-bottom: 6px !important; }
 
   /* Point 3: Code Studio toolbar — icons-only on mobile */
   .cs-toolbar {
