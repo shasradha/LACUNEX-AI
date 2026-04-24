@@ -451,34 +451,34 @@ The Android app isn't a PWA wrapped in a WebView. It's a **true hybrid native ap
 
 ### Architecture
 
-```
+```text
 ┌──────────────────────────────────┐
-│     Android Native Shell          │
-│     (Capacitor + WebView)         │
+│       Android Native Shell       │
+│      (Capacitor + WebView)       │
 ├──────────────────────────────────┤
-│  Server: androidScheme: 'https'   │
-│  → Enables HTTPS API calls        │
-│  → No mixed-content blocking      │
+│ Server: androidScheme: 'https'   │
+│ -> Enables HTTPS API calls       │
+│ -> No mixed-content blocking     │
 ├──────────────────────────────────┤
-│  Next.js Static Export (out/)     │
-│  → All pages pre-rendered         │
-│  → Zero server dependency         │
+│ Next.js Static Export (out/)     │
+│ -> All pages pre-rendered        │
+│ -> Zero server dependency        │
 ├──────────────────────────────────┤
-│  Native Plugins:                  │
-│  • @capacitor/splash-screen       │
-│  • @capacitor/keyboard            │
-│  • @capacitor/network             │
-│  • @capacitor/haptics             │
-│  • @capacitor/status-bar          │
-│  • @capacitor/app                 │
+│ Native Plugins:                  │
+│ * @capacitor/splash-screen       │
+│ * @capacitor/keyboard            │
+│ * @capacitor/network             │
+│ * @capacitor/haptics             │
+│ * @capacitor/status-bar          │
+│ * @capacitor/app                 │
 └──────────────────────────────────┘
-         │
-         ▼
+                 │
+                 ▼
 ┌──────────────────────────────────┐
-│  Render Backend (Production)      │
-│  https://lacunex-ai.onrender.com  │
-│  CORS: http://localhost,          │
-│        capacitor://localhost      │
+│ Render Backend (Production)      │
+│ https://lacunex-ai.onrender.com  │
+│ CORS: http://localhost,          │
+│       capacitor://localhost      │
 └──────────────────────────────────┘
 ```
 
