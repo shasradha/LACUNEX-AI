@@ -17,6 +17,8 @@ Fully architected, designed, and deployed in just **30 days** by a **solo 15-yea
 [![Languages](https://img.shields.io/badge/Code%20Execution-50%2B%20Languages-06b6d4.svg)]()
 [![Frontend](https://img.shields.io/badge/Frontend-Next.js%2014-black.svg)]()
 [![Backend](https://img.shields.io/badge/Backend-FastAPI%20%2B%20Python-009688.svg)]()
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19696711.svg)](https://doi.org/10.5281/zenodo.19696711)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19729554.svg)](https://doi.org/10.5281/zenodo.19729554)
 
 </div>
 
@@ -715,6 +717,22 @@ LACUNEX AI is open source under the MIT license. Contributions are welcome!
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 📄 Citation
+
+If you use LACUNEX AI in your research, please cite:
+
+**Software:**
+Shasradha Karmakar (2026). LACUNEX AI (v1.0.0). Zenodo.
+https://doi.org/10.5281/zenodo.19696711
+
+**Research Paper:**
+Shasradha Karmakar (2026). LACUNEX AI: A Fault-Tolerant Multi-Provider 
+LLM Routing Architecture with Culturally-Aware Intent Classification 
+for Zero-Cost AI Deployment. Zenodo.
+https://doi.org/10.5281/zenodo.19729554
 
 ---
 
