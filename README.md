@@ -17,8 +17,8 @@ Fully architected, designed, and deployed in just **30 days** by a **solo 15-yea
 [![Languages](https://img.shields.io/badge/Code%20Execution-50%2B%20Languages-06b6d4.svg)]()
 [![Frontend](https://img.shields.io/badge/Frontend-Next.js%2014-black.svg)]()
 [![Backend](https://img.shields.io/badge/Backend-FastAPI%20%2B%20Python-009688.svg)]()
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19696711.svg)](https://doi.org/10.5281/zenodo.19696711)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19729554.svg)](https://doi.org/10.5281/zenodo.19729554)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19696711-blue.svg)](https://doi.org/10.5281/zenodo.19696711)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19729554-blue.svg)](https://doi.org/10.5281/zenodo.19729554)
 
 </div>
 
