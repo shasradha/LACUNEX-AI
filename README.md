@@ -42,34 +42,34 @@ Built across **30 consecutive days** of intense, round-the-clock development by 
 
 ## 🏗️ Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        LACUNEX AI — System Architecture              │
+│                   LACUNEX AI - System Architecture                  │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
+│                                                                     │
 │   ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐  │
-│   │   Next.js 14  │    │   FastAPI     │    │   AI Provider Pool   │  │
-│   │   Frontend    │◄──►│   Backend     │◄──►│                      │  │
-│   │              │    │              │    │  Cerebras (3 keys)    │  │
-│   │  • ChatBox   │    │  • SSE Stream│    │  Groq (3 keys)       │  │
-│   │  • Sidebar   │    │  • Intent    │    │  Gemini (16 keys)    │  │
-│   │  • CodeStudio│    │  • Router    │    │  SambaNova (3 keys)  │  │
-│   │  • Flow      │    │  • Memory    │    │  OpenRouter (3 keys) │  │
-│   │  • Artifacts │    │  • Search    │    │                      │  │
-│   │  • DocPreview│    │  • Export    │    │  Total: 28 API Keys  │  │
+│   │  Next.js 14  │    │   FastAPI    │    │   AI Provider Pool   │  │
+│   │  Frontend    │◄──►│   Backend    │◄──►│                      │  │
+│   │              │    │              │    │  Cerebras (3 keys)   │  │
+│   │ • ChatBox    │    │ • SSE Stream │    │  Groq (3 keys)       │  │
+│   │ • Sidebar    │    │ • Intent     │    │  Gemini (16 keys)    │  │
+│   │ • CodeStudio │    │ • Router     │    │  SambaNova (3 keys)  │  │
+│   │ • Flow       │    │ • Memory     │    │  OpenRouter (3 keys) │  │
+│   │ • Artifacts  │    │ • Search     │    │                      │  │
+│   │ • DocPreview │    │ • Export     │    │  Total: 28 API Keys  │  │
 │   └──────────────┘    └──────────────┘    └──────────────────────┘  │
-│                                                                      │
+│                                                                     │
 │   ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐  │
-│   │  SQLite/     │    │  Code        │    │  Web Intelligence    │  │
-│   │  PostgreSQL  │    │  Executor    │    │                      │  │
-│   │  Database    │    │  (50+ langs) │    │  • Live Search       │  │
-│   │              │    │              │    │  • URL Scraping      │  │
-│   │  • Users     │    │  • Python    │    │  • News Injection    │  │
-│   │  • Convos    │    │  • Java      │    │  • Score Tracking    │  │
-│   │  • Messages  │    │  • C/C++     │    │  • Stock Prices      │  │
-│   │  • E2EE      │    │  • Go/Rust   │    │  • Trend Analysis    │  │
+│   │ SQLite/      │    │ Code         │    │ Web Intelligence     │  │
+│   │ PostgreSQL   │    │ Executor     │    │                      │  │
+│   │ Database     │    │ (50+ langs)  │    │ • Live Search        │  │
+│   │              │    │              │    │ • URL Scraping       │  │
+│   │ • Users      │    │ • Python     │    │ • News Injection     │  │
+│   │ • Convos     │    │ • Java       │    │ • Score Tracking     │  │
+│   │ • Messages   │    │ • C/C++      │    │ • Stock Prices       │  │
+│   │ • E2EE       │    │ • Go/Rust    │    │ • Trend Analysis     │  │
 │   └──────────────┘    └──────────────┘    └──────────────────────┘  │
-│                                                                      │
+│                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -93,36 +93,36 @@ The heart of LACUNEX is a **fault-tolerant, auto-rotating distribution engine** 
 
 ### How the Waterfall Works
 
-```
+```text
 User sends message
-    │
-    ▼
-┌─ Cerebras (3 keys × 2 models = 6 attempts) ─┐
-│  Key 0 → Try qwen-3-235b → ✅ Success → DONE │
-│  Key 0 → 429 Rate Limited → rotate           │
-│  Key 1 → Try qwen-3-235b → ✅ Success → DONE │
-│  Key 1 → 429 → rotate to Key 2               │
-│  Key 2 → 429 → try fallback model llama3.1-8b│
-│  All keys exhausted → escalate ↓              │
-└───────────────────────────────────────────────┘
-    │
-    ▼
-┌─ Groq (3 keys) ──────────────────────────────┐
-│  Same rotation pattern...                     │
-│  All keys exhausted → escalate ↓              │
-└───────────────────────────────────────────────┘
-    │
-    ▼
-┌─ Gemini (16 keys!) ──────────────────────────┐
-│  16 independent keys provide massive          │
-│  throughput buffer before exhaustion           │
-└───────────────────────────────────────────────┘
-    │
-    ▼
-┌─ SambaNova → OpenRouter (6+ free models) ────┐
-│  Final fallback layer with multiple models    │
-│  per key for maximum resilience               │
-└───────────────────────────────────────────────┘
+       │
+       ▼
+┌── Cerebras (3 keys × 2 models = 6 attempts) ─┐
+│ Key 0 → Try qwen-3-235b → [OK] Success → DONE│
+│ Key 0 → 429 Rate Limited → rotate            │
+│ Key 1 → Try qwen-3-235b → [OK] Success → DONE│
+│ Key 1 → 429 → rotate to Key 2                │
+│ Key 2 → 429 → try fallback model llama3.1-8b │
+│ All keys exhausted → escalate ↓              │
+└──────────────────────────────────────────────┘
+       │
+       ▼
+┌── Groq (3 keys) ─────────────────────────────┐
+│ Same rotation pattern...                     │
+│ All keys exhausted → escalate ↓              │
+└──────────────────────────────────────────────┘
+       │
+       ▼
+┌── Gemini (16 keys!) ─────────────────────────┐
+│ 16 independent keys provide massive          │
+│ throughput buffer before exhaustion          │
+└──────────────────────────────────────────────┘
+       │
+       ▼
+┌── SambaNova → OpenRouter (6+ free models) ───┐
+│ Final fallback layer with multiple models    │
+│ per key for maximum resilience               │
+└──────────────────────────────────────────────┘
 ```
 
 **Result:** Even under extreme load, LACUNEX can make **50+ provider attempts** before returning an error. In practice, users **never** see downtime.
