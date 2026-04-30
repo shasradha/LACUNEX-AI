@@ -49,12 +49,21 @@ export const metadata = {
     siteName: "LACUNEX AI",
     type: "website",
     locale: "en_US",
+    images: [
+      {
+        url: "/doge-dog.png",
+        width: 512,
+        height: 512,
+        alt: "LACUNEX AI Logo",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "LACUNEX AI - Multi-Provider AI Platform",
     description:
       "A fault-tolerant multi-provider AI platform built by Shasradha Karmakar.",
+    images: ["/doge-dog.png"],
   },
   robots: {
     index: true,
@@ -78,6 +87,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "LACUNEX AI",
+  image: "https://lacunex.vercel.app/doge-dog.png",
+  logo: "https://lacunex.vercel.app/doge-dog.png",
   author: {
     "@type": "Person",
     name: "Shasradha Karmakar",
