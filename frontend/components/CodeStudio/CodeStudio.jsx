@@ -292,7 +292,7 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
         {!isHtml && (
           <button 
             className="cs-tool-btn" 
-            onClick={() => setShowStdin(!showStdin)} 
+            onClick={() => setShowStdin(prev => !prev)} 
             title="Toggle standard input (stdin)"
             style={showStdin ? { color: '#a855f7' } : {}}
           >
