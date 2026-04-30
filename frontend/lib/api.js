@@ -229,6 +229,17 @@ export async function deleteAccount() {
   });
 }
 
+/**
+ * Silently refresh the JWT token. Returns { access_token, user } on success.
+ * Should be called periodically (every ~7 days) to keep sessions alive for months.
+ */
+export async function refreshToken() {
+  return request("/api/auth/refresh", {
+    method: "POST",
+    body: {},
+  });
+}
+
 export async function getModels() {
   return request("/api/models", { auth: false });
 }

@@ -78,3 +78,15 @@ async def delete_account(
     await db.commit()
     return {"message": "Account deleted successfully"}
 
+
+@router.post("/refresh", response_model=AuthResponse)
+async def refresh_token(current_user: User = Depends(get_current_user)):
+    """Issue a fresh JWT token for an already-authenticated user.
+    Called silently by the frontend to keep sessions alive for months."""
+    token = create_access_token(current_user.id, current_user.email)
+    return AuthResponse(
+        access_token=token,
+        user={"id": current_user.id, "email": current_user.email, "name": current_user.name},
+    )
+
+

@@ -25,12 +25,48 @@ export const viewport = {
 
 export const metadata = {
   title: {
-    default: "LACUNEX AI",
+    default: "LACUNEX AI - Multi-Provider AI Platform",
     template: "%s | LACUNEX AI",
   },
   description:
-    "LACUNEX AI — An AI that fills the gaps humans can't reach. Secure chat, deep reasoning, and image workflows.",
+    "LACUNEX AI — A fault-tolerant multi-provider AI platform built by Shasradha Karmakar. Zero-cost AI deployment with 28 API keys.",
   applicationName: "LACUNEX AI",
+  authors: [{ name: "Shasradha Karmakar", url: "https://shasradha.github.io/" }],
+  creator: "Shasradha Karmakar",
+  publisher: "Shasradha Karmakar",
+  metadataBase: new URL("https://lacunex.vercel.app"),
+  alternates: {
+    canonical: "/",
+  },
+  verification: {
+    google: "IBngqy4tFs6oNzCORQMJ2QXM7pcFP4qWebEUjVxB-Wk",
+  },
+  openGraph: {
+    title: "LACUNEX AI - Multi-Provider AI Platform",
+    description:
+      "A fault-tolerant multi-provider AI platform built by Shasradha Karmakar. Zero-cost AI deployment with 28 API keys.",
+    url: "https://lacunex.vercel.app",
+    siteName: "LACUNEX AI",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LACUNEX AI - Multi-Provider AI Platform",
+    description:
+      "A fault-tolerant multi-provider AI platform built by Shasradha Karmakar.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   icons: {
     icon: "/doge-dog.svg",
     shortcut: "/doge-dog.svg",
@@ -38,13 +74,39 @@ export const metadata = {
   },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "LACUNEX AI",
+  author: {
+    "@type": "Person",
+    name: "Shasradha Karmakar",
+    url: "https://shasradha.github.io/",
+    sameAs: "https://www.wikidata.org/wiki/Q139585406",
+  },
+  url: "https://lacunex.vercel.app",
+  description:
+    "A fault-tolerant multi-provider AI platform built by Shasradha Karmakar",
+  applicationCategory: "AIApplication",
+  operatingSystem: "Web",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+  },
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark">
       <head>
+        <link rel="canonical" href="https://lacunex.vercel.app" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
         <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable}`}>
         {children}

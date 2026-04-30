@@ -18,7 +18,7 @@ security = HTTPBearer()
 
 JWT_SECRET = os.getenv("JWT_SECRET", "lacunex-change-this-secret")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
+JWT_EXPIRATION_HOURS = 24 * 90  # 90 days — stay logged in for months like ChatGPT/Claude
 
 
 def hash_password(password: str) -> str:

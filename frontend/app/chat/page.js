@@ -7,8 +7,8 @@ import ChatBox from "@/components/ChatBox";
 import FlowCanvas from "@/components/FlowCanvas";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
-import { AuthError, deleteConversation, getConversations, pingServer } from "@/lib/api";
-import { clearAuth, getToken } from "@/lib/auth";
+import { AuthError, deleteConversation, getConversations, pingServer, refreshToken } from "@/lib/api";
+import { clearAuth, getToken, setAuth, shouldRefreshToken } from "@/lib/auth";
 import { registerBackButton, onAppStateChange, hapticLight } from "@/lib/capacitor-hooks";
 
 function IconSpinner() {
@@ -111,6 +111,22 @@ export default function ChatPage() {
       }
     });
     return cleanup;
+  }, []);
+
+  /* ── Silent Token Refresh: keep sessions alive for months ── */
+  useEffect(() => {
+    if (!getToken()) return;
+    if (!shouldRefreshToken()) return;
+
+    refreshToken()
+      .then((data) => {
+        if (data?.access_token) {
+          setAuth(data.access_token, data.user);
+        }
+      })
+      .catch(() => {
+        // Token is truly expired and can't be refreshed — let normal auth flow handle it
+      });
   }, []);
 
   const handleAuthExpired = useCallback(() => {

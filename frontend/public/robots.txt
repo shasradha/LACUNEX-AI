@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /chat/
+
+Sitemap: https://lacunex.vercel.app/sitemap.xml
