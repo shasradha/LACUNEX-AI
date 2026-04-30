@@ -223,15 +223,17 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
     await downloadBlob(blob, `code.${language.extension}`)
   }, [code, language])
 
-  // Detect stdin needs
+  // Detect stdin needs (auto-show only, don't auto-hide so user can manually toggle)
   useEffect(() => {
-    if (isHtml) { setShowStdin(false); return }
+    if (isHtml) { setShowStdin(false); return; }
     const patterns = {
-      python: /input\s*\(/, javascript: /readline|prompt\s*\(/, java: /Scanner|nextLine|nextInt/,
-      cpp: /cin\s*>>|getline/, c: /scanf\s*\(/, go: /fmt\.Scan/, rust: /std::io::stdin/, ruby: /gets/, php: /fgets|readline/,
+      python: /input\s*\(|sys\.stdin/, javascript: /readline|prompt\s*\(/, java: /Scanner|nextLine|nextInt|BufferedReader|System\.in/,
+      cpp: /cin|getline|scanf|getchar|gets/, c: /scanf|getchar|gets/, go: /fmt\.Scan|os\.Stdin/, rust: /std::io::stdin/, ruby: /gets|STDIN/, php: /fgets|readline|STDIN/,
     }
     const p = patterns[language.monaco]
-    setShowStdin(p ? p.test(code) : false)
+    if (p && p.test(code)) {
+      setShowStdin(true);
+    }
   }, [code, language, isHtml])
 
   // F11
@@ -287,6 +289,18 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
         <div className="cs-toolbar-divider" />
         <LanguageSelector languages={LANGUAGES} selected={language} onChange={handleLanguageChange} />
         
+        {!isHtml && (
+          <button 
+            className="cs-tool-btn" 
+            onClick={() => setShowStdin(!showStdin)} 
+            title="Toggle standard input (stdin)"
+            style={showStdin ? { color: '#a855f7' } : {}}
+          >
+            <IconInput />
+            <span>Stdin</span>
+          </button>
+        )}
+
         <button className="cs-tool-btn" onClick={() => { if(confirmReset) { setCode(language.template); setConfirmReset(false) } else { setConfirmReset(true); setTimeout(() => setConfirmReset(false), 3000) } }} title="Reset to template">
           <IconReset />
           <span style={{ color: confirmReset ? '#f47067' : 'inherit', fontSize: confirmReset ? 11 : 'inherit' }}>{confirmReset ? 'Sure?' : 'Reset'}</span>
@@ -335,8 +349,15 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
             {showStdin && !isHtml && (
               <div className="cs-stdin">
                 <div className="cs-stdin-header">
-                  <IconInput /><span>stdin</span>
-                  {stdin && <button onClick={() => setStdin('')}>Clear</button>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <IconInput /><span>stdin</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {stdin && <button onClick={() => setStdin('')}>Clear</button>}
+                    <button onClick={() => setShowStdin(false)} title="Close stdin" style={{ padding: '2px', display: 'flex', alignItems: 'center' }}>
+                      <IconX />
+                    </button>
+                  </div>
                 </div>
                 <textarea className="cs-stdin-input" value={stdin} onChange={e => setStdin(e.target.value)}
                   placeholder="Provide all inputs here, one per line. Programs that use input() / scanf / cin require pre-entered input."
