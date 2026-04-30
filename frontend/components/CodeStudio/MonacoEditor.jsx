@@ -153,7 +153,7 @@ export default memo(function MonacoEditorPanel({ code, language, onChange, onRun
   }, [theme])
 
   return (
-    <div style={{ height, width: '100%' }}>
+    <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
       <Editor
         height="100%"
         language={language}
