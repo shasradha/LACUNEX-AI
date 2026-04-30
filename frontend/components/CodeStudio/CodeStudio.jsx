@@ -164,7 +164,7 @@ export default function CodeStudio({ initialCode = '', initialLanguage = null, o
   const [loading, setLoading] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [layout, setLayout] = useState('split')
-  const [showStdin, setShowStdin] = useState(false)
+  const [showStdin, setShowStdin] = useState(startLang.livePreview !== true)
   const [copied, setCopied] = useState(false)
   const [history, setHistory] = useState([])
   const [theme, setTheme] = useState('github-dark')
