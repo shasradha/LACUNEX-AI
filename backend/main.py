@@ -3,6 +3,7 @@ LACUNEX AI FastAPI application entry point.
 """
 
 import os
+import asyncio
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -41,13 +42,37 @@ def get_allowed_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    # Try initializing the database with retries
+    max_retries = 3
+    retry_delay = 3
+    db_initialized = False
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"[Database] Connection attempt {attempt}/{max_retries}...")
+            await init_db()
+            db_initialized = True
+            print("[Database] Successfully connected and initialized database.")
+            break
+        except Exception as e:
+            print(f"[Database] Attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                await asyncio.sleep(retry_delay)
+
+    if not db_initialized:
+        print("==========================================")
+        print("|  WARNING: Database initialization failed!|")
+        print("|  The server will start, but database    |")
+        print("|  queries will fail until DB is online.  |")
+        print("==========================================")
+
     print("==========================================")
     print("|        LACUNEX AI -- Backend Online    |")
     print("|  Filling the gaps humans can't reach...|")
     print("==========================================")
     yield
     print("LACUNEX AI -- Backend shutting down")
+
 
 
 app = FastAPI(

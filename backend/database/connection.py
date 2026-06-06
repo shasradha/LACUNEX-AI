@@ -22,13 +22,17 @@ else:
     DATABASE_URL = raw_db_url
 
 # Fix: PgBouncer (Supabase Pooler) does not support prepared statements with asyncpg.
-# We must set statement_cache_size to 0.
+# We must set statement_cache_size to 0 — but only for asyncpg (PostgreSQL).
+_connect_args = {}
+if "asyncpg" in DATABASE_URL:
+    _connect_args["statement_cache_size"] = 0
+
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False,
     pool_pre_ping=True,
     pool_recycle=3600,
-    connect_args={"statement_cache_size": 0}
+    connect_args=_connect_args,
 )
 
 async_session_factory = async_sessionmaker(

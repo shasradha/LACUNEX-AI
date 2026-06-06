@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+.env*
+.git/
+.gitignore
+Dockerfile
+.dockerignore
+android/
+*.apk
+*.aab
+*.keystore
+.idea/
+lint_output.txt

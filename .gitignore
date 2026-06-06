@@ -45,3 +45,6 @@ frontend/assets/
 # Android Studio
 lacunex-release-key.jks
 lacunex-release-key
+
+# Docker
+docker-compose.override.yml

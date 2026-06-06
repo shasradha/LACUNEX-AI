@@ -1,0 +1,84 @@
+# ─────────────────────────────────────────────────────────
+# LACUNEX AI — Docker Compose
+# One command to run the entire stack:
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────
+
+services:
+  # ── Backend (FastAPI) ─────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lacunex-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override DATABASE_URL to use the PostgreSQL container
+      - DATABASE_URL=postgresql+asyncpg://lacunex:lacunex_secret@db:5432/lacunex_db
+    volumes:
+      # Persist SQLite DB if you ever switch back (dev convenience)
+      - backend_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - lacunex-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+
+  # ── Frontend (Next.js Static) ─────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # The frontend calls the backend via the host machine's port mapping
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: lacunex-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - lacunex-net
+
+  # ── PostgreSQL Database ───────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: lacunex-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lacunex
+      POSTGRES_PASSWORD: lacunex_secret
+      POSTGRES_DB: lacunex_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lacunex-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lacunex -d lacunex_db"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  backend_data:
+    driver: local
+
+networks:
+  lacunex-net:
+    driver: bridge
