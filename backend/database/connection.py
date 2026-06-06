@@ -46,12 +46,30 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
-    """FastAPI dependency — yields an async DB session."""
-    async with async_session_factory() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    """FastAPI dependency — yields an async DB session.
+    Returns a clean HTTP 503 if the database is unreachable (e.g. Supabase paused).
+    """
+    from fastapi import HTTPException
+    try:
+        async with async_session_factory() as session:
+            try:
+                yield session
+            finally:
+                await session.close()
+    except Exception as e:
+        error_msg = str(e).lower()
+        # Catch known database-down errors and return a user-friendly 503
+        if any(keyword in error_msg for keyword in [
+            "enotfound", "tenant/user", "not found",
+            "name or service not known", "connection refused",
+            "could not connect", "timeout", "no route to host",
+        ]):
+            print(f"[Database] Connection failed during request: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Database is temporarily unavailable. Please try again in a few minutes."
+            )
+        raise
 
 
 async def sync_schema(conn):
