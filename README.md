@@ -2,7 +2,7 @@
 
 # LACUNEX AI ⚡
 
-### The World's Most Advanced Open-Source Intelligent Operating System
+### The Most Advanced Open-Source Intelligent Operating System
 
 *From lacuna (Latin) — a gap, a missing piece, an unfilled space in knowledge.*
 *LACUNEX exists to fill every gap humans can't reach.*
